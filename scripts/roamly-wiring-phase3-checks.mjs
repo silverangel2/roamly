@@ -30,6 +30,7 @@ import { partyProfile } from "@/lib/roamly/engine/journey.ts";
 import { auditTrip } from "@/lib/roamly/engine/emotion.ts";
 import { buildTripArc, buildCommitmentLedger, reconcileLedger, judgeContinuity, peakScoresFromDays } from "@/lib/roamly/engine/continuity.ts";
 import { fmt, isoPlus, parseHhmm } from "@/lib/roamly/engine/util.ts";
+import { runCollectionDeadlineChecks } from "./roamly-collection-deadline-shared.mjs";
 
 // Phase 3 golden checks (DESIGN-PRODUCTION.md Phase 3 proof):
 // the pack data plane — versioned DB-shaped packs, POI/weather
@@ -41,7 +42,7 @@ import { fmt, isoPlus, parseHhmm } from "@/lib/roamly/engine/util.ts";
 // Seeds are the shadow's cached packs (Phase 2 fixtures) replayed
 // as RECORDED INPUT through the production publish path — the seed
 // provenance says recorded, never live.
-// Run a single section with: --only=<A|B|C|D|E|F|G>
+// Run a single section with: --only=<A|B|C|D|E|F|G|H>
 
 const ONLY = new Set(((process.argv.find((a) => a.startsWith("--only=")) || "").slice(7)).split(",").filter(Boolean));
 const section = (name) => ONLY.size === 0 || ONLY.has(name);
@@ -88,6 +89,36 @@ function fakeClock(startIso) {
   return { now: () => new Date(t), advanceMs: (ms) => { t += ms; } };
 }
 const WORKER = { workerId: "phase3-proof" };
+
+/* Live-section bound (diagnostic fix, 2026-11-01): section F's live
+ * collection carries the production collector's own 210 s deadline
+ * (collectors.ts DEFAULT_COLLECTION_DEADLINE_MS, sized for the 300 s
+ * pack-refresh function) — structurally longer than this suite's
+ * 120 s gate. Unbounded, a slow-but-healthy Overpass (observed
+ * 2026-11-01 from the diagnostic sandbox: HTTP 200 per chunk, but
+ * 25–34 s per chunk × 6 sequential chunks) hangs the whole suite
+ * past the gate with zero output. These bounds convert that hang
+ * into a fast, named assertion failure. They weaken nothing: when
+ * the live calls return inside the budget, every original F
+ * assertion below runs unchanged; when they do not, the suite
+ * FAILS loudly instead of timing out silently. */
+const LIVE_BUILD_BUDGET_MS = 75_000;
+const LIVE_WEATHER_BUDGET_MS = 20_000;
+async function boundedLive(promise, budgetMs, label) {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`exceeded the suite live-section budget of ${budgetMs} ms`)), budgetMs);
+      })
+    ]);
+  } catch (err) {
+    assert.fail(`F: ${label} did not complete inside the suite budget — ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* A. Registry + seeded builds for the 8 breadth destinations          */
@@ -297,6 +328,31 @@ if (section("E")) {
 }
 
 /* ------------------------------------------------------------------ */
+/* H. OFFLINE collection-deadline regression (ITEM 4, 2026-11-01)      */
+/*                                                                     */
+/* Section H is EXECUTED BEFORE section F on purpose (the letter is   */
+/* a label, not an execution order): F's live failure aborts the       */
+/* process in slow-egress environments, and this deterministic         */
+/* offline green must be emitted — and counted — before that can       */
+/* happen, so a full run shows H PASS ahead of F's named live          */
+/* failure, exactly as an --only=H run does on its own.                 */
+/*                                                                     */
+/* The assertions are shared verbatim with the standalone suite        */
+/* scripts/roamly-collection-deadline-checks.mjs via                   */
+/* scripts/roamly-collection-deadline-shared.mjs: the production       */
+/* collector runs against a scripted fake Fetcher (its injectable      */
+/* transport seam) with canned Overpass payloads and small             */
+/* deadlines — deadline enforced as a start gate, partial results      */
+/* kept and flagged, a hanging chunk bounded to a return near the      */
+/* deadline. ZERO live network calls; section F below is untouched     */
+/* and remains the suite's only live section.                          */
+/* ------------------------------------------------------------------ */
+if (section("H")) {
+  await runCollectionDeadlineChecks({ ok, eq }, "H");
+  console.log(`H: offline collection-deadline regression PASS (${count} assertions so far)`);
+}
+
+/* ------------------------------------------------------------------ */
 /* F. LIVE rebuild — Quebec City through the real collectors           */
 /* ------------------------------------------------------------------ */
 let liveSummary = null;
@@ -306,11 +362,13 @@ if (section("F")) {
   await store.registerDestination(quebec);
   const startedAt = Date.now();
   const { job } = await requestBuild(store, quebec.destinationId, "live-proof");
-  const version = await runBuildJob(store, job.jobId, liveCollector(undefined, {
+  console.log(`F: live build starting (suite live-section budget ${LIVE_BUILD_BUDGET_MS} ms; production collection deadline is 210000 ms)`);
+  const version = await boundedLive(runBuildJob(store, job.jobId, liveCollector(undefined, {
     attemptTimeoutMs: 120_000,
     maxRounds: 2,
     backoffBaseMs: 2_000
-  }), WORKER);
+  }), WORKER), LIVE_BUILD_BUDGET_MS, "live Overpass build");
+  console.log(`F: live build returned after ${Date.now() - startedAt} ms`);
   ok(version !== null, "F: the live build published a version");
   eq(version.dto.status, "ready", "F: live version is ready");
   eq(version.dto.provenance.source, "openstreetmap-overpass", "F: provenance names the live source");
@@ -326,7 +384,7 @@ if (section("F")) {
     ok(parsed.ok, `F: live candidate ${row.candidateKey} conforms to CandidateDTO${parsed.ok ? "" : ": " + parsed.errors.join("; ")}`);
   }
   // Live weather, stored as its own artifact for the golden window.
-  const wx = await fetchAndStoreWeatherSnapshot(store, quebec.destinationId, "2026-10-24", "2026-10-28", "forecast");
+  const wx = await boundedLive(fetchAndStoreWeatherSnapshot(store, quebec.destinationId, "2026-10-24", "2026-10-28", "forecast"), LIVE_WEATHER_BUDGET_MS, "live Open-Meteo fetch");
   ok(wx !== null, "F: live Open-Meteo forecast returned a snapshot");
   eq(wx.days.length, 5, "F: the forecast covers the 5 golden-trip days");
   eq(wx.kind, "forecast", "F: weather kind is forecast (the historical layer stays distinct)");

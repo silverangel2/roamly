@@ -13,6 +13,8 @@ import {
   type NormalizedLiveFlightStatus
 } from "@/lib/roamly/liveProviderAdapters";
 import { processCompanionBookingChange } from "@/lib/roamly/companionOrchestrator";
+import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBookingOverrides";
+import { markBookingNotificationsWithdrawn } from "@/lib/roamly/bookingNotificationWithdrawal";
 import { runGmailStalenessDetector } from "@/lib/roamly/gmailStalenessDetector";
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
 
@@ -423,6 +425,43 @@ async function monitorSingleFlight(params: {
 
   const updatedBooking =
     updateResult.data as Record<string, unknown>;
+
+  // X1 write path (Workstream A): when this flip cancels the booking,
+  // the stored itinerary stamp and the persisted notifications must
+  // follow the booking's current truth — re-stamp the trip's
+  // itinerary overrides from the cancelled row and mark this
+  // booking's notifications withdrawn (never deleted). Secondary to
+  // the status update: failures are logged, never resurrect the
+  // booking. (The companion orchestrator below also processes the
+  // cancellation event; it does not re-stamp.)
+  if (cancellationChanged) {
+    try {
+      const restamp = await applyStoredItineraryBookingOverride({
+        supabase,
+        userId: booking.user_id,
+        tripId: booking.trip_id,
+        booking: updatedBooking
+      });
+      if (!restamp.ok) {
+        console.error("bookingMonitor itinerary re-stamp failed", restamp.error);
+      }
+    } catch (error) {
+      console.error("bookingMonitor itinerary re-stamp failed", error);
+    }
+    try {
+      const marking = await markBookingNotificationsWithdrawn(supabase, {
+        userId: booking.user_id,
+        tripId: booking.trip_id,
+        bookingId: booking.id,
+        reason: "booking_cancelled"
+      });
+      if (!marking.ok) {
+        console.error("bookingMonitor notification marking failed", marking.error);
+      }
+    } catch (error) {
+      console.error("bookingMonitor notification marking failed", error);
+    }
+  }
 
   const flightTitle =
     booking.title ||

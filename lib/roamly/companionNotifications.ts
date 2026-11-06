@@ -6,6 +6,11 @@ import { activityEndDate, activityStartDate, tripWindowState, type LiveCompanion
 import {
   resolveBackgroundTripTimezone
 } from "@/lib/roamly/backgroundNotificationTimezone";
+import {
+  hasLiveCompanionUnlock,
+  isLiveEligibilityLocked,
+  isLiveReadyStatus
+} from "@/lib/roamly/liveEligibility";
 import { bookingLinkedDeliveryState } from "@/lib/roamly/operationalScheduledEvents";
 import { isOperationalCurrentBooking } from "@/lib/roamly/bookingSupersession";
 import { loadCompanionTripLifecycle } from "@/lib/roamly/companionDeliveryLifecycle";
@@ -96,15 +101,22 @@ async function validateLiveActivityDelivery(admin: SupabaseClient, delivery: Del
   if (!delivery.trip_id || !activityId) return { valid: false as const, reason: "missing_live_activity_reference" };
 
   const [tripResult, activityResult] = await Promise.all([
-    admin.from("roamly_trips").select("id,user_id,status,start_date,end_date,metadata,destination,destination_name,destination_city,itinerary_locked,tracking_unlocked,live_companion_unlocked").eq("id", delivery.trip_id).eq("user_id", delivery.user_id).maybeSingle(),
+    admin.from("roamly_trips").select("id,user_id,status,start_date,end_date,metadata,destination,destination_name,destination_city,itinerary_locked,itinerary_status,itinerary_generated_at,tracking_unlocked,live_companion_unlocked").eq("id", delivery.trip_id).eq("user_id", delivery.user_id).maybeSingle(),
     admin.from("roamly_activities").select("id,title,status,scheduled_start,scheduled_end").eq("id", activityId).eq("trip_id", delivery.trip_id).maybeSingle()
   ]);
   if (tripResult.error) throw new Error(tripResult.error.message);
   if (activityResult.error) throw new Error(activityResult.error.message);
-  const trip = tripResult.data as { status?: string | null; start_date?: string | null; end_date?: string | null; metadata?: unknown; destination?: string | null; destination_name?: string | null; destination_city?: string | null; itinerary_locked?: boolean | null; tracking_unlocked?: boolean | null; live_companion_unlocked?: boolean | null } | null;
+  const trip = tripResult.data as { status?: string | null; start_date?: string | null; end_date?: string | null; metadata?: unknown; destination?: string | null; destination_name?: string | null; destination_city?: string | null; itinerary_locked?: boolean | null; itinerary_status?: string | null; itinerary_generated_at?: string | null; tracking_unlocked?: boolean | null; live_companion_unlocked?: boolean | null } | null;
   const activity = activityResult.data as { id: string; title?: string | null; status?: string | null; scheduled_start?: string | null; scheduled_end?: string | null } | null;
-  if (!trip || ["completed", "cancelled", "archived"].includes(String(trip.status || "").toLowerCase())) return { valid: false as const, reason: "trip_not_eligible" };
-  if (trip.itinerary_locked !== true || (trip.tracking_unlocked !== true && trip.live_companion_unlocked !== true)) return { valid: false as const, reason: "companion_not_eligible" };
+  // L12 (2026-10-31): status/lock/unlock are the ONE eligibility rule
+  // (lib/roamly/liveEligibility.ts) — live-ready statuses are
+  // locked/active/planned/generated (terminal AND draft/preview/
+  // generating are all "trip_not_eligible" here, as completed/
+  // cancelled/archived were before), locked is the app's own
+  // isTripLocked sense, and the window below keeps this validator's
+  // registry resolution + hold-on-unknown policy.
+  if (!trip || !isLiveReadyStatus(trip.status)) return { valid: false as const, reason: "trip_not_eligible" };
+  if (!isLiveEligibilityLocked(trip) || !hasLiveCompanionUnlock(trip)) return { valid: false as const, reason: "companion_not_eligible" };
   // Notification-timezone round (2026-10-27): the send-time window
   // uses the SAME resolution as Live/Alerts (metadata, then the
   // verified destination registry via the trip record — this row

@@ -161,7 +161,9 @@
             "lon": -71.203668
           },
           "url": "https://www.openstreetmap.org/node/6711176112",
-          "hours": "unknown",
+          "hours": {
+            "status": "unknown"
+          },
           "priceProvenance": "UNKNOWN",
           "walkKmFromPrev": 0.02,
           "fromKeyPrev": "node/12326897876",
@@ -352,7 +354,9 @@
             "lon": -71.203668
           },
           "url": "https://www.openstreetmap.org/node/6711176112",
-          "hours": "unknown",
+          "hours": {
+            "status": "unknown"
+          },
           "priceProvenance": "UNKNOWN",
           "walkKmFromPrev": 0.02,
           "fromKeyPrev": "node/12326897876",
@@ -371,7 +375,9 @@
             "lon": -71.2034681
           },
           "url": "https://www.openstreetmap.org/node/6711176111",
-          "hours": "unknown",
+          "hours": {
+            "status": "unknown"
+          },
           "priceProvenance": "UNKNOWN",
           "walkKmFromPrev": 0.09,
           "fromKeyPrev": "node/6711176112",

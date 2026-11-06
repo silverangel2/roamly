@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, Search } from "lucide-react";
 import { bookingFindCard, flightFindCard, flightFindHandoff, klookFindCard, klookTransportFindCard, publicEventFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
 import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
 import type { FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
@@ -26,6 +27,16 @@ const tabs: readonly FindsTab[] = [
   { id: "amazon", label: "Travel essentials", categories: ["product"] },
   { id: "more", label: "Getting around", categories: ["transport"] }
 ] as const;
+
+/** Numeric value of the price string the provider already returned on
+ *  the card (e.g. "€412.50", "CDN$19.99"), used ONLY to order result
+ *  lists — never displayed, never invented. Cards without a returned
+ *  price return null and keep their relative order after priced cards. */
+function returnedPriceValue(card: FindsCard): number | null {
+  if (!card.price) return null;
+  const match = card.price.replace(/,/g, "").match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
 
 function dedupeCards(items: FindsCard[]) {
   const seen = new Set<string>();
@@ -55,16 +66,49 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
   const [partnerSearchMessage, setPartnerSearchMessage] = useState<Record<string, string>>({});
   const [partnerSearchHandoff, setPartnerSearchHandoff] = useState<Record<string, string>>({});
   const [hotelDestination, setHotelDestination] = useState<NormalizedPlace | null>(() => initialHotelPlace(destination));
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchCategory, setSearchCategory] = useState<"stays" | "flights" | "activities">("stays");
+  const [sortMode, setSortMode] = useState<"recommended" | "price-asc" | "price-desc">("recommended");
 
-  function openSearch(tab: "stays" | "flights" | "activities") {
+  // A19 (Jakob's Law round, 2026-11-03): the persistent search entry at
+  // the top of Deals routes into the existing per-category live tools
+  // below — it builds no search of its own. Submitting opens the chosen
+  // category's form, prefills it from the typed query where the form
+  // accepts a value, and focuses the field the traveller completes next.
+  function openSearch(tab: "stays" | "flights" | "activities", rawQuery = "") {
     setActive(tab);
     setSearchOpen(true);
+    const query = rawQuery.trim();
+    if (tab === "stays" && query) {
+      const place = initialHotelPlace(query);
+      if (place) setHotelDestination(place);
+      else setHotelSearchMessage(`We couldn't match “${query}” to a suggested place yet. Choose your destination from the place suggestions, then search stays.`);
+    }
     document.getElementById("finds-live-options")?.scrollIntoView({ block: "start" });
+    window.setTimeout(() => {
+      document.getElementById("finds-live-options")?.scrollIntoView({ block: "start" });
+      const panel = document.getElementById("finds-live-panel");
+      if (!panel) return;
+      if (tab === "flights") {
+        const to = panel.querySelector<HTMLInputElement>('input[name="partnerDestination"]');
+        if (to && query) to.value = query;
+        to?.focus();
+      } else if (tab === "activities") {
+        const dest = panel.querySelector<HTMLInputElement>('input[name="partnerDestination"]');
+        if (dest && query) dest.value = query;
+        (panel.querySelector<HTMLInputElement>('input[name="activityQuery"]') || dest)?.focus();
+      } else {
+        panel.querySelector<HTMLInputElement>("input")?.focus();
+      }
+    }, 80);
   }
   useEffect(() => {
     function syncTabFromHash() {
       const requestedTab = window.location.hash.match(/^#finds-tab-(.+)$/)?.[1];
-      if (requestedTab && tabs.some((item) => item.id === requestedTab)) setActive(requestedTab);
+      if (requestedTab && tabs.some((item) => item.id === requestedTab)) {
+        setActive(requestedTab);
+        setSearchOpen(true);
+      }
     }
     syncTabFromHash();
     window.addEventListener("hashchange", syncTabFromHash);
@@ -260,27 +304,27 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
     </div>
     {active === "stays" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchHotels(event.currentTarget); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-6">
       <div className="lg:col-span-2"><PlaceSelector label="Where are you staying?" value={hotelDestination} onChange={setHotelDestination} placeholder="Search a city or destination" helper="Choose a suggested place with its country. We use that match to search the right area." /></div>
-      <label className="text-xs font-bold text-[#547067]">Check in<input name="stayCheckIn" type="date" defaultValue={startDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">Check out<input name="stayCheckOut" type="date" defaultValue={endDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Check in<input name="stayCheckIn" type="date" defaultValue={startDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Check out<input name="stayCheckOut" type="date" defaultValue={endDate} required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingHotels} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingHotels ? "Opening…" : "Search stays"}</button></div>
-      <label className="text-xs font-bold text-[#547067]">Travelers<input name="stayTravelers" type="number" min="1" max="20" defaultValue="2" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">Rooms<input name="stayRooms" type="number" min="1" max="10" defaultValue="1" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Travelers<input name="stayTravelers" type="number" min="1" max="20" defaultValue="2" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Rooms<input name="stayRooms" type="number" min="1" max="10" defaultValue="1" required className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <p aria-live="polite" data-find-state={searchingHotels ? "loading" : hotelSearchMessage === "Add your destination and dates to search stay options with the booking partner." ? "idle" : "terminal"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-4">{hotelSearchMessage}</p>
     </form> : null}
     {active === "flights" ? <form id="finds-live-panel" noValidate onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "flight", "flight"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-5">
-      <label className="text-xs font-bold text-[#547067]">From<input name="flightOrigin" defaultValue={origin} placeholder="Halifax" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">To<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Lisbon" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">Depart<input name="flightDeparture" type="date" defaultValue={startDate} aria-required="true" className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067]">Return<input name="flightReturn" type="date" defaultValue={endDate} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">From<input name="flightOrigin" defaultValue={origin} placeholder="Halifax" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">To<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Lisbon" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Depart<input name="flightDeparture" type="date" defaultValue={startDate} aria-required="true" className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Return<input name="flightReturn" type="date" defaultValue={endDate} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingCategory === "flight"} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingCategory === "flight" ? "Checking…" : "Check flights"}</button></div>
       <div className="sm:col-span-2 lg:col-span-5">
         <p key={partnerSearchMessage.flight || "flight-idle"} aria-live="polite" data-find-state={searchingCategory === "flight" ? "loading" : partnerSearchMessage.flight ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179]">{partnerSearchMessage.flight || (flightLiveSearchConfigured ? "Checking current fares with the approved flight feed." : "Open a real partner search with your route and dates. Roamly does not independently verify fares here.")}</p>
-        {partnerSearchHandoff.flight ? <a href={partnerSearchHandoff.flight} target="_blank" rel="noopener noreferrer" className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border border-[#0f6e66] bg-[#0f6e66] px-4 py-3 text-center text-sm font-black text-white shadow-sm transition hover:bg-[#0b5b55] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Check current flights on Aviasales <span aria-hidden="true" className="ml-2">↗</span></a> : null}
+        {partnerSearchHandoff.flight ? <a href={partnerSearchHandoff.flight} target="_blank" rel="noopener noreferrer" className="mt-3 flex min-h-12 w-full items-center justify-center rounded-xl border border-[#0f6e66] bg-[#0f6e66] px-4 py-3 text-center text-sm font-black text-white shadow-sm transition hover:bg-[#0b5b55] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20">Check current flights on Aviasales <ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a> : null}
       </div>
     </form> : null}
     {active === "activities" ? <form id="finds-live-panel" onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "attraction", "activity"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-4">
-      <label className="text-xs font-bold text-[#547067]">Destination<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Tokyo" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
-      <label className="text-xs font-bold text-[#547067] lg:col-span-2">What sounds fun?<input name="activityQuery" placeholder="Food tour, museum, evening walk…" required maxLength={100} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-sm outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067]">Destination<input name="partnerDestination" defaultValue={destination === "your next somewhere" ? "" : destination} placeholder="Tokyo" required maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
+      <label className="text-xs font-bold text-[#547067] lg:col-span-2">What sounds fun?<input name="activityQuery" placeholder="Food tour, museum, evening walk…" required maxLength={100} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" /></label>
       <div className="flex items-end"><button disabled={searchingCategory === "attraction"} className="min-h-11 w-full rounded-xl bg-[#0f6e66] px-4 text-xs font-black text-white disabled:opacity-60" type="submit">{searchingCategory === "attraction" ? "Looking…" : "Explore experiences"}</button></div>
       <p aria-live="polite" data-find-state={searchingCategory === "attraction" ? "loading" : partnerSearchMessage.attraction ? "terminal" : "idle"} className="text-xs leading-5 text-[#718179] sm:col-span-2 lg:col-span-4">{partnerSearchMessage.attraction || "Real activities and public events appear only when their details and links can be grounded."}</p>
     </form> : null}
@@ -288,10 +332,52 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       {(() => {
         const category = active === "amazon" ? "product" : "transport";
         const matches = marketCards.filter((card) => card.category === category);
-        return matches.length ? <><p className="text-xs leading-5 text-[#718179]">{active === "amazon" ? "Travel essentials from verified category links." : "Getting around options with provider-grounded links."}</p><div className="grid gap-3 sm:grid-cols-2">{matches.slice(0, 4).map((card) => <a key={card.id} href={card.href} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] p-3 text-sm font-bold text-[#365f56] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/15"><span className="block text-[10px] uppercase tracking-[0.16em] text-[#0f6e66]">{card.eyebrow}</span>{card.title}<span className="mt-1 block text-xs font-semibold text-[#718179]">{card.action} ↗</span></a>)}</div></> : <p className="rounded-xl bg-[#f1f5ef] p-4 text-xs leading-5 text-[#718179]">{active === "amazon" ? "No verified travel-essential categories are available for this destination yet." : "No verified getting-around options are available for this destination yet."}</p>;
+        return matches.length ? <><p className="text-xs leading-5 text-[#718179]">{active === "amazon" ? "Travel essentials from verified category links." : "Getting around options with provider-grounded links."}</p><div className="grid gap-3 sm:grid-cols-2">{matches.slice(0, 4).map((card) => <a key={card.id} href={card.href} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] p-3 text-sm font-bold text-[#365f56] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/15"><span className="block text-[10px] uppercase tracking-[0.16em] text-[#0f6e66]">{card.eyebrow}</span>{card.title}<span className="mt-1 block text-xs font-semibold text-[#718179]">{card.action} <ArrowUpRight aria-hidden="true" size={12} strokeWidth={2.5} className="inline-block align-[-1px]" /></span></a>)}</div></> : <p className="rounded-xl bg-[#f1f5ef] p-4 text-xs leading-5 text-[#718179]">{active === "amazon" ? "No verified travel-essential categories are available for this destination yet." : "No verified getting-around options are available for this destination yet."}</p>;
       })()}
     </div> : null}
   </div>;
 
-  return <FindsEditorialMagazine cards={marketCards} destination={destination} emptyMessage={emptyMessage} disclosures={disclosures} activePromo={activePromo} liveTools={liveTools} searchOpen={searchOpen} onSearchOpenChange={setSearchOpen} onOpenSearch={openSearch} />;
+  const visibleCards = useMemo(() => {
+    if (sortMode === "recommended") return marketCards;
+    const direction = sortMode === "price-asc" ? 1 : -1;
+    return [...marketCards].sort((a, b) => {
+      const priceA = returnedPriceValue(a);
+      const priceB = returnedPriceValue(b);
+      if (priceA == null && priceB == null) return 0;
+      if (priceA == null) return 1;
+      if (priceB == null) return -1;
+      return (priceA - priceB) * direction;
+    });
+  }, [marketCards, sortMode]);
+
+  // A19: one persistent search entry at the top of Deals, above the
+  // editorial magazine. The category pills are the filter; the field
+  // routes into the matching live tool (see openSearch). Sort orders
+  // the result shelves by the prices providers already returned.
+  const searchEntry = <section id="finds-search" aria-label="Search deals" className="mb-6 rounded-[1.5rem] border border-[#dce7dc] bg-white p-4 shadow-[0_12px_36px_rgba(32,60,67,0.07)] sm:mb-8 sm:p-5">
+    <form role="search" onSubmit={(event) => { event.preventDefault(); openSearch(searchCategory, searchQuery); }}>
+      <div role="group" aria-label="What are you looking for?" className="flex flex-wrap gap-2">
+        {([["stays", "Stays"], ["flights", "Flights"], ["activities", "Things to do"]] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={searchCategory === id} onClick={() => setSearchCategory(id)} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/20 ${searchCategory === id ? "bg-[#203c43] text-white" : "border border-[#e0e8e1] bg-white text-[#547067] hover:border-[#b7d9c8]"}`}>{label}</button>)}
+      </div>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <label className="flex-1 text-xs font-bold text-[#547067]">Destination
+          <input name="findsQuery" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={searchCategory === "flights" ? "Where are you flying to?" : searchCategory === "activities" ? "Tokyo, Lisbon, Montréal…" : "Where are you staying?"} autoComplete="off" maxLength={100} className="mt-1 min-h-11 w-full rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base text-[#203c43] outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10" />
+        </label>
+        <div className="flex items-end"><button type="submit" className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#0f6e66] px-5 text-sm font-black text-white transition hover:bg-[#0b5b55] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25 sm:w-auto">Search<Search size={16} strokeWidth={2.5} aria-hidden="true" className="ml-2" /></button></div>
+      </div>
+      <p className="mt-2 text-xs leading-5 text-[#718179]">Pick a category, type where you&apos;re headed, and the live search for it opens right below — same tools, no new search.</p>
+    </form>
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#eef3ec] pt-3">
+      <label className="text-xs font-bold text-[#547067]">Sort results
+        <select value={sortMode} onChange={(event) => setSortMode(event.target.value as typeof sortMode)} className="ml-2 min-h-11 rounded-xl border border-[#e0e8e1] bg-[#fcfdf9] px-3 text-base text-[#203c43] outline-none focus:border-[#0f6e66] focus:ring-4 focus:ring-[#0f6e66]/10">
+          <option value="recommended">Recommended</option>
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+        </select>
+      </label>
+      <p className="text-xs leading-5 text-[#718179]">Sorted by the prices shown on each result.</p>
+    </div>
+  </section>;
+
+  return <FindsEditorialMagazine cards={visibleCards} destination={destination} emptyMessage={emptyMessage} disclosures={disclosures} activePromo={activePromo} liveTools={liveTools} searchOpen={searchOpen} searchEntry={searchEntry} />;
 }

@@ -55,7 +55,7 @@
       "label": "maritime museum visit",
       "status": "scheduled",
       "day": 2,
-      "item": "Army Museum"
+      "item": "Maritime Museum of the Atlantic"
     }
   ],
   "solverNotes": [
@@ -71,8 +71,8 @@
       "day 2: \"Metro Transit Ferry Terminal\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"Nova Scotia Sport Hall of Fame\" — opening hours not in the data (labeled, not invented)",
       "day 2: \"The Blue Building Gallery\" — opening hours not in the data (labeled, not invented)",
-      "day 2: \"Army Museum\" — opening hours not in the data (labeled, not invented)",
-      "day 3: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
+      "day 2: \"Maritime Museum of the Atlantic\" — opening hours not in the data (labeled, not invented)",
+      "day 3: \"Army Museum\" — opening hours not in the data (labeled, not invented)",
       "day 3: \"Art Gallery of Nova Scotia\" — opening hours not in the data (labeled, not invented)"
     ]
   },
@@ -386,25 +386,26 @@
         },
         {
           "type": "stop",
-          "key": "node/2405084369",
-          "name": "Army Museum",
+          "key": "way/62049157",
+          "name": "Maritime Museum of the Atlantic",
           "kind": "museum",
           "role": "mustsee",
-          "start": 910,
-          "end": 1000,
+          "start": 897,
+          "end": 987,
           "pos": {
-            "lat": 44.6473097,
-            "lon": -63.5803408
+            "lat": 44.6475947,
+            "lon": -63.5709632
           },
           "hours": {
             "status": "unknown",
+            "raw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
             "provenance": "none"
           },
-          "hoursRaw": null,
-          "url": "https://www.openstreetmap.org/node/2405084369",
+          "hoursRaw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
+          "url": "https://www.openstreetmap.org/way/62049157",
           "price": "UNKNOWN",
-          "startTime": "15:10",
-          "endTime": "16:40"
+          "startTime": "14:57",
+          "endTime": "16:27"
         }
       ],
       "legs": [
@@ -475,34 +476,34 @@
         },
         {
           "fromKey": "node/11767822182",
-          "toKey": "node/2405084369",
+          "toKey": "way/62049157",
           "fromName": "The Blue Building Gallery",
-          "toName": "Army Museum",
-          "mode": "walk",
-          "km": 1.18,
-          "minutes": 16,
+          "toName": "Maritime Museum of the Atlantic",
+          "mode": "drive",
+          "km": 1.78,
+          "minutes": 3,
           "depart": 894,
-          "arrive": 910,
+          "arrive": 897,
           "departTime": "14:54",
-          "arriveTime": "15:10"
+          "arriveTime": "14:57"
         },
         {
-          "fromKey": "node/2405084369",
+          "fromKey": "way/62049157",
           "toKey": "base",
-          "fromName": "Army Museum",
+          "fromName": "Maritime Museum of the Atlantic",
           "toName": "Residence Inn Halifax Downtown",
           "mode": "walk",
-          "km": 0.42,
+          "km": 0.4,
           "minutes": 6,
-          "depart": 1000,
-          "arrive": 1006,
-          "departTime": "16:40",
-          "arriveTime": "16:46"
+          "depart": 987,
+          "arrive": 993,
+          "departTime": "16:27",
+          "arriveTime": "16:33"
         }
       ],
       "ideas": [],
       "narrative": [
-        "Sunday, October 25 is built around Metro Transit Ferry Terminal, with the day's stops gathered close so the walking stays easy.",
+        "Sunday, October 25 is built around Metro Transit Ferry Terminal.",
         "The ferry crossing is the morning's small adventure: board at Metro Transit Ferry Terminal around 09:38 and give the round trip until 10:53. Sailing times weren't listed in the map data, so treat the start as flexible and check the board at the terminal.",
         "Opening hours weren't listed for Metro Transit Ferry Terminal — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "If the terminal board shows a long wait, swap the crossing to tomorrow morning — everything else on this day still holds.",
@@ -512,11 +513,11 @@
         "The choice is backed by the restaurant's own listing, which marks it diet:vegan = no, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",
         "The Blue Building Gallery is next, just 7 minutes on foot from Slow Mornings Café & Restaurant.",
         "Blue Building Gallery offers a quieter hour indoors, 13:54–14:54.",
-        "The walk from Blue Building Gallery to Army Museum takes about 16 minutes — a breather between stops, not a hike.",
-        "Give Army Museum a full 90 minutes (15:10–16:40); rushing it would miss the point.",
-        "The day winds down back at base by 16:46 — 4 stops, no long walks, and the evening left free."
+        "Then the day's one longer leg: about 3 minutes by road to Maritime Museum of the Atlantic.",
+        "Give Maritime Museum of the Atlantic a full 90 minutes (14:57–16:27); rushing it would miss the point.",
+        "The day winds down back at base by 16:33 — 4 stops, no long walks, and the evening left free."
       ],
-      "endMin": 1006
+      "endMin": 993
     },
     {
       "dayNumber": 3,
@@ -532,23 +533,22 @@
       "items": [
         {
           "type": "stop",
-          "key": "way/62049157",
-          "name": "Maritime Museum of the Atlantic",
+          "key": "node/2405084369",
+          "name": "Army Museum",
           "kind": "museum",
           "role": "stop",
           "start": 576,
           "end": 666,
           "pos": {
-            "lat": 44.6475947,
-            "lon": -63.5709632
+            "lat": 44.6473097,
+            "lon": -63.5803408
           },
           "hours": {
             "status": "unknown",
-            "raw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
             "provenance": "none"
           },
-          "hoursRaw": "Nov-Apr: Tu 09:30-20:00; Nov-Apr: We-Su 09:30-16:30; May-Oct: We-Mo 09:30-16:30; May-Oct: Tu 09:30-20:00",
-          "url": "https://www.openstreetmap.org/way/62049157",
+          "hoursRaw": null,
+          "url": "https://www.openstreetmap.org/node/2405084369",
           "price": "UNKNOWN",
           "startTime": "09:36",
           "endTime": "11:06"
@@ -559,8 +559,8 @@
           "name": "Art Gallery of Nova Scotia",
           "kind": "gallery",
           "role": "stop",
-          "start": 669,
-          "end": 729,
+          "start": 675,
+          "end": 735,
           "pos": {
             "lat": 44.6484658,
             "lon": -63.5729139
@@ -572,8 +572,8 @@
           "hoursRaw": null,
           "url": "https://www.openstreetmap.org/way/553574590",
           "price": "UNKNOWN",
-          "startTime": "11:09",
-          "endTime": "12:09"
+          "startTime": "11:15",
+          "endTime": "12:15"
         },
         {
           "type": "food",
@@ -637,11 +637,11 @@
       "legs": [
         {
           "fromKey": "base",
-          "toKey": "way/62049157",
+          "toKey": "node/2405084369",
           "fromName": "Residence Inn Halifax Downtown",
-          "toName": "Maritime Museum of the Atlantic",
+          "toName": "Army Museum",
           "mode": "walk",
-          "km": 0.4,
+          "km": 0.42,
           "minutes": 6,
           "depart": 570,
           "arrive": 576,
@@ -649,17 +649,17 @@
           "arriveTime": "09:36"
         },
         {
-          "fromKey": "way/62049157",
+          "fromKey": "node/2405084369",
           "toKey": "way/553574590",
-          "fromName": "Maritime Museum of the Atlantic",
+          "fromName": "Army Museum",
           "toName": "Art Gallery of Nova Scotia",
           "mode": "walk",
-          "km": 0.18,
-          "minutes": 3,
+          "km": 0.6,
+          "minutes": 9,
           "depart": 666,
-          "arrive": 669,
+          "arrive": 675,
           "departTime": "11:06",
-          "arriveTime": "11:09"
+          "arriveTime": "11:15"
         },
         {
           "fromKey": "way/553574590",
@@ -690,11 +690,11 @@
       ],
       "ideas": [],
       "narrative": [
-        "Monday, October 26 is built around Maritime Museum of the Atlantic, with the day's stops gathered close so the walking stays easy.",
-        "Maritime Museum of the Atlantic gets the morning's main slot, 09:36 to 11:06 — unhurried, with time to double back to favourites.",
-        "Opening hours weren't listed for Maritime Museum of the Atlantic — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
-        "From Maritime Museum of the Atlantic, it is a 3-minute walk to Art Gallery of Nova Scotia — close enough to stroll without watching the clock.",
-        "Art Gallery of Nova Scotia offers a quieter hour indoors, 11:09–12:09.",
+        "Monday, October 26 is built around Army Museum.",
+        "Army Museum gets the morning's main slot, 09:36 to 11:06 — unhurried, with time to double back to favourites.",
+        "Opening hours weren't listed for Army Museum — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
+        "From Army Museum, it is a 9-minute walk to Art Gallery of Nova Scotia — close enough to stroll without watching the clock.",
+        "Art Gallery of Nova Scotia offers a quieter hour indoors, 11:15–12:15.",
         "Lou Pécou is next, just 16 minutes on foot from Art Gallery of Nova Scotia.",
         "Lunch is at Lou Pécou, 12:31–13:31.",
         "The choice is backed by the restaurant's own listing, which marks it diet:gluten_free = yes, diet:vegan = yes, diet:vegetarian = yes — the dietary need is provided for, not hoped for.",

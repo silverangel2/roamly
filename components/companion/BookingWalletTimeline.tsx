@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Bus, Car, ClipboardList, Hotel, Send, Ship, TrainFront, Utensils } from "lucide-react";
 import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/lib/roamly/bookingWallet";
-import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking } from "@/lib/roamly/bookingWallet";
+import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking, isTravelerConfirmedOnlyBooking, walletBookingDisplayLabel } from "@/lib/roamly/bookingWallet";
 import { BookingCancelAction } from "@/components/companion/BookingCancelAction";
 import { formatRoamlyCurrency, formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { bookingOutcomeLabel, deriveBookingOutcome, type BookingOutcomeReferral } from "@/lib/roamly/bookingOutcome";
@@ -64,7 +65,14 @@ function customerStatus(booking: TripBookingRecord, outcome: ReturnType<typeof d
     provider: booking.provider,
     metadata: booking.is_test_booking ? { qa_test: true } : undefined
   })) return testBookingLabel;
-  if (isConfirmedBooking(booking)) return booking.booking_status === "modified" ? "Confirmed · updated" : booking.booking_status === "completed" ? "Completed" : "Confirmed";
+  // Round 3 (Lane T): the confirmation-evidence tier wears its
+  // provenance label ("Confirmed · from your {Provider} email" /
+  // "· from your screenshot" / "· reported by {Provider}"), never
+  // a bare "Confirmed" and never "Verified".
+  if (isConfirmedBooking(booking)) return booking.booking_status === "modified" ? `${walletBookingDisplayLabel(booking)} · updated` : booking.booking_status === "completed" ? "Completed" : walletBookingDisplayLabel(booking);
+  // Evidence grade (owner ruling 2026-10-30): traveler-confirmed but
+  // WITHOUT provider confirmation evidence — the honest label.
+  if (isTravelerConfirmedOnlyBooking(booking)) return "Confirmed by you";
   if (booking.booking_status === "needs_confirmation" || booking.booking_status === "detected") return "Action needed";
   if (booking.booking_status === "cancelled" || booking.booking_status === "refunded") return "No longer active";
   if (booking.booking_status === "recommended") return "Recommended · not booked";
@@ -83,21 +91,22 @@ function bookingCategoryOrder(title: string) {
   return ["Getting there", "Stay", "Activities and reservations", "Getting around", "Other travel details"].indexOf(title);
 }
 
-function iconPath(type: TripBookingType) {
-  if (type === "flight") return "M3 11l18-7-7 18-3-8-8-3zm9 1l2 5 3-9-5 4z";
-  if (type === "hotel") return "M4 20V7a3 3 0 013-3h10a3 3 0 013 3v13M7 20v-6h10v6M8 10h.01M12 10h.01M16 10h.01";
-  if (type === "train" || type === "bus" || type === "ferry" || type === "transfer") return "M6 4h12a2 2 0 012 2v8a3 3 0 01-3 3H7a3 3 0 01-3-3V6a2 2 0 012-2zm2 15l-2 2m10-2l2 2M7 8h10M8 14h.01M16 14h.01";
-  if (type === "rental_car") return "M5 17h14M7 17v2m10-2v2M6 13l2-5h8l2 5M5 13h14v4H5z";
-  if (type === "restaurant") return "M7 3v8m3-8v8m-3 0h3m-1.5 0v10M16 3v18";
-  return "M5 6h14v14H5zM8 3h8v3H8z";
-}
 
 function BookingIcon({ type }: { type: TripBookingType }) {
+  const p = { size: 20, strokeWidth: 1.9, "aria-hidden": true } as const;
+  let glyph;
+  if (type === "flight") glyph = <Send {...p} />;
+  else if (type === "hotel") glyph = <Hotel {...p} />;
+  else if (type === "train") glyph = <TrainFront {...p} />;
+  else if (type === "bus") glyph = <Bus {...p} />;
+  else if (type === "ferry") glyph = <Ship {...p} />;
+  else if (type === "transfer") glyph = <Bus {...p} />;
+  else if (type === "rental_car") glyph = <Car {...p} />;
+  else if (type === "restaurant") glyph = <Utensils {...p} />;
+  else glyph = <ClipboardList {...p} />;
   return (
     <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ocean/20 bg-ocean/10 text-ocean" aria-hidden="true">
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <path d={iconPath(type)} />
-      </svg>
+      {glyph}
     </span>
   );
 }
@@ -237,7 +246,8 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         </div>
 
         <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-y border-[#e8dfd0] py-3 text-sm font-bold text-slate-600">
-          <span>{summary.confirmed} confirmed</span>
+          <span>{summary.confirmed} with confirmation evidence</span>
+          {summary.travelerConfirmedOnly ? <span>{summary.travelerConfirmedOnly} confirmed by you</span> : null}
           <span>{actionNeeded.length ? `${actionNeeded.length} to review` : "Nothing needs review"}</span>
           <span>{companionUnlocked ? "Live Companion available" : "Live Companion not active"}</span>
         </div>
@@ -288,7 +298,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         </section>
       ) : null}
 
-      {focus ? <p className="mt-5 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Confirmed information remains authoritative; anything unresolved is still marked below.</p> : null}
+      {focus ? <p className="mt-5 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Information from your bookings remains authoritative; anything unresolved is still marked below.</p> : null}
 
       {visibleReferrals.length ? (
         <section className="mt-5 border-y border-[#e8dfd0] py-4" aria-labelledby="booking-referrals-title">
@@ -322,7 +332,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         </section>
       ) : null}
 
-      <p className="mt-5 text-sm leading-6 text-slate-500">Confirmed details come first. Recommendations and items still needing review follow below.</p>
+      <p className="mt-5 text-sm leading-6 text-slate-500">Bookings with confirmation evidence come first. Recommendations and items still needing review follow below.</p>
 
       {next ? (
         <section className="mt-5 border-b border-[#e8dfd0] pb-5">

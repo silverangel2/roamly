@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { ChevronLeft, ChevronRight, CircleQuestionMark, CircleUserRound, CreditCard, Crown, Download, LayoutPanelLeft, Mail, MapPin, Settings, User, Users, Wallet } from "lucide-react";
 import { SetupCascade } from "@/components/roamly/SetupCascade";
 import { AccountSetupHashRedirect } from "@/components/account/AccountSetupHashRedirect";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
@@ -7,9 +8,10 @@ import { EmailConnectionSettings } from "@/components/account/EmailConnectionSet
 import { LocationTrackingSettings } from "@/components/account/LocationTrackingSettings";
 import { TravelerMemorySettings } from "@/components/account/TravelerMemorySettings";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
 import { hasUsedFreeItinerary } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
@@ -38,7 +40,7 @@ type AccountPageProps = {
  * picture's own rows: each row's destination is a ?view= detail view on
  * this same page, rendered INSTEAD of the picture — never alongside it.
  * Row destinations (all real, none invented):
- * - Profile card + gear icon -> ?view=manage-account (AccountProfileForm:
+ * - Profile card + account icon -> ?view=manage-account (AccountProfileForm:
  *   name editing; email shown read-only; password change and account
  *   deletion honestly stated as not available there yet).
  * - My trips -> /dashboard (the real trips list; count is live).
@@ -46,14 +48,19 @@ type AccountPageProps = {
  *   the real Gmail/email-import surface).
  * - Travelers -> ?view=travelers (TravelerMemorySettings).
  * - Payment & Billing -> /pricing (existing plans + one-time trip
- *   packs; there is no stored-payment-method portal, so none is claimed
- *   beyond the picture's own subtitle wording).
+ *   packs; there is no stored-payment-method portal, so the subtitle
+ *   claims only what /pricing does: view plan and one-time prices).
  * - Preferences -> ?view=preferences (LanguageSwitcher +
  *   LocationTrackingSettings; no units setting exists, stated there).
  * - Saved places -> NO destination: no saved-places store or surface
  *   exists anywhere in the app, so the row is an honest unavailable
  *   state — not a link, no chevron, never presented as working.
  * - Manage account -> ?view=manage-account (same as profile card).
+ * - Install Roamly -> /account?view=setup#setup-step-2 (the setup
+ *   cascade's "Download the app" step — the surface where the
+ *   platform-correct install guidance already implemented in
+ *   SetupCascade / CompanionInstallStep lives; no second guidance
+ *   implementation is written here).
  * - Help Center -> /help; Contact Support -> /contact (real routes).
  * - Upgrade -> /pricing (existing route; no plan invented).
  * - Sign out -> POST to the EXISTING /auth/logout route.
@@ -104,17 +111,17 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
 
   if (!current.configured) {
     return (
-      <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
-        <Card>
-          <Badge tone="sun">Setup needed</Badge>
-          <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">Connect Supabase to use accounts.</h1>
-          <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+      <div className="bui-safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
+        <BuiCard className="bui-enter p-5">
+          <BuiBadge tone="warm">Setup needed</BuiBadge>
+          <h1 className="mt-4 text-3xl font-black text-chead sm:text-5xl">Connect Supabase to use accounts.</h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-cink">
             Add Roamly Supabase environment variables, then signup, login, sessions, and protected routes will activate.
           </p>
           <div className="mt-5">
-            <Button href="/">Back home</Button>
+            <BuiButtonLink href="/">Back home</BuiButtonLink>
           </div>
-        </Card>
+        </BuiCard>
       </div>
     );
   }
@@ -194,13 +201,13 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   // rendered on the default account screen. ----
   if (detailView) {
     return (
-      <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
-        <a href="/account" className="text-[15px] font-semibold text-cblue">
-          ‹ Back to Account
+      <div className="calm-bleed bui-safe-bottom mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
+        <a href="/account" className="bui-touch inline-flex items-center text-[15px] font-semibold text-cblue">
+          <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="-mt-0.5 inline-block" /> Back to Account
         </a>
 
         {detailView === "manage-account" ? (
-          <div id="manage-account" className="mt-5 scroll-mt-24 rounded-2xl bg-white p-4 shadow-calm">
+          <div id="manage-account" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h1>
             <div className="mt-5">
@@ -210,15 +217,13 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
               Password change and account deletion are not available here yet.
             </p>
             {profileResult.error ? (
-              <p className="mt-4 text-[13.5px] font-normal leading-[1.45] text-cred">
-                Profile table pending: {profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.
-              </p>
+              <BuiNotice tone="error" title={`Profile table pending: ${profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.`} className="mt-4" />
             ) : null}
           </div>
         ) : null}
 
         {detailView === "booking-wallet" ? (
-          <div id="booking-wallet" className="mt-5 scroll-mt-24 rounded-2xl bg-white p-4 shadow-calm">
+          <div id="booking-wallet" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h1>
             <div className="mt-5">
@@ -228,7 +233,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         ) : null}
 
         {detailView === "travelers" ? (
-          <div id="travelers" className="mt-5 scroll-mt-24 rounded-2xl bg-white p-4 shadow-calm">
+          <div id="travelers" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
             <div id="traveler-memory" className="scroll-mt-24">
               <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Traveler memory</p>
               <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Preferences Roamly can use</h1>
@@ -240,7 +245,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         ) : null}
 
         {detailView === "preferences" ? (
-          <div id="preferences" className="mt-5 scroll-mt-24 rounded-2xl bg-white p-4 shadow-calm">
+          <div id="preferences" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Preferences</p>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Language and notifications</h1>
             <div className="mt-5 space-y-5">
@@ -268,9 +273,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                 </p>
               </>
             ) : (
-              <p className="ml-4 text-[13.5px] font-normal leading-[1.45] text-cgray">
-                Setup state is unavailable right now.
-              </p>
+              <BuiNotice tone="info" title="Setup state is unavailable right now." className="ml-4" />
             )}
           </div>
         ) : null}
@@ -281,7 +284,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   // ---- Default view: the picture, and ONLY the picture. The content
   // ends at Sign out; no detail section renders below it. ----
   return (
-    <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
+    <div className="calm-bleed bui-safe-bottom mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
       {/* Legacy /account#setup links from trip/live screens land here with
           no setup section on screen; map them to the ?view=setup detail
           view with the step anchor preserved. */}
@@ -291,17 +294,15 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         <a
           href="/account?view=manage-account"
           aria-label="Manage account"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-chead shadow-calm"
+          className="bui-press bui-touch-square flex h-10 w-10 items-center justify-center rounded-full border border-chair bg-white text-chead shadow-bui-card"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="3.2" />
-            <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19" />
-          </svg>
+          <CircleUserRound aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
         </a>
       </div>
 
       {/* Profile row — real session identity only. */}
-      <a href="/account?view=manage-account" className="mt-5 flex items-center gap-3 rounded-2xl bg-white p-4 shadow-calm">
+      <a href="/account?view=manage-account" className="bui-enter bui-press bui-touch mt-5 block">
+        <BuiCard interactive className="flex items-center gap-3 rounded-bui-panel p-4">
         <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-chead text-[17px] font-bold text-white">
           {initials}
         </span>
@@ -311,16 +312,15 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <span className="block truncate text-[13.5px] font-normal leading-snug text-cgray">{displayEmail}</span>
           ) : null}
         </span>
-        <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+        <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
+        </BuiCard>
       </a>
 
       {/* Plan card — displays plan state; Upgrade goes to existing /pricing. */}
-      <div className="mt-3 rounded-2xl bg-white p-4 shadow-calm">
+      <BuiCard className="bui-enter mt-3 rounded-bui-panel p-4">
         <div className="flex items-center gap-3">
-          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-              <path d="M3 7.5 5.6 4l4.1 3.2L12 3.4l2.3 3.8L18.4 4 21 7.5 19.4 17H4.6L3 7.5Zm2.2 11.5h13.6v1.6H5.2v-1.6Z" />
-            </svg>
+          <span aria-hidden="true" className="bui-touch-square flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-csoft text-cblue">
+            <Crown aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[17px] font-bold leading-snug text-chead">{plan.title}</span>
@@ -328,38 +328,32 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           </span>
           <a
             href="/pricing"
-            className="shrink-0 rounded-full px-4 py-2 text-[14px] font-bold text-cblue ring-1 ring-cblue/40"
+            className="bui-press bui-touch inline-flex shrink-0 items-center rounded-full px-4 py-2 text-[14px] font-bold text-cblue ring-1 ring-cblue/40"
           >
             Upgrade
           </a>
         </div>
-      </div>
+      </BuiCard>
 
       {/* Main rows — each opens a real surface, except Saved places (no store). */}
-      <div className="mt-3 divide-y divide-chair overflow-hidden rounded-2xl bg-white shadow-calm">
-        <a href="/dashboard" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-11Z" />
-              <path d="M4 9.5h16M9 5v14" />
-            </svg>
+      <BuiCard className="bui-enter mt-3 divide-y divide-chair overflow-hidden rounded-bui-panel">
+        <a href="/dashboard" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <LayoutPanelLeft aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">My trips</span>
             <span className="block text-[13.5px] font-normal leading-snug text-cgray">View, edit, and manage your trips</span>
           </span>
           {tripCount !== null ? (
-            <span className="text-[16px] font-semibold text-chead">{tripCount}</span>
+            <span className="bui-display-number text-[16px] font-semibold text-chead">{tripCount}</span>
           ) : null}
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
 
-        <a href="/account?view=booking-wallet" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 18H5a1.5 1.5 0 0 1-1.5-1.5v-9Z" />
-              <path d="M3.5 7.5 12 13l8.5-5.5" />
-            </svg>
+        <a href="/account?view=booking-wallet" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <Wallet aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Booking Wallet</span>
@@ -368,60 +362,48 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           {wallet.connected ? (
             <span aria-label="Connected" className="h-2.5 w-2.5 shrink-0 rounded-full bg-cgreen" />
           ) : null}
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
 
-        <a href="/account?view=travelers" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="9" cy="8" r="3.2" />
-              <path d="M3.5 19c.6-3 2.9-4.5 5.5-4.5S14 16 14.5 19M16 4.8a3.2 3.2 0 0 1 0 6.4M17.5 14.7c2 .5 3.2 2 3.5 4.3" />
-            </svg>
+        <a href="/account?view=travelers" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <Users aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Travelers</span>
             <span className="block text-[13.5px] font-normal leading-snug text-cgray">{travelerSubtitle(partySize, travelerError)}</span>
           </span>
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
 
-        <a href="/pricing" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
-              <path d="M3 10h18M7 15h4" />
-            </svg>
+        <a href="/pricing" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <CreditCard aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Payment &amp; Billing</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Manage your plan and payment method</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">View plan and one-time prices</span>
           </span>
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
 
-        <a href="/account?view=preferences" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="12" r="3.2" />
-              <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2.1 2.1M16.9 16.9L19 19M19 5l-2.1 2.1M7.1 16.9L5 19" />
-            </svg>
+        <a href="/account?view=preferences" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <Settings aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Preferences</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Language, units, notifications</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Language and notifications</span>
           </span>
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
 
         {/* Saved places: NO store or surface exists in the app, so this is
             an honest unavailable row — not a link, no chevron, no invented
             favorites. It must never be presented as working. */}
-        <div aria-disabled="true" className="flex items-center gap-3 px-4 py-3.5 opacity-70">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 20.5S4.5 15.6 4.5 9.6a7.5 7.5 0 0 1 15 0c0 6-7.5 10.9-7.5 10.9Z" />
-              <circle cx="12" cy="9.6" r="2.6" />
-            </svg>
+        <div aria-disabled="true" className="bui-touch flex items-center gap-3 px-4 py-3.5 opacity-70">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <MapPin aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Saved places</span>
@@ -429,58 +411,60 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           </span>
         </div>
 
-        <a href="/account?view=manage-account" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="8" r="3.5" />
-              <path d="M5 20c.8-3.5 3.2-5 7-5s6.2 1.5 7 5" />
-            </svg>
+        <a href="/account?view=manage-account" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <User aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Manage account</span>
             <span className="block text-[13.5px] font-normal leading-snug text-cgray">Update your email, password, or delete account</span>
           </span>
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
-      </div>
+
+        <a href="/account?view=setup#setup-step-2" className="flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
+            <Download aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-semibold leading-snug text-chead">Install Roamly</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Add Roamly to your Home Screen</span>
+          </span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
+        </a>
+      </BuiCard>
 
       {/* Help & Support — real surfaces: /help and /contact. */}
       <p className="mb-2 ml-4 mt-7 text-[19px] font-bold tracking-[-0.018em] text-chead">Help &amp; Support</p>
-      <div className="divide-y divide-chair overflow-hidden rounded-2xl bg-white shadow-calm">
-        <a href="/help" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="12" cy="12" r="8.5" />
-              <path d="M9.6 9.2a2.4 2.4 0 0 1 4.7.9c0 1.6-2.3 1.8-2.3 3.1M12 17.2v.3" />
-            </svg>
+      <BuiCard className="bui-enter divide-y divide-chair overflow-hidden rounded-bui-panel">
+        <a href="/help" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <CircleQuestionMark aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Help Center</span>
             <span className="block text-[13.5px] font-normal leading-snug text-cgray">Get answers and travel tips</span>
           </span>
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
-        <a href="/contact" className="flex items-center gap-3 px-4 py-3.5">
-          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-cbg text-cblue">
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5v-11Z" />
-              <path d="M4 9 12 14l8-5" />
-            </svg>
+        <a href="/contact" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <Mail aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Contact Support</span>
             <span className="block text-[13.5px] font-normal leading-snug text-cgray">We&apos;re here to help</span>
           </span>
-          <span aria-hidden="true" className="text-[22px] font-normal leading-none text-cgray2">›</span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
-      </div>
+      </BuiCard>
 
       {/* Sign out — the EXISTING auth sign-out, nothing new invented.
           The picture's content ENDS here. */}
       <form action="/auth/logout" method="post" className="mt-3">
         <button
           type="submit"
-          className="w-full rounded-2xl bg-red-50 py-3.5 text-center text-[16px] font-semibold text-cred shadow-calm"
+          className="bui-press bui-touch w-full rounded-bui-panel border border-cred/30 bg-cred/10 py-3.5 text-center text-[16px] font-semibold text-cred shadow-bui-card"
         >
           Sign out
         </button>

@@ -398,7 +398,8 @@ assert.match(shell, /href: "\/notifications"/);
 assert.match(shell, /clearPlannerDraftOnLogout/);
 assert.doesNotMatch(fs.readFileSync(path.join(root, "components/roamly/DynamicDestinationHero.tsx"), "utf8"), /for life/);
 assert.match(fs.readFileSync(path.join(root, "components/roamly/GmailImportPanel.tsx"), "utf8"), /not claiming a 30-minute refresh/);
-assert.match(fs.readFileSync(path.join(root, "app/finds/page.tsx"), "utf8"), /FindsEditorialMagazine[\s\S]*FindsQuickBook/);
+assert.match(fs.readFileSync(path.join(root, "app/finds/page.tsx"), "utf8"), /FindsTabs[\s\S]*FindsQuickBook/);
+assert.match(fs.readFileSync(path.join(root, "components/roamly/FindsTabs.tsx"), "utf8"), /FindsEditorialMagazine/); // RE-PIN (Jakob A19, 2026-11-03): was "page renders FindsEditorialMagazine then FindsQuickBook" — the magazine now renders inside FindsTabs (the live tools the page mounts first, search-first); FindsQuickBook remains on the page after them. Both surfaces still render; the composition is what changed.
 const generateButton = fs.readFileSync(path.join(root, "components/trip/GenerateLockedItineraryButton.tsx"), "utf8");
 assert.match(generateButton, /generationInFlight\.current\) return/);
 assert.match(generateButton, /ITINERARY_GENERATING/);
