@@ -16,6 +16,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildDirectionsMapsLinks,
+  resolveDirectionsBackHref,
   resolveWalkSummary
 } from "@/lib/roamly/directionsPanel.ts";
 import { mapsUrlForActivity } from "@/lib/roamly/liveCompanion.ts";
@@ -78,8 +79,20 @@ check("route renders a not-found state for unknown / foreign stops, never a gues
   page.includes("This stop is not in this trip's plan.") && page.includes("dashboard?tripAccess=denied"));
 check("route evidence is this leg's own route_evidence, matched on from/to ids", "STATIC",
   page.includes("route_evidence") && page.includes("fromItemId === originItemId") && page.includes("toItemId === selfId"));
-check("route back action returns to the entry page (place vs live)", "STATIC",
-  page.includes('from === "place"') && page.includes("/place/${placeId}") && page.includes("/live"));
+// RE-PIN (A27, Jakob's Law round, 2026-11-03): the old pin encoded the
+// pre-A27 back logic inline in the page (place vs live, defaulting to
+// Live). A27 orders the passed origin honoured with the trip (itinerary)
+// as the default fallback, never Live. The logic now lives in
+// resolveDirectionsBackHref (lib/roamly/directionsPanel.ts) and is
+// pinned at full strength as runtime behaviour + page wiring.
+check("route back action honours the passed origin; default falls back to the trip, never Live (A27)", "FIXTURE",
+  resolveDirectionsBackHref({ tripId: "t1", placeId: "p1", from: "place" }) === "/trip/t1/place/p1" &&
+  resolveDirectionsBackHref({ tripId: "t1", placeId: "p1", from: "live" }) === "/trip/t1/live" &&
+  resolveDirectionsBackHref({ tripId: "t1", placeId: "p1", from: "trip" }) === "/trip/t1" &&
+  resolveDirectionsBackHref({ tripId: "t1", placeId: "p1", from: null }) === "/trip/t1" &&
+  resolveDirectionsBackHref({ tripId: "t1", placeId: "p1", from: "bogus" }) === "/trip/t1");
+check("route page resolves its back href through resolveDirectionsBackHref", "STATIC",
+  page.includes("resolveDirectionsBackHref({ tripId: id, placeId, from })"));
 check("route fetches the strip photo through the pipeline, coords-gated", "STATIC",
   page.includes("getDestinationPhoto") && page.includes("coords") && page.includes("photo={photo ?"));
 

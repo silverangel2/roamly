@@ -68,7 +68,7 @@ check("item1-banner-conflict-gone", "STATIC",
   !liveClient.includes("Times below are your planned times") &&
   liveClient.includes("Times below are estimates unless labeled otherwise") &&
   liveClient.includes("Live-updated only with a fresh location fix or check-in") &&
-  liveClient.includes("Confirmed only for a verified booking"));
+  liveClient.includes("Confirmed only for a booking with confirmation evidence on file") && !liveClient.includes("Confirmed only for a verified booking"));
 check("item1-live-pretrip-rows-label-every-time", "STATIC",
   liveClient.includes("TimeProvenanceLabel kind={provenanceForPreTripRow(row.planned)}") &&
   liveClient.includes('className="flex w-[88px] shrink-0 flex-col'));

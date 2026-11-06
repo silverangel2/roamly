@@ -6,6 +6,9 @@ import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { syncSupabaseServerSession } from "@/lib/roamly/authenticatedFetch";
 import { safeAuthNextPath } from "@/lib/navigation";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { BuiErrorSummary, BuiFieldError, useBuiField } from "@/components/boardui/Field";
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -54,8 +57,11 @@ function isUserAlreadyRegisteredError(error: unknown) {
   );
 }
 
-function persistAuthNext(path: string) {
-  const safePath = safeAuthNextPath(path);
+function isValidEmailAddress(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function persistAuthNext(path: string) {  const safePath = safeAuthNextPath(path);
   try {
     window.sessionStorage.setItem(AUTH_NEXT_STORAGE_KEY, safePath);
   } catch {
@@ -99,6 +105,30 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
   const redirectPath = safeAuthNextPath(nextPath);
   const loginHref = `/login?next=${encodeURIComponent(redirectPath)}`;
   const alternateHref = `${isSignup ? "/login" : "/signup"}?next=${encodeURIComponent(redirectPath)}`;
+
+  /* Form Rules pass (2026-11-03), rules 2 + 3: field problems are
+     validated on blur (never on the first keystroke), re-checked per
+     keystroke once a field has errored, land in a reserved slot
+     under their own field, and are summarised at the top of the
+     form on submit. The old single form-level string ("Email and
+     password are required.") named no field and appeared directly
+     above the submit button, pushing it down. */
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const emailField = useBuiField((value) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "Email is required.";
+    if (!isValidEmailAddress(trimmed)) return "Enter a valid email address.";
+    return "";
+  });
+  const passwordField = useBuiField((value) => {
+    if (!value) return "Password is required.";
+    if (isSignup && value.length < 8) return "Use at least 8 characters for the password.";
+    return "";
+  });
+  const fieldSummary = [
+    ...(emailField.error ? [{ fieldId: "auth-email", label: "Email", message: emailField.error }] : []),
+    ...(passwordField.error ? [{ fieldId: "auth-password", label: "Password", message: passwordField.error }] : [])
+  ];
 
   function emailRedirectTo() {
     return `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectPath)}`;
@@ -238,15 +268,12 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
       return;
     }
 
-    if (!email.trim() || !password) {
-      setError("Email and password are required.");
-      return;
-    }
-
-    if (isSignup && password.length < 8) {
-      setError("Use at least 8 characters for the password.");
-      return;
-    }
+    /* Rules 2 + 3: submit validates every field into its own slot
+       and the top summary; a broken field stops the submit here. */
+    setSubmitAttempted(true);
+    const emailProblem = emailField.runValidation(email);
+    const passwordProblem = passwordField.runValidation(password);
+    if (emailProblem || passwordProblem) return;
 
     setBusy(true);
 
@@ -312,7 +339,7 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
 
   if (!configured) {
     return (
-      <div className="rounded-app border border-amber-200 bg-amber-50 p-5 text-amber-900 shadow-soft">
+      <div className="bui-enter rounded-bui-card border border-corange/40 bg-corange/10 p-5 text-chead shadow-bui-card">
         <p className="text-xs font-black uppercase tracking-[0.18em]">Setup needed</p>
         <h2 className="mt-2 text-2xl font-black">Connect Roamly Supabase first.</h2>
         <p className="mt-2 text-sm font-bold leading-6">
@@ -324,170 +351,166 @@ export function AuthForm({ mode, nextPath = "/plan", initialError = "" }: AuthFo
 
   if (isSignup && verificationEmail) {
     return (
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-4 text-ocean">
-          <p className="text-sm font-black">{VERIFY_ACCOUNT_MESSAGE}</p>
-          <p className="mt-2 break-words text-sm font-bold leading-6">We sent the verification link to {verificationEmail}.</p>
-        </div>
+      <div className="bui-enter space-y-4">
+        <BuiNotice tone="success" title={VERIFY_ACCOUNT_MESSAGE}>
+          <p className="break-words">We sent the verification link to {verificationEmail}.</p>
+        </BuiNotice>
 
-        <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-900">
-          {TESTER_VERIFICATION_MESSAGE}
-        </p>
+        <BuiNotice tone="info" title={TESTER_VERIFICATION_MESSAGE} />
 
-        {resendNotice ? (
-          <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
-            {resendNotice}
-          </p>
-        ) : null}
+        {resendNotice ? <BuiNotice tone="success" title={resendNotice} /> : null}
 
-        {resendError ? (
-          <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-            {resendError}
-          </p>
-        ) : null}
+        {resendError ? <BuiNotice tone="error" title={resendError} /> : null}
 
         <div className="grid gap-3">
-          <button
-            type="button"
-            disabled={resendBusy}
-            onClick={resendVerificationEmail}
-            className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
-          >
+          <BuiButton type="button" busy={resendBusy} onClick={resendVerificationEmail} className="w-full">
             {resendBusy ? "Sending..." : "Resend verification email"}
-          </button>
-          <button
-            type="button"
-            onClick={changeEmail}
-            className="w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean"
-          >
+          </BuiButton>
+          <BuiButton type="button" variant="secondary" onClick={changeEmail} className="w-full">
             Change email
-          </button>
-          <Link
-            href={loginHref}
-            className="w-full rounded-2xl border border-cloud bg-white px-5 py-3 text-center text-sm font-black text-ink transition hover:border-ocean hover:text-ocean"
-          >
+          </BuiButton>
+          <BuiButtonLink href={loginHref} variant="secondary" className="w-full">
             Back to login
-          </Link>
+          </BuiButtonLink>
         </div>
 
-        <p className="text-center text-xs font-bold leading-5 text-slate-500">{SUPPORT_MESSAGE}</p>
+        <p className="text-center text-xs font-bold leading-5 text-cgray">{SUPPORT_MESSAGE}</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={submit} noValidate className="bui-enter space-y-4">
+      {/* noValidate: this form's own blur-first validation (rules
+          2 + 3) owns error timing — the browser's native bubbles
+          would pre-empt the submit and strand the error summary. */}
+      {/* Rule 3: form-level problems surface at the TOP of the form —
+          the submit summary links to each broken field, and server
+          errors land in the same slot. Nothing error-shaped renders
+          between the last field and the submit button anymore, so
+          appearing text can never push the button down. */}
+      {submitAttempted ? <BuiErrorSummary errors={fieldSummary} /> : null}
+
+      {error ? <BuiNotice tone="error" title={error} /> : null}
+
+      {notice ? <BuiNotice tone="info" title={notice} /> : null}
+
       <div className="space-y-3">
-        <button
+        <BuiButton
           type="button"
-          disabled={busy || googleBusy}
+          variant="secondary"
+          busy={googleBusy}
+          disabled={busy}
           onClick={continueWithGoogle}
-          className="flex w-full items-center justify-center gap-3 rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:border-ocean hover:text-ocean disabled:opacity-60"
+          className="w-full"
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-full border border-cloud bg-white text-sm font-black text-slate-700">
-            G
-          </span>
+          <svg viewBox="0 0 48 48" className="h-5 w-5 shrink-0" aria-hidden="true" focusable="false">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z" />
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" />
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" />
+          </svg>
           {googleBusy ? "Continuing..." : "Continue with Google"}
-        </button>
-        <p className="text-center text-xs font-bold leading-5 text-slate-500">{SHARED_GOOGLE_MESSAGE}</p>
+        </BuiButton>
+        <p className="text-center text-xs font-bold leading-5 text-cgray">{SHARED_GOOGLE_MESSAGE}</p>
       </div>
 
-      <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-        <span className="h-px flex-1 bg-cloud" />
+      <div className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.18em] text-cgray2">
+        <span className="h-px flex-1 bg-chair" />
         <span>Email</span>
-        <span className="h-px flex-1 bg-cloud" />
+        <span className="h-px flex-1 bg-chair" />
       </div>
 
       {isSignup ? (
         <label className="block">
-          <span className="text-sm font-black text-ink">Full name</span>
+          <span className="text-sm font-black text-chead">Full name</span>
           <input
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             autoComplete="name"
             aria-label="Full name"
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+            className="bui-input mt-2 w-full rounded-2xl border border-chair bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
           />
         </label>
       ) : null}
 
-      <label className="block">
-        <span className="text-sm font-black text-ink">Email</span>
+      <label key={`email-${emailField.shakeKey}`} className={emailField.shakeKey > 0 ? "bui-shake block" : "block"}>
+        <span className="text-sm font-black text-chead">Email</span>
         <input
+          id="auth-email"
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            emailField.onChange(event.target.value);
+          }}
+          onBlur={() => emailField.onBlur(email)}
           type="email"
+          inputMode="email"
           autoComplete="email"
           aria-label="Email address"
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+          aria-invalid={emailField.error ? true : undefined}
+          aria-describedby={emailField.error ? "auth-email-error" : undefined}
+          className={`bui-input mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${
+            emailField.error ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"
+          }`}
         />
+        <BuiFieldError id="auth-email-error" message={emailField.error} />
       </label>
 
-      <label className="block">
+      <label key={`password-${passwordField.shakeKey}`} className={passwordField.shakeKey > 0 ? "bui-shake block" : "block"}>
         <span className="flex items-center justify-between gap-2">
-          <span className="text-sm font-black text-ink">Password</span>
+          <span className="text-sm font-black text-chead">Password</span>
           {!isSignup ? (
             <Link
               href="/forgot-password"
-              className="inline-flex min-h-8 items-center rounded-full px-1 text-xs font-black text-ocean hover:text-ink focus:outline-none focus:ring-4 focus:ring-ocean/15"
+              className="bui-touch inline-flex items-center rounded-full px-1 text-xs font-black text-cblue hover:text-chead focus:outline-none focus:ring-4 focus:ring-cblue/15"
             >
               Forgot password?
             </Link>
           ) : null}
         </span>
         <input
+          id="auth-password"
           value={password}
-          onChange={(event) => setPassword(event.target.value)}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            passwordField.onChange(event.target.value);
+          }}
+          onBlur={() => passwordField.onBlur(password)}
           type="password"
           autoComplete={isSignup ? "new-password" : "current-password"}
           aria-label={isSignup ? "New password" : "Password"}
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+          aria-invalid={passwordField.error ? true : undefined}
+          aria-describedby={passwordField.error ? "auth-password-error" : undefined}
+          className={`bui-input mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${
+            passwordField.error ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"
+          }`}
         />
+        <BuiFieldError id="auth-password-error" message={passwordField.error} />
       </label>
 
-      {error ? (
-        <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {error}
-        </p>
-      ) : null}
-
-      {notice ? (
-        <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
-          {notice}
-        </p>
-      ) : null}
-
       {!isSignup && verificationEmail ? (
-        <div className="space-y-3 rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-4">
-          <p className="text-sm font-black text-amber-900">{TESTER_VERIFICATION_MESSAGE}</p>
+        <div className="bui-enter space-y-3 rounded-bui-card border border-chair bg-csoft px-4 py-4">
+          <p className="text-sm font-black text-chead">{TESTER_VERIFICATION_MESSAGE}</p>
 
-          {resendNotice ? <p className="text-sm font-black text-ocean">{resendNotice}</p> : null}
-          {resendError ? <p className="text-sm font-black text-coral">{resendError}</p> : null}
+          {resendNotice ? <p className="text-sm font-black text-cblue">{resendNotice}</p> : null}
+          {resendError ? <p className="text-sm font-black text-cred">{resendError}</p> : null}
 
-          <button
-            type="button"
-            disabled={resendBusy}
-            onClick={resendVerificationEmail}
-            className="w-full rounded-2xl bg-white px-5 py-3 text-sm font-black text-ocean shadow-soft transition hover:text-ink disabled:opacity-60"
-          >
+          <BuiButton type="button" variant="secondary" busy={resendBusy} onClick={resendVerificationEmail} className="w-full">
             {resendBusy ? "Sending..." : "Resend verification email"}
-          </button>
+          </BuiButton>
 
-          <p className="text-xs font-bold leading-5 text-slate-600">{SUPPORT_MESSAGE}</p>
+          <p className="text-xs font-bold leading-5 text-cink">{SUPPORT_MESSAGE}</p>
         </div>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
-      >
+      <BuiButton type="submit" busy={busy} className="w-full">
         {busy ? "Working..." : isSignup ? "Create free account" : "Log in"}
-      </button>
+      </BuiButton>
 
-      <p className="flex flex-wrap items-center justify-center gap-x-2 text-center text-sm font-bold text-slate-500">
+      <p className="flex flex-wrap items-center justify-center gap-x-2 text-center text-sm font-bold text-cgray">
         <span>{isSignup ? "Already have an account?" : "New to Roamly?"}</span>
-        <Link href={alternateHref} className="inline-flex min-h-11 items-center rounded-full px-2 text-ocean hover:text-ink focus:outline-none focus:ring-4 focus:ring-ocean/15">
+        <Link href={alternateHref} className="bui-touch inline-flex items-center rounded-full px-2 text-cblue hover:text-chead focus:outline-none focus:ring-4 focus:ring-cblue/15">
           {isSignup ? "Log in" : "Create account"}
         </Link>
       </p>

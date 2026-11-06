@@ -126,9 +126,9 @@ const MAIN = {
 
 // ---- Confirmed boundary: exact title match only ----
 {
-  const booking = { title: "Harbor Test Museum", address: "1 Test Quay, Montreal", traveler_confirmed: true, booking_status: "confirmed" };
+  const booking = { title: "Harbor Test Museum", address: "1 Test Quay, Montreal", traveler_confirmed: true, booking_status: "confirmed", confirmation_code: "HTM4821", provider_name: "Harbor Museum", source_type: "manual" };
   const d = detailFor(MAIN, { confirmedBookings: [booking] });
-  check("exact-title confirmed booking -> Confirmed badge + booking address", d?.badge === "Confirmed" && d?.about.address === "1 Test Quay, Montreal", `${d?.badge} / ${d?.about.address}`);
+  check("exact-title confirmed booking -> provenance badge + booking address (Round 3)", d?.badge === "Confirmed · from details you provided" && d?.about.address === "1 Test Quay, Montreal", `${d?.badge} / ${d?.about.address}`);
   const fuzzy = detailFor(MAIN, { confirmedBookings: [{ title: "Harbor Test Museum Shop", address: "9 Elsewhere St", traveler_confirmed: true }] });
   check("similar-but-different booking title -> NOT confirmed, no address", fuzzy?.badge === "Planned" && fuzzy?.about.address === null);
   const superseded = detailFor(MAIN, { confirmedBookings: [{ ...booking, superseded_by_booking_id: "other" }] });
@@ -200,7 +200,7 @@ const MAIN = {
   check("page supplies no invented hours/tickets (view-model owns the nulls)", page.includes("buildPlaceDetail") && !page.includes("openingHours") && !page.includes("ticketInfo"));
   const panel = read("components/roamly/PlaceDetailPanel.tsx");
   check("panel renders Directions as a real link", panel.includes("detail.directionsUrl") && panel.includes('target="_blank"'));
-  check("panel renders Add to calendar + Save disabled, never as working buttons", panel.includes("Add to calendar") && panel.includes("Save") && panel.includes("disabled") && panel.includes("not available yet"));
+  check("panel no longer renders Add to calendar + Save — removed (Jakob A6)", !panel.includes(">Add to calendar<") && !panel.includes(">Save<") && !panel.includes("not available yet")); // RE-PIN (Jakob A6, 2026-11-03): was "panel renders Add to calendar + Save disabled" — the dead disabled pair was ordered removed; honest absence replaces it. JSX-text patterns (>…<) because the panel's own history comment names the removed buttons; rendered output is what the check guards.
   check("panel shows per-field unavailable states", panel.includes("Not available"));
   check("panel uses navy-slate ink, light grouped bg, never black-dominant", panel.includes("text-chead") && read("app/trip/[id]/place/[placeId]/page.tsx").includes("bg-cbg") && !panel.includes("text-black") && !panel.includes("bg-black ") && !panel.includes("bg-black\""));
   const timeline = read("components/trip/ItineraryDayPlan.tsx");

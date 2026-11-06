@@ -11,6 +11,7 @@
  * control opening the chooser sheet — never button rows.
  */
 import Image from "next/image";
+import { Check } from "lucide-react";
 import { ROAMLY_ICON_PATH } from "@/lib/roamly/companionPanel";
 import type {
   ActivityDetailView,
@@ -95,12 +96,12 @@ function StripActions({
           <button
             type="button"
             onClick={() => onAction("check-in", strip.itemId)}
-            className="inline-flex h-8 items-center justify-center rounded-[10px] bg-ocean px-3 text-[12.5px] font-bold text-white"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] bg-ocean px-3 text-[12.5px] font-bold text-white"
           >
             Check in
           </button>
         ) : (
-          <span className="inline-flex h-8 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-3 text-[12.5px] font-semibold text-[#7a8f88]">
+          <span className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-3 text-[12.5px] font-semibold text-[#7a8f88]">
             {strip.checkIn.label}
           </span>
         )
@@ -109,7 +110,7 @@ function StripActions({
         <button
           type="button"
           onClick={() => onAction("directions", strip.itemId)}
-          className="inline-flex h-8 items-center justify-center rounded-[10px] border-[1.5px] border-ocean px-3 text-[12.5px] font-bold text-ocean"
+          className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-ocean px-3 text-[12.5px] font-bold text-ocean"
         >
           Directions
         </button>
@@ -118,7 +119,7 @@ function StripActions({
         <button
           type="button"
           onClick={() => onAction("skip", strip.itemId)}
-          className="inline-flex h-8 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-3 text-[12.5px] font-semibold text-ink"
+          className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-3 text-[12.5px] font-semibold text-ink"
         >
           Skip
         </button>
@@ -173,8 +174,8 @@ export function CompanionSlimLineView({
       data-measure="slim"
       className="mx-auto flex h-10 w-[358px] max-w-full items-center gap-2 rounded-xl border border-[#dce7e3] bg-[#eef6f2] px-[11px] text-[12.5px]"
     >
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean text-[12px] font-extrabold text-white">
-        ✓
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean text-white">
+        <Check size={12} strokeWidth={3} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1 truncate font-semibold text-ink">{line}</span>
       {affordances.includes("undo") ? (
@@ -387,7 +388,7 @@ export function ActivityDetailView({
           <button
             type="button"
             onClick={() => onAction("check-in", detail.itemId)}
-            className="inline-flex h-9 items-center justify-center rounded-[10px] bg-ocean px-4 text-[13px] font-bold text-white"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] bg-ocean px-4 text-[13px] font-bold text-white"
           >
             Check in
           </button>
@@ -396,7 +397,7 @@ export function ActivityDetailView({
           <button
             type="button"
             onClick={() => onDirections(detail.itemId)}
-            className="inline-flex h-9 items-center justify-center rounded-[10px] border-[1.5px] border-ocean px-4 text-[13px] font-bold text-ocean"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-ocean px-4 text-[13px] font-bold text-ocean"
           >
             Directions
           </button>
@@ -405,7 +406,7 @@ export function ActivityDetailView({
           <button
             type="button"
             onClick={() => onAction("skip", detail.itemId)}
-            className="inline-flex h-9 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-4 text-[13px] font-semibold text-ink"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-4 text-[13px] font-semibold text-ink"
           >
             Skip
           </button>

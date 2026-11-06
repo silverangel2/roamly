@@ -67,7 +67,9 @@ check("H5: gate screen sets the cookie on skip + keeps one skip anchor",
 // "skip above cascade" assertion.
 const cascade = read("components/roamly/SetupCascade.tsx");
 check("SETUP-MOCK: gate header + generated row + optional heading + OR + skip card",
-  gate.includes("Your trip is ready! 🎉") &&
+  // RE-PIN (Jakob extension, 2026-11-03): headline emoji removed under
+  // the owner's no-emoji-tells checklist (11:34 AST); pin follows copy.
+  gate.includes("Your trip is ready!") &&
   gate.includes("Everything is prepared. Complete a few optional steps to unlock more features.") &&
   gate.includes("Itinerary generated and saved") &&
   gate.includes("Optional setup (recommended)") &&

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { BOOKING_ADDED_FLAG } from "@/components/companion/BookingAddedToast";
 import { localizeCustomerError } from "@/lib/i18n";
 
 type BookingKind = "flight" | "hotel" | "activity" | "restaurant" | "other";
@@ -234,6 +235,19 @@ export function ManualBookingForm({ tripId, tripCurrency = null, referral = null
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.message || data?.error || t("ui.status.unexpectedError"));
+      // Success Rules pass (2026-11-03), census row 13: this add
+      // used to complete silently — the traveller landed on the
+      // list with nothing naming what just happened. Leave the
+      // booking's title as an arrival flag; BookingAddedToast on
+      // the bookings page turns it into a named ~4s toast there.
+      try {
+        window.sessionStorage.setItem(
+          BOOKING_ADDED_FLAG,
+          JSON.stringify({ title: title.trim() || provider.trim() || "" })
+        );
+      } catch {
+        // Storage unavailable: the list itself remains the record.
+      }
       router.push(`/trip/${tripId}/bookings`);
       router.refresh();
     } catch (err) {
@@ -256,7 +270,7 @@ export function ManualBookingForm({ tripId, tripCurrency = null, referral = null
         <p className="mt-2 text-base font-semibold leading-7 text-slate-600">{t("ui.booking.enterOrUpload")}</p>
         {referral ? (
           <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
-            You marked a referred option as booked. Add the actual booking details so Roamly can verify it; this will not mark the booking confirmed by itself.
+            You marked a referred option as booked. Add the actual booking details from your confirmation so Roamly can record them; this will not mark the booking confirmed by itself.
           </p>
         ) : null}
 

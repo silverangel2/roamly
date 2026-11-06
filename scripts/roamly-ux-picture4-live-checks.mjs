@@ -177,14 +177,22 @@ check(
   "inprogress-banner",
   // Repair round P1+P3: the banner states the corrected timing truth
   // (estimates unless labeled otherwise; Live-updated only with fresh
-  // evidence; Confirmed only for a verified booking), and its old
-  // "Trip in progress" title is gone — the hero badge above already
-  // carries the trip state, so the banner keeps day context only.
+  // evidence; Confirmed only for a booking with confirmation evidence
+  // on file), and its old "Trip in progress" title is gone — the hero
+  // badge above already carries the trip state, so the banner keeps
+  // day context only.
+  // Release-gate item 1 (2026-10-31): "verified booking" was the stale
+  // pre–Lane-T wording. RC Round 3 Lane T (TERMINOLOGY-AUDIT row 35,
+  // owner rule 2026-10-30) deliberately replaced it — no class of
+  // booking in this codebase is independently verified by Roamly, so
+  // the banner must not claim one. test:verification-language and
+  // test:ux-conditional already pin the corrected wording + negation.
   inProgress.includes("Live updates for Day") &&
     inProgress.includes("Times below are estimates unless labeled otherwise") &&
     inProgress.includes("Live-updated only with a fresh location fix or check-in") &&
-    inProgress.includes("Confirmed only for a verified booking") &&
+    inProgress.includes("Confirmed only for a booking with confirmation evidence on file") &&
     inProgress.includes("Check in as you go.") &&
+    !inProgress.includes("Confirmed only for a verified booking") &&
     !inProgress.includes(">Trip in progress<")
 );
 check(
@@ -249,17 +257,21 @@ check(
   "footer-line-field-test-only",
   code.includes("{fieldTestMode ? (") && code.includes("Roamly is following along")
 );
-// --- 12. Map tab: honest unavailable state, never a fake map ---
+// --- 12. Map tab: real map or honest fallback, never a fake map ---
 // Correction phase (D6, 2026-10-28): Map-tab links now route through
 // mapDirectionsHref/mapMapsHref (live links when present, else the
 // itinerary fallback's first stop) — the old direct directionsHref /
 // mapsHref names are gone from this tab (they still feed the Today
-// tab's next-stop buttons). The honest-unavailable intent is
-// unchanged: no in-app map, no static map images, links out only.
+// tab's next-stop buttons).
+// Free-assets round (2026-11-03): the tab now renders the real
+// embedded TripDayMap (MapLibre + OpenFreeMap) when stops carry
+// coordinates; with none, it shows the honest fallback sentence
+// below. The guarded intent is unchanged: never a fake/static map
+// image, links out always present. (Check name kept for continuity.)
 check(
   "map-tab-unavailable-state",
-  mapTab.includes("An in-app map is not available for this trip yet") &&
-    mapTab.includes("no map component exists in the app") &&
+  mapTab.includes("No stops with locations to show on a map for this trip yet.") &&
+    mapTab.includes("TripDayMap") &&
     !mapTab.includes("<img") &&
     !mapTab.includes("staticmap") &&
     !mapTab.includes("tile.openstreetmap") &&

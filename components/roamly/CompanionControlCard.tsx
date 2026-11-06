@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BuiChip } from "@/components/boardui/Badge";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiToast, useBuiToast } from "@/components/boardui/Toast";
 import { useI18n } from "@/components/i18n/I18nProvider";
 
 type CompanionControlMode =
@@ -62,6 +65,7 @@ export function CompanionControlCard({
     useState<CompanionControlMode>("suggest_changes");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { toast, showToast, clearToast } = useBuiToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +157,10 @@ export function CompanionControlCard({
 
       setPreferences(result.preferences);
       setSelectedMode(result.preferences.controlMode);
-      setMessage(t("ui.status.companionSaved"));
+      // Success Rules pass (2026-11-03), rule 3: a saved preference
+      // is low-stakes — a toast that leaves in ~4s. The failure line
+      // below stays inline: it must not vanish before it is read.
+      showToast(t("ui.status.companionSaved"));
     } catch {
       setSelectedMode(previousMode);
       setMessage(t("ui.status.settingNotSaved"));
@@ -181,7 +188,7 @@ export function CompanionControlCard({
       const result = await response.json();
       if (!response.ok || !result?.ok) throw new Error(result?.error || t("ui.status.companionSaveFailed"));
       setPreferences(result.preferences);
-      setMessage(t("ui.status.companionSaved"));
+      showToast(t("ui.status.companionSaved"));
     } catch {
       setPreferences(previous);
       setMessage(t("ui.status.settingNotSaved"));
@@ -243,7 +250,7 @@ export function CompanionControlCard({
       }
 
       setPreferences(result.preferences);
-      setMessage(successMessage);
+      showToast(successMessage);
     } catch {
       setPreferences(previous);
       setMessage("Your setting was not saved. Please try again.");
@@ -262,25 +269,25 @@ export function CompanionControlCard({
   return (
     <section
       aria-labelledby="companion-control-title"
-      className="rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-sm sm:p-5"
+      className="bui-enter rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card sm:p-5"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
           {t("ui.status.companionControl")}
           </p>
           <h2
             id="companion-control-title"
-            className="mt-2 text-xl font-black text-ink"
+            className="mt-2 text-xl font-black text-chead"
           >
             {t("ui.status.howCompanionHelps")}
           </h2>
         </div>
 
         {saving ? (
-          <span className="text-xs font-bold text-slate-500">
+          <BuiChip tone="primary">
             {t("ui.status.saving")}
-          </span>
+          </BuiChip>
         ) : null}
       </div>
 
@@ -301,11 +308,11 @@ export function CompanionControlCard({
               disabled={saving}
               onClick={() => saveMode(option.value)}
               className={[
-                "w-full rounded-2xl border px-4 py-3 text-left transition",
-                "focus:outline-none focus:ring-2 focus:ring-ocean focus:ring-offset-2",
+                "bui-press bui-touch w-full rounded-bui-card border px-4 py-3 text-left transition",
+                "focus:outline-none focus:ring-2 focus:ring-cblue focus:ring-offset-2",
                 selected
-                  ? "border-ocean bg-sky-50"
-                  : "border-slate-200 bg-white hover:bg-mist",
+                  ? "border-cblue bg-csoft"
+                  : "border-chair bg-white hover:bg-cbg",
                 saving ? "cursor-wait opacity-70" : ""
               ].join(" ")}
             >
@@ -315,20 +322,20 @@ export function CompanionControlCard({
                   className={[
                     "mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
                     selected
-                      ? "border-ocean"
-                      : "border-slate-300"
+                      ? "border-cblue"
+                      : "border-chair"
                   ].join(" ")}
                 >
                   {selected ? (
-                    <span className="h-2.5 w-2.5 rounded-full bg-ocean" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-cblue" />
                   ) : null}
                 </span>
 
                 <span>
-                  <span className="block text-sm font-black text-ink">
+                  <span className="block text-sm font-black text-chead">
                     {t(`ui.status.${option.title}`)}
                   </span>
-                  <span className="mt-1 block text-xs font-bold leading-5 text-slate-500">
+                  <span className="mt-1 block text-xs font-bold leading-5 text-cgray">
                     {t(`ui.status.${option.description}`)}
                   </span>
                 </span>
@@ -338,8 +345,8 @@ export function CompanionControlCard({
         })}
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-        <h3 className="text-sm font-black text-ink">{t("ui.status.communicationPreferences")}</h3>
+      <div className="mt-4 rounded-bui-card border border-chair bg-white p-4">
+        <h3 className="text-sm font-black text-chead">{t("ui.status.communicationPreferences")}</h3>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {([
             ["dailyBriefingEnabled", "ui.status.tripBriefingEmails"],
@@ -347,10 +354,10 @@ export function CompanionControlCard({
             ["bookingNotificationsEnabled", "ui.status.bookingUpdates"],
             ["checkInRemindersEnabled", "ui.status.checkInReminders"]
           ] as const).map(([key, labelKey]) => (
-            <label key={key} className="flex min-h-12 items-center gap-3 rounded-xl bg-mist px-3 py-2 text-sm font-bold text-slate-700">
+            <label key={key} className="bui-touch flex min-h-12 items-center gap-3 rounded-xl bg-cbg px-3 py-2 text-sm font-bold text-cink">
               <input
                 type="checkbox"
-                className="h-4 w-4 accent-teal-700"
+                className="h-4 w-4 accent-[#087BFF]"
                 checked={preferences?.[key] !== false}
                 disabled={saving || !preferences}
                 onChange={(event) => void saveCommunicationPreference(key, event.target.checked)}
@@ -361,10 +368,10 @@ export function CompanionControlCard({
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div className="mt-4 rounded-bui-card border border-chair bg-cbg p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-black text-ink">
+            <p className="text-sm font-black text-chead">
               {t("ui.status.liveCompanion")} {" "}
               {preferences?.liveCompanionEnabled === false
                 ? t("ui.status.off")
@@ -372,14 +379,17 @@ export function CompanionControlCard({
                   ? t("ui.status.paused")
                   : t("ui.status.ready")}
             </p>
-            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+            <p className="mt-1 text-xs font-bold leading-5 text-cgray">
               {t("ui.status.pauseDescription")}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
-            <button
+            <BuiButton
               type="button"
-              disabled={saving || !preferences}
+              variant="secondary"
+              size="small"
+              disabled={!preferences}
+              busy={saving}
               onClick={() =>
                 saveLiveControls(
                   {
@@ -389,13 +399,15 @@ export function CompanionControlCard({
                   t("ui.status.companionPaused")
                 )
               }
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-60"
             >
               {t("ui.status.pause")}
-            </button>
-            <button
+            </BuiButton>
+            <BuiButton
               type="button"
-              disabled={saving || !preferences}
+              variant="secondary"
+              size="small"
+              disabled={!preferences}
+              busy={saving}
               onClick={() =>
                 saveLiveControls(
                   {
@@ -405,13 +417,15 @@ export function CompanionControlCard({
                   t("ui.status.companionResumed")
                 )
               }
-              className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/10 px-3 py-2 text-xs font-black text-ocean disabled:opacity-60"
             >
               {t("ui.status.resume")}
-            </button>
-            <button
+            </BuiButton>
+            <BuiButton
               type="button"
-              disabled={saving || !preferences}
+              variant="danger"
+              size="small"
+              disabled={!preferences}
+              busy={saving}
               onClick={() =>
                 saveLiveControls(
                   {
@@ -421,13 +435,15 @@ export function CompanionControlCard({
                   t("ui.status.companionDisabled")
                 )
               }
-              className="min-h-11 rounded-2xl border border-coral/20 bg-coral/10 px-3 py-2 text-xs font-black text-coral disabled:opacity-60"
             >
               {t("ui.status.disable")}
-            </button>
-            <button
+            </BuiButton>
+            <BuiButton
               type="button"
-              disabled={saving || !preferences}
+              variant="secondary"
+              size="small"
+              disabled={!preferences}
+              busy={saving}
               onClick={() =>
                 saveLiveControls(
                   {
@@ -438,21 +454,23 @@ export function CompanionControlCard({
                     : t("ui.status.backgroundSaved")
                 )
               }
-              className="min-h-11 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 disabled:opacity-60"
             >
               {preferences?.backgroundLocationEnabled ? t("ui.status.backgroundOn") : t("ui.status.backgroundOff")}
-            </button>
+            </BuiButton>
           </div>
         </div>
       </div>
 
       {message ? (
         <p
-          className="mt-3 text-xs font-bold text-slate-500"
+          className="mt-3 text-xs font-bold text-cgray"
           aria-live="polite"
         >
           {message}
         </p>
+      ) : null}
+      {toast ? (
+        <BuiToast key={toast.id} message={toast.message} tone={toast.tone} onDismiss={clearToast} />
       ) : null}
     </section>
   );

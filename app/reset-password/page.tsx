@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { BuiErrorSummary, BuiFieldError, useBuiField } from "@/components/boardui/Field";
 import { hasSupabaseConfig } from "@/lib/supabase/config";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -24,6 +26,26 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [updated, setUpdated] = useState(false);
+
+  /* Form Rules pass (2026-11-03), rules 2 + 3: both password
+     problems are FIELD problems — validated on blur, re-checked per
+     keystroke once errored, shown in reserved slots under their own
+     fields, and summarised at the top of the form on submit. They
+     used to be one form-level string rendered directly above the
+     submit button, pushing it down. The confirm field compares
+     against a ref mirror of the new password, so editing the new
+     password can re-check a confirm field that has already
+     errored, mid-keystroke, against the freshest value. */
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const newPasswordRef = useRef("");
+  const newPasswordField = useBuiField((value) => (value.length < PASSWORD_MIN_LENGTH ? PASSWORD_LENGTH_MESSAGE : ""));
+  const confirmPasswordField = useBuiField((value) => (value !== newPasswordRef.current ? MISMATCH_MESSAGE : ""));
+  const fieldSummary = [
+    ...(newPasswordField.error ? [{ fieldId: "reset-new-password", label: "New password", message: newPasswordField.error }] : []),
+    ...(confirmPasswordField.error
+      ? [{ fieldId: "reset-confirm-password", label: "Confirm new password", message: confirmPasswordField.error }]
+      : [])
+  ];
 
   // Validate the recovery link on mount and establish the recovery session.
   useEffect(() => {
@@ -126,15 +148,12 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError("");
 
-    if (newPassword.length < PASSWORD_MIN_LENGTH) {
-      setError(PASSWORD_LENGTH_MESSAGE);
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError(MISMATCH_MESSAGE);
-      return;
-    }
+    /* Rules 2 + 3: submit validates each field into its own slot
+       and the top summary; a broken field stops the submit here. */
+    setSubmitAttempted(true);
+    const lengthProblem = newPasswordField.runValidation(newPassword);
+    const matchProblem = confirmPasswordField.runValidation(confirmPassword);
+    if (lengthProblem || matchProblem) return;
 
     setBusy(true);
 
@@ -145,6 +164,7 @@ export default function ResetPasswordPage() {
 
       setNewPassword("");
       setConfirmPassword("");
+      newPasswordRef.current = "";
       setUpdated(true);
       window.setTimeout(() => {
         router.push("/login");
@@ -158,98 +178,114 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] min-w-0 w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
-      <section className="min-w-0 space-y-5">
-        <Badge>Account help</Badge>
-        <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-ink sm:text-6xl">
-          Choose a new password.
-        </h1>
-        <p className="max-w-xl text-base font-semibold leading-7 text-slate-600">
-          Your reset link brought you here. Pick a new password to get back into your Roamly account.
-        </p>
-      </section>
+    <div className="bg-cbg">
+      <div className="bui-safe-bottom mx-auto grid min-h-[calc(100dvh-7rem)] min-w-0 w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[0.95fr_1fr] lg:items-center">
+        {/* Apply-All Sweep (2026-11-03): same auth treatment as
+            login — token ground + the Round 1 pricing hero panel.
+            Copy and all recovery behaviour unchanged. */}
+        <section className="bui-enter min-w-0 overflow-hidden rounded-[2rem] border border-white bg-[linear-gradient(135deg,#ffffff,#E6EFFA_52%,#FFF0E6)] p-6 shadow-bui-hero sm:p-10">
+          <BuiBadge tone="primary">Account help</BuiBadge>
+          <h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight tracking-tight text-chead sm:text-6xl">
+            Choose a new password.
+          </h1>
+          <p className="mt-4 max-w-xl text-base font-semibold leading-7 text-cink">
+            Your reset link brought you here. Pick a new password to get back into your Roamly account.
+          </p>
+        </section>
 
-      <Card className="mx-auto min-w-0 w-full max-w-md">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Roamly account</p>
-        <h2 className="mt-2 text-2xl font-black text-ink">Set new password</h2>
+        <BuiCard className="bui-enter mx-auto min-w-0 w-full max-w-md rounded-bui-panel p-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Roamly account</p>
+        <h2 className="mt-2 text-2xl font-black text-chead">Set new password</h2>
         <div className="mt-5">
           {status === "checking" ? (
-            <p className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-slate-500">
-              Checking your reset link...
-            </p>
+            <BuiNotice tone="info" title="Checking your reset link..." />
           ) : null}
 
           {status === "invalid" ? (
-            <div className="space-y-4">
-              <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-                This reset link is invalid or has expired. Request a new one to continue.
-              </p>
-              <Link
-                href="/forgot-password"
-                className="flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400"
-              >
+            <div className="bui-enter space-y-4">
+              <BuiNotice tone="error" title="This reset link is invalid or has expired. Request a new one to continue." />
+              <BuiButtonLink href="/forgot-password" className="w-full">
                 Request a new reset link
-              </Link>
+              </BuiButtonLink>
             </div>
           ) : null}
 
           {status === "ready" && !updated ? (
-            <form onSubmit={submit} className="space-y-4">
-              <label className="block">
-                <span className="text-sm font-black text-ink">New password</span>
+            <form onSubmit={submit} noValidate className="bui-enter space-y-4">
+              {/* noValidate + Rule 3: the form's own blur-first field
+                  validation owns error timing, and form-level problems
+                  surface at the TOP of the form — the submit summary
+                  links to each broken field, and the update failure
+                  lands in the same slot. Nothing error-shaped renders
+                  between the last field and the submit button anymore. */}
+              {submitAttempted ? <BuiErrorSummary errors={fieldSummary} /> : null}
+
+              {error ? <BuiNotice tone="error" title={error} /> : null}
+
+              <label key={`new-${newPasswordField.shakeKey}`} className={newPasswordField.shakeKey > 0 ? "bui-shake block" : "block"}>
+                <span className="text-sm font-black text-chead">New password</span>
                 <input
+                  id="reset-new-password"
                   value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    newPasswordRef.current = next;
+                    setNewPassword(next);
+                    newPasswordField.onChange(next);
+                    if (confirmPasswordField.watching) confirmPasswordField.runValidation(confirmPassword);
+                  }}
+                  onBlur={() => newPasswordField.onBlur(newPassword)}
                   type="password"
                   autoComplete="new-password"
                   aria-label="New password"
-                  className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                  aria-invalid={newPasswordField.error ? true : undefined}
+                  aria-describedby={newPasswordField.error ? "reset-new-password-error" : undefined}
+                  className={`bui-input mt-2 w-full rounded-2xl border bg-white px-4 py-3 font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${
+                    newPasswordField.error ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"
+                  }`}
                 />
+                <BuiFieldError id="reset-new-password-error" message={newPasswordField.error} />
               </label>
 
-              <label className="block">
-                <span className="text-sm font-black text-ink">Confirm new password</span>
+              <label key={`confirm-${confirmPasswordField.shakeKey}`} className={confirmPasswordField.shakeKey > 0 ? "bui-shake block" : "block"}>
+                <span className="text-sm font-black text-chead">Confirm new password</span>
                 <input
+                  id="reset-confirm-password"
                   value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  onChange={(event) => {
+                    setConfirmPassword(event.target.value);
+                    confirmPasswordField.onChange(event.target.value);
+                  }}
+                  onBlur={() => confirmPasswordField.onBlur(confirmPassword)}
                   type="password"
                   autoComplete="new-password"
                   aria-label="Confirm new password"
-                  className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                  aria-invalid={confirmPasswordField.error ? true : undefined}
+                  aria-describedby={confirmPasswordField.error ? "reset-confirm-password-error" : undefined}
+                  className={`bui-input mt-2 w-full rounded-2xl border bg-white px-4 py-3 font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${
+                    confirmPasswordField.error ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"
+                  }`}
                 />
+                <BuiFieldError id="reset-confirm-password-error" message={confirmPasswordField.error} />
               </label>
 
-              {error ? (
-                <p className="rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-                  {error}
-                </p>
-              ) : null}
-
-              <button
-                type="submit"
-                disabled={busy}
-                className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
-              >
+              <BuiButton type="submit" busy={busy} className="w-full">
                 {busy ? "Updating..." : "Update password"}
-              </button>
+              </BuiButton>
             </form>
           ) : null}
 
           {status === "ready" && updated ? (
-            <div className="space-y-4">
-              <p className="rounded-2xl border border-ocean/20 bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
-                {SUCCESS_MESSAGE}
-              </p>
-              <Link
-                href="/login"
-                className="flex w-full items-center justify-center rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink shadow-soft transition hover:border-ocean hover:text-ocean"
-              >
+            <div className="bui-enter space-y-4">
+              <BuiNotice tone="success" title={SUCCESS_MESSAGE} />
+              <BuiButtonLink href="/login" variant="secondary" className="w-full">
                 Go to login now
-              </Link>
+              </BuiButtonLink>
             </div>
           ) : null}
         </div>
-      </Card>
+        </BuiCard>
+      </div>
     </div>
   );
 }

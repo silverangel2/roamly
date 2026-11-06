@@ -1,6 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { BuiChip } from "@/components/boardui/Badge";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
+import type { BuiTone } from "@/components/boardui/tokens";
 
 type RepairRecord = {
   id: string;
@@ -153,11 +158,11 @@ function verificationLabel(repair: RepairRecord) {
   return statusLabel(repair.status);
 }
 
-function statusClass(status?: string | null, verificationStatus?: RepairRecord["verification_status"]) {
+function statusTone(status?: string | null, verificationStatus?: RepairRecord["verification_status"]): BuiTone {
   if (verificationStatus === "uncertain" || verificationStatus === "still_affected" || (status === "applied" && verificationStatus === "pending")) {
-    return "bg-amber-100 text-amber-800";
+    return "warm";
   }
-  if (verificationStatus === "resolved") return "bg-emerald-100 text-emerald-800";
+  if (verificationStatus === "resolved") return "success";
   const value = (status || "").toLowerCase();
 
   if (
@@ -165,11 +170,11 @@ function statusClass(status?: string | null, verificationStatus?: RepairRecord["
       value
     )
   ) {
-    return "bg-emerald-100 text-emerald-800";
+    return "success";
   }
 
   if (value === "rejected") {
-    return "bg-slate-100 text-slate-700";
+    return "neutral";
   }
 
   if (
@@ -177,10 +182,10 @@ function statusClass(status?: string | null, verificationStatus?: RepairRecord["
       value
     )
   ) {
-    return "bg-coral/10 text-coral";
+    return "danger";
   }
 
-  return "bg-amber-100 text-amber-800";
+  return "warm";
 }
 
 function actionable(status?: string | null) {
@@ -269,41 +274,33 @@ export default function CompanionRepairCenter({
   }
 
   return (
-    <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
+    <section className="bui-enter rounded-bui-panel border border-chair bg-white p-5 shadow-bui-card">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
             Trip repairs
           </p>
 
-          <h2 className="mt-2 text-2xl font-black text-ink">
+          <h2 className="mt-2 text-2xl font-black text-chead">
             Companion disruption center
           </h2>
 
-          <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-slate-600">
+          <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-cink">
             Review changes affecting your trip and approve only
             itinerary-safe repairs. Roamly will not purchase,
             cancel, refund, or pay for external services here.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => void loadRepairs()}
-          className="rounded-full bg-white px-4 py-2 text-xs font-black text-ink ring-1 ring-cloud"
-        >
+        <BuiButton type="button" variant="secondary" size="small" onClick={() => void loadRepairs()}>
           Refresh
-        </button>
+        </BuiButton>
       </div>
 
-      {error ? (
-        <p className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-          {error}
-        </p>
-      ) : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-4" /> : null}
 
       <div className="mt-5 grid gap-4">
-        {repairs.map((repair) => {
+        {repairs.map((repair, repairIndex) => {
           const details =
             repairDetails(repair);
 
@@ -313,32 +310,31 @@ export default function CompanionRepairCenter({
           return (
             <article
               key={repair.id}
-              className="rounded-2xl bg-mist p-4"
+              className="bui-enter rounded-bui-card border border-chair bg-cbg p-4"
+              style={{ "--bui-delay": `${Math.min(repairIndex * 60, 240)}ms` } as CSSProperties}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-black ${statusClass(repair.status, repair.verification_status)}`}
-                  >
+                  <BuiChip tone={statusTone(repair.status, repair.verification_status)}>
                     {verificationLabel(repair)}
-                  </span>
+                  </BuiChip>
 
-                  <h3 className="mt-3 text-lg font-black text-ink">
+                  <h3 className="mt-3 text-lg font-black text-chead">
                     {details.title}
                   </h3>
 
-                  <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+                  <p className="mt-2 text-sm font-bold leading-6 text-cink">
                     {details.summary}
                   </p>
                   {repair.operation === "REMOVE_OPTIONAL_ACTIVITY" ? (
-                    <p className="mt-2 text-sm font-black text-ink">
+                    <p className="mt-2 text-sm font-black text-chead">
                       Approval removes this one conflicting optional activity from the itinerary. It does not rebook, cancel, refund, or purchase anything.
                     </p>
                   ) : null}
                 </div>
 
                 {repair.created_at ? (
-                  <p className="shrink-0 text-xs font-bold text-slate-400">
+                  <p className="shrink-0 text-xs font-bold text-cgray2">
                     {new Date(
                       repair.created_at
                     ).toLocaleString()}
@@ -348,7 +344,7 @@ export default function CompanionRepairCenter({
 
               {details.affectedPlans.length ? (
                 <div className="mt-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-cgray2">
                     Affected plans
                   </p>
 
@@ -357,7 +353,7 @@ export default function CompanionRepairCenter({
                       (item) => (
                         <p
                           key={item}
-                          className="rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-600"
+                          className="rounded-xl border border-chair bg-white px-3 py-2 text-sm font-bold text-cink"
                         >
                           {item}
                         </p>
@@ -369,7 +365,7 @@ export default function CompanionRepairCenter({
 
               {details.actions.length ? (
                 <div className="mt-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-cgray2">
                     Suggested repair
                   </p>
 
@@ -378,7 +374,7 @@ export default function CompanionRepairCenter({
                       (item) => (
                         <p
                           key={item}
-                          className="rounded-xl bg-white px-3 py-2 text-sm font-bold text-slate-600"
+                          className="rounded-xl border border-chair bg-white px-3 py-2 text-sm font-bold text-cink"
                         >
                           {item}
                         </p>
@@ -390,39 +386,40 @@ export default function CompanionRepairCenter({
 
               {canAct ? (
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <button
+                  <BuiButton
                     type="button"
                     disabled={busy !== null}
+                    busy={busy === `approve:${repair.id}`}
                     onClick={() =>
                       void runAction(
                         repair.id,
                         "approve"
                       )
                     }
-                    className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 disabled:opacity-50"
                   >
                     {busy ===
                     `approve:${repair.id}`
                       ? "Applying…"
                       : "Approve repair"}
-                  </button>
+                  </BuiButton>
 
-                  <button
+                  <BuiButton
                     type="button"
+                    variant="secondary"
                     disabled={busy !== null}
+                    busy={busy === `reject:${repair.id}`}
                     onClick={() =>
                       void runAction(
                         repair.id,
                         "reject"
                       )
                     }
-                    className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud disabled:opacity-50"
                   >
                     {busy ===
                     `reject:${repair.id}`
                       ? "Keeping plan…"
                       : "Keep original plan"}
-                  </button>
+                  </BuiButton>
                 </div>
               ) : null}
             </article>
@@ -430,9 +427,11 @@ export default function CompanionRepairCenter({
         })}
 
         {!repairs.length ? (
-          <p className="rounded-2xl bg-mist px-4 py-4 text-sm font-black text-slate-500">
-            No Companion repairs are waiting for you.
-          </p>
+          <BuiCard className="p-4">
+            <p className="text-sm font-black text-cgray">
+              No Companion repairs are waiting for you.
+            </p>
+          </BuiCard>
         ) : null}
       </div>
     </section>

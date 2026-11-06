@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fetchWithSupabaseAuth, getSupabaseBrowserSessionUser } from "@/lib/roamly/authenticatedFetch";
+import { BuiUnlockIcon } from "@/components/boardui/AnimatedIcons";
 
 type CheckoutKind = "itinerary" | "tracking" | "complete";
 
@@ -106,8 +107,13 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("itinerary")}
             disabled={Boolean(busy)}
-            className="w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-ink ring-1 ring-cloud transition hover:ring-ocean disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-ink ring-1 ring-cloud transition hover:ring-ocean disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
+            {/* Animated unlock (2026-11-04): while secure checkout
+                opens, the shackle springs open on the real spring
+                at ζ=0.32 — it swings ~34% past its rest angle
+                before settling, the reel's overshoot. */}
+            <BuiUnlockIcon open={busy === "itinerary"} className="h-5 w-5" />
             {busy === "itinerary" ? "Opening secure checkout..." : isPhilippinesTrip ? "Unlock itinerary — ₱99" : "Unlock itinerary — $4.99 CAD"}
           </button>
           <p className="px-1 text-xs font-medium leading-4 text-slate-500">
@@ -120,8 +126,9 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("tracking")}
             disabled={Boolean(busy)}
-            className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
+            <BuiUnlockIcon open={busy === "tracking"} className="h-5 w-5" />
             {busy === "tracking" ? "Opening secure checkout..." : isPhilippinesTrip ? "Add Live Companion — ₱79" : "Add Live Companion — $3.99 CAD"}
           </button>
           <p className="px-1 text-xs font-medium leading-4 text-slate-500">

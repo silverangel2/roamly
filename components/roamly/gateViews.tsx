@@ -10,6 +10,10 @@
  */
 
 import type { ReactNode } from "react";
+import { Check } from "lucide-react";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiSheet } from "@/components/boardui/Sheet";
 import Image from "next/image";
 import {
   ALERTS_BANNER_LINE,
@@ -20,17 +24,18 @@ import {
 export const GATE_LOGO_SRC = "/icon-512.png";
 
 function SheetShell(props: { children: ReactNode; measure?: string }) {
+  // Container Rules pass (2026-11-03): the gate sheets ride the shared
+  // BuiSheet primitive — the identical bottom sheet on phones; on
+  // desktop the sheet becomes the rule-4 side drawer (40vw, 320px
+  // floor) with the page readable beside it. Gates stay
+  // non-dismissible: they close only through their own Later / Not
+  // now controls, exactly as before (dismissible={false} — no scrim
+  // tap, no new gesture). Copy, order and the phone rendering are
+  // untouched.
   return (
-    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-[rgba(10,28,21,0.34)]" />
-      <section
-        data-measure={props.measure}
-        className="absolute inset-x-0 bottom-0 rounded-t-[22px] bg-white px-5 pb-[26px] pt-[18px] shadow-[0_-12px_34px_rgba(8,44,32,0.22)]"
-      >
-        <div className="mx-auto mb-[14px] h-[4.5px] w-[38px] rounded-[3px] bg-[#d8e2dd]" />
-        {props.children}
-      </section>
-    </div>
+    <BuiSheet measure={props.measure} dismissible={false} className="px-5 pb-[26px] pt-[18px]">
+      {props.children}
+    </BuiSheet>
   );
 }
 
@@ -39,9 +44,9 @@ function BrandRow(props: { step: string }) {
     <div className="flex items-center gap-[9px]">
       <Image src={GATE_LOGO_SRC} alt="Roamly logo" width={38} height={38} className="h-[38px] w-[38px] rounded-[10px]" />
       <span className="text-[17px] font-extrabold text-[#0b3d2b]">Roamly</span>
-      <span className="ml-auto rounded-full bg-[#f7ecc9] px-2 py-1 text-[11px] font-bold tracking-[0.04em] text-[#7a5b12]">
+      <BuiBadge tone="warm" className="ml-auto">
         {props.step}
-      </span>
+      </BuiBadge>
     </div>
   );
 }
@@ -56,25 +61,17 @@ function SheetReason(props: { children: ReactNode }) {
 
 function PrimaryButton(props: { children: ReactNode; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      className="mt-4 block w-full rounded-[13px] bg-[#0b6e4f] py-[14.5px] text-center text-[16px] font-bold text-white"
-    >
+    <BuiButton type="button" onClick={props.onClick} className="mt-4 w-full text-base">
       {props.children}
-    </button>
+    </BuiButton>
   );
 }
 
 function LaterButton(props: { onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={props.onClick}
-      className="mt-[6px] block w-full py-[10.5px] text-center text-[14.5px] font-semibold text-[#46655a]"
-    >
+    <BuiButton type="button" variant="ghost" onClick={props.onClick} className="mt-[6px] w-full">
       Later
-    </button>
+    </BuiButton>
   );
 }
 
@@ -103,7 +100,7 @@ export function InstallSheetView(props: {
         seconds, and your itinerary continues right after.
       </SheetReason>
       {props.guided ? (
-        <div className="mt-[13px] rounded-[12px] border border-[#dce8e1] bg-[#f2f6f4] px-[13px] py-[11px]">
+        <div className="mt-[13px] rounded-bui-card border border-chair bg-cbg px-[13px] py-[11px] shadow-bui-card">
           {props.guidedKind === "numbered-steps" ? (
             <ol className="list-none text-[13.5px] leading-[1.5] text-[#33463d]">
               <li><b className="text-[#12211b]">1.</b> Tap the Share icon in your browser.</li>
@@ -124,7 +121,7 @@ export function InstallSheetView(props: {
           <button
             type="button"
             onClick={props.onSelfReportInstalled}
-            className="mt-2 text-[13px] font-semibold text-[#0b6e4f]"
+            className="bui-press bui-touch mt-2 inline-flex items-center text-[13px] font-semibold text-cblue"
           >
             I&apos;ve installed it — check again
           </button>
@@ -178,8 +175,8 @@ export function AlertsDeniedSheetView(props: {
         changes arrive as alerts. Alerts are required, so this trip can&apos;t continue until
         they&apos;re on.
       </SheetReason>
-      <div className="mt-[13px] rounded-[12px] border border-[#dce8e1] bg-[#f2f6f4] px-[13px] py-[11px]">
-        <p className="text-[12px] font-bold tracking-[0.03em] text-[#0b6e4f]">TURN THEM ON — TAKES TEN SECONDS</p>
+      <div className="mt-[13px] rounded-bui-card border border-chair bg-cbg px-[13px] py-[11px] shadow-bui-card">
+        <p className="text-[12px] font-bold tracking-[0.03em] text-cblue">TURN THEM ON — TAKES TEN SECONDS</p>
         <p className="mt-[3px] text-[13.5px] leading-[1.45] text-[#33463d]">
           <b className="text-[#12211b]">{props.settingsPath}</b>. Then come back here — Roamly
           checks again the moment you return.
@@ -209,7 +206,7 @@ export function GateBannerView(props: {
         type="button"
         data-measure="gate-banner"
         onClick={props.onTap}
-        className="flex h-[46px] w-full items-center gap-[9px] rounded-[12px] bg-[#0b3d2b] py-[9px] pl-[11px] pr-[10px] text-left text-[#eaf4ef] shadow-[0_5px_16px_rgba(8,44,32,0.20)]"
+        className="bui-press flex h-[46px] w-full items-center gap-[9px] rounded-[12px] bg-[#0b3d2b] py-[9px] pl-[11px] pr-[10px] text-left text-[#eaf4ef] shadow-[0_5px_16px_rgba(8,44,32,0.20)]"
       >
         <Image src={GATE_LOGO_SRC} alt="" width={23} height={23} className="h-[23px] w-[23px] flex-none rounded-[6px] bg-white p-[2px]" />
         <span className="min-w-0 flex-1 text-[13px] font-semibold leading-tight">
@@ -234,9 +231,9 @@ export function GmailAskSheetView(props: { onConnect: () => void; onNotNow: () =
       <div className="flex items-center gap-[9px]">
         <Image src={GATE_LOGO_SRC} alt="Roamly logo" width={38} height={38} className="h-[38px] w-[38px] rounded-[10px]" />
         <span className="text-[17px] font-extrabold text-[#0b3d2b]">Roamly</span>
-        <span className="ml-auto rounded-full bg-[#f7ecc9] px-2 py-1 text-[11px] font-bold tracking-[0.04em] text-[#7a5b12]">
+        <BuiBadge tone="warm" className="ml-auto">
           CONNECT GMAIL
-        </span>
+        </BuiBadge>
       </div>
       <SheetTitle>Keep this trip matched to your bookings</SheetTitle>
       <SheetReason>
@@ -245,13 +242,9 @@ export function GmailAskSheetView(props: { onConnect: () => void; onNotNow: () =
         your other mail. Gmail is the only mailbox Roamly connects to.
       </SheetReason>
       <PrimaryButton onClick={props.onConnect}>Connect Gmail</PrimaryButton>
-      <button
-        type="button"
-        onClick={props.onNotNow}
-        className="mt-[6px] block w-full py-[10.5px] text-center text-[14.5px] font-semibold text-[#46655a]"
-      >
+      <BuiButton type="button" variant="ghost" onClick={props.onNotNow} className="mt-[6px] w-full">
         Not now
-      </button>
+      </BuiButton>
       <SheetMicro>
         Without it, Roamly can&apos;t update this trip from your bookings — times here stay as
         first planned.
@@ -273,11 +266,11 @@ export function GateReadyView(props: {
   return (
     <section
       data-measure="gates-ready-card"
-      className="mx-[14px] my-3 rounded-[16px] border border-[#dce8e1] bg-white px-[14px] py-[13px]"
+      className="bui-enter mx-[14px] my-3 rounded-bui-card border border-chair bg-white px-[14px] py-[13px] shadow-bui-card"
     >
       <div className="flex gap-[11px] py-[7px]">
-        <span className="mt-[1px] flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#0b6e4f] text-[13.5px] font-extrabold text-white">
-          ✓
+        <span className="mt-[1px] flex h-6 w-6 flex-none items-center justify-center rounded-full bg-cgreen text-[13.5px] font-extrabold text-white">
+          <Check size={14} strokeWidth={3} aria-hidden="true" />
         </span>
         <div>
           <p className="text-[14.5px] font-bold text-[#12211b]">Roamly app — installed, alerts on</p>
@@ -286,12 +279,12 @@ export function GateReadyView(props: {
           </p>
         </div>
       </div>
-      <div className="flex gap-[11px] border-t border-[#eef3f0] py-[7px]">
+      <div className="flex gap-[11px] border-t border-chair py-[7px]">
         {props.gmailArmed || props.gmailConnected ? (
           <>
-            <span className="mt-[1px] flex h-6 w-6 flex-none items-center justify-center rounded-full bg-[#0b6e4f] text-[13.5px] font-extrabold text-white">
-              ✓
-            </span>
+            <span className="mt-[1px] flex h-6 w-6 flex-none items-center justify-center rounded-full bg-cgreen text-[13.5px] font-extrabold text-white">
+          <Check size={14} strokeWidth={3} aria-hidden="true" />
+        </span>
             <div>
               <p className="text-[14.5px] font-bold text-[#12211b]">Gmail — connected</p>
               <p className="mt-[1px] text-[12.5px] leading-[1.35] text-[#5c6f66]">
@@ -308,25 +301,17 @@ export function GateReadyView(props: {
                 So this trip can keep itself matched to your bookings — booking confirmations only,
                 never your other mail.
               </p>
-              <button
-                type="button"
-                onClick={props.onConnectGmail}
-                className="mt-2 rounded-full bg-[#0b6e4f] px-4 py-2 text-[13px] font-bold text-white"
-              >
+              <BuiButton type="button" size="small" onClick={props.onConnectGmail} className="mt-2">
                 Connect Gmail
-              </button>
+              </BuiButton>
             </div>
           </>
         )}
       </div>
       {props.onContinue ? (
-        <button
-          type="button"
-          onClick={props.onContinue}
-          className="mt-2 block w-full rounded-[13px] bg-[#0b6e4f] py-3 text-center text-[15px] font-bold text-white"
-        >
+        <BuiButton type="button" onClick={props.onContinue} className="mt-2 w-full">
           Continue to my trip
-        </button>
+        </BuiButton>
       ) : null}
     </section>
   );

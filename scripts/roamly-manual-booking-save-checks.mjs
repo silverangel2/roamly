@@ -172,9 +172,11 @@ function makeDb({ tripCurrency = null, planningCurrency = null } = {}) {
   return { supabase, bookings, ctx };
 }
 
-// INTEGRATION NOTE: the merged wallet also imports two pure, import-free
-// modules these single-PR sandboxes never stubbed: bookingDateTime (#88)
-// and bookingCorrections (#90). Load the REAL files (never a
+// INTEGRATION NOTE: the merged wallet also imports pure modules these
+// single-PR sandboxes never stubbed: bookingDateTime (#88),
+// bookingCorrections (#90), and — since Workstream A — bookingTruth
+// (which itself imports testBooking at runtime) and the import-free
+// bookingNotificationWithdrawal. Load the REAL files (never a
 // re-implementation) so the suites keep testing real code.
 function loadRealTs(relativePath) {
   const compiledReal = ts.transpileModule(read(relativePath), {
@@ -184,7 +186,10 @@ function loadRealTs(relativePath) {
     exports: {},
     module: { exports: {} },
     console,
-    require(id) { throw new Error(`unexpected require(${id}) while loading ${relativePath}`); }
+    require(id) {
+      if (id === "@/lib/roamly/testBooking") return loadRealTs("lib/roamly/testBooking.ts");
+      throw new Error(`unexpected require(${id}) while loading ${relativePath}`);
+    }
   };
   sb.exports = sb.module.exports;
   vm.runInNewContext(compiledReal, sb);
@@ -192,6 +197,8 @@ function loadRealTs(relativePath) {
 }
 const realBookingDateTime = loadRealTs("lib/roamly/bookingDateTime.ts");
 const realBookingCorrections = loadRealTs("lib/roamly/bookingCorrections.ts");
+const realBookingTruth = loadRealTs("lib/roamly/bookingTruth.ts");
+const realBookingNotificationWithdrawal = loadRealTs("lib/roamly/bookingNotificationWithdrawal.ts");
 
 // ---- load the real wallet module, sandboxed ----
 const compiled = ts.transpileModule(walletSource, {
@@ -208,6 +215,8 @@ const sandbox = {
     if (id === "@/lib/roamly/bookingSupersession") return { isOperationalCurrentBooking: (b) => !b.superseded_by_booking_id };
     if (id === "@/lib/roamly/bookingDateTime") return realBookingDateTime;
     if (id === "@/lib/roamly/bookingCorrections") return realBookingCorrections;
+    if (id === "@/lib/roamly/bookingTruth") return realBookingTruth;
+    if (id === "@/lib/roamly/bookingNotificationWithdrawal") return realBookingNotificationWithdrawal;
     return require(id);
   }
 };

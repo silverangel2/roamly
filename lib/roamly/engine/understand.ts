@@ -118,6 +118,85 @@ export function extractMustSeeDesires(requestText: string, unresolved?: string[]
   return [...new Set(out.map((s) => s.trim()))].filter(Boolean).slice(0, 6);
 }
 
+/* Must-do HEAD nouns (2026-10-30, Banff gondola defect): a stated
+ * must-do names an EXPERIENCE or KIND of place plus, often, a place
+ * it happens at — "the gondola ride up Sulphur Mountain", "the ferry
+ * ride across to Levis". The capitalized words are CONTEXT (where);
+ * a lowercase kind noun is the ASK itself (what). A candidate that
+ * matches only the context — the station at the top of the mountain,
+ * reached by the very ride that was asked for — is a RELATED
+ * attraction, not the must-do, and must never silently satisfy it.
+ * The requirement derived here is what the solver enforces: a
+ * candidate counts only when it names the head noun itself or is of
+ * the head noun's kind. Labels whose only kind nouns are proper
+ * nouns ("Montmorency Falls") carry no requirement — the proper
+ * name IS the ask, and the existing pattern ladder governs. */
+const MUST_SEE_HEAD_NOUNS: ReadonlySet<string> = new Set([
+  "museum", "market", "garden", "park", "beach", "castle", "falls", "waterfall",
+  "lighthouse", "ferry", "tour", "walk", "viewpoint", "gallery", "theatre",
+  "theater", "cinema", "zoo", "aquarium", "palace", "cathedral", "bridge",
+  "tower", "harbour", "harbor", "trail", "springs", "gondola", "marketplace",
+  "river", "winery", "brewery", "distillery", "library", "stadium", "mosque",
+  "temple", "church", "funicular", "tram", "cruise", "boat", "kayak", "canoe",
+  "train"
+]);
+
+/** Head-noun -> solver kind, for the nouns whose kind the engine
+ *  already speaks (plus gondola, whose candidates — when the data
+ *  carries the ride at all — are typed for the lift itself). */
+const MUST_SEE_HEAD_KINDS: Record<string, string> = {
+  falls: "falls",
+  waterfall: "falls",
+  lighthouse: "lighthouse",
+  ferry: "ferry",
+  market: "market",
+  museum: "museum",
+  gondola: "gondola"
+};
+
+export interface MustSeeRequirement {
+  /** Head nouns a satisfying candidate's NAME must contain (any). */
+  patterns: string[];
+  /** Kinds a satisfying candidate may carry instead of the name. */
+  kinds: string[];
+}
+
+/** Derive the head-noun requirement from a must-do label: the
+ *  lowercase (non-proper-noun) kind nouns in statement order.
+ *
+ *  Modifier rule (2026-11-01, Halifax ferry defect): when a label
+ *  carries a head noun the engine can type-check (a MUST_SEE_HEAD_KINDS
+ *  noun — ferry, museum, falls, lighthouse, market, gondola), THAT
+ *  noun is the operative ask and the label's other head nouns are its
+ *  modifiers/context. "One harbour ferry ride" asks for a FERRY;
+ *  "harbour" only says which ferry. Letting the modifier satisfy the
+ *  requirement on its own re-opened the related-attraction
+ *  substitution this requirement exists to close: the solver matched
+ *  the ferry must-see to "Indian Harbour Light" — a lighthouse
+ *  excursion whose name contains "harbour" (6 letters, beating
+ *  "ferry" at 5 in the solver's longest-pattern scoring) — reported
+ *  it "scheduled", and the actual ferry ride vanished from the plan
+ *  (Phase 5 harness, halifax-coastal: the day-2 ferry day became an
+ *  excursion day and the budget golden moved 288 -> 294 on the
+ *  changed item mix). The pattern ladder already treats bare
+ *  "harbour" exactly this way — tier-3 context that never rides
+ *  along when a kind word names the ask (generate.ts
+ *  mustSeePatterns). A label with NO type-checkable head noun keeps
+ *  every head noun it has (hot springs, funicular): there the nouns
+ *  are all the requirement can honestly state. */
+export function mustSeeRequirement(label: string): MustSeeRequirement {
+  const headNouns: string[] = [];
+  for (const raw of String(label || "").split(/[^A-Za-z0-9'’-]+/)) {
+    if (!raw || /^[A-Z]/.test(raw)) continue; // proper noun = context
+    const w = raw.toLowerCase();
+    if (MUST_SEE_HEAD_NOUNS.has(w) && !headNouns.includes(w)) headNouns.push(w);
+  }
+  const typed = headNouns.filter((w) => MUST_SEE_HEAD_KINDS[w]);
+  const patterns = typed.length ? typed : headNouns;
+  const kinds = [...new Set(patterns.map((p) => MUST_SEE_HEAD_KINDS[p]).filter(Boolean))];
+  return { patterns, kinds };
+}
+
 /** The honest sentence the day words carry when a must-see (from
  *  any source) could not be matched to a real place in the pack:
  *  the miss is named, never silently dropped and never invented

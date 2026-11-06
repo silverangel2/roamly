@@ -122,7 +122,7 @@ export async function schedulePreTrip1DayBriefing(params: {
   }
   const currentBookings = await db
     .from("roamly_bookings")
-    .select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,origin,destination,traveler_confirmed")
+    .select("id,booking_type,booking_status,title,provider_name,start_at,check_in_at,origin,destination,traveler_confirmed,confirmation_number,provider_booking_id,source_type,source_reference,metadata,reservation_requirements")
     .eq("trip_id", currentTrip.id)
     .eq("user_id", currentTrip.user_id)
     .is("superseded_by_booking_id", null)

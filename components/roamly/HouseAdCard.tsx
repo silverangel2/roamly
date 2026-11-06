@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, X } from "lucide-react";
+import { HouseAdImage } from "@/components/roamly/HouseAdImage";
 import {
   houseAdCandidates,
   houseAdClickPath,
@@ -134,11 +136,9 @@ export function HouseAdCard({
         className="group flex h-full flex-row sm:min-h-44"
       >
         <span className="relative block w-28 shrink-0 overflow-hidden min-[420px]:w-32 sm:w-64">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <HouseAdImage
             src={creative.image}
             alt={creative.imageAlt}
-            loading="lazy"
             className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
           />
         </span>
@@ -152,8 +152,13 @@ export function HouseAdCard({
           <span className="line-clamp-1 text-[13px] leading-snug text-slate-600 sm:line-clamp-none sm:text-sm sm:leading-relaxed">{creative.body}</span>
           <span className="mt-1.5 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full bg-[#0f6e66] px-3 py-1.5 text-[13px] font-bold text-white transition group-hover:bg-[#0e605a] sm:mt-2 sm:px-4 sm:py-2 sm:text-sm">
             {creative.ctaLabel}
-            <span aria-hidden="true">→</span>
+            <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} />
           </span>
+          {creative.imageCredit ? (
+            <span className="block text-[10px] leading-snug text-slate-400">
+              Photo: {creative.imageCredit}
+            </span>
+          ) : null}
         </span>
       </a>
       <span
@@ -167,9 +172,9 @@ export function HouseAdCard({
         onClick={onDismiss}
         tabIndex={focusable ? undefined : -1}
         aria-label="Hide this sponsored card"
-        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 text-base leading-none text-white backdrop-blur-sm transition hover:bg-black/65"
+        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-base leading-none text-white backdrop-blur-sm transition hover:bg-black/65"
       >
-        ×
+        <X aria-hidden="true" size={16} strokeWidth={2.5} />
       </button>
     </aside>
   );

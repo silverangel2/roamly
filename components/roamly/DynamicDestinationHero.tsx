@@ -1,9 +1,13 @@
 "use client";
 
 import Image, { type StaticImageData } from "next/image";
+import { Minus, Pause, Play, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BuiButtonLink } from "@/components/boardui/Button";
 import { Button } from "@/components/ui/Button";
 import { PLAN_START_NOTE } from "@/lib/roamly/planTripUx";
+import { PlaceSelector } from "@/components/roamly/PlaceSelector";
+import { recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
 
 import amalfi from "../../content/social/roamly-25-day-reel-campaign/sources/amalfi-couple-01.png";
 import bali from "../../content/social/roamly-25-day-reel-campaign/sources/bali-memories-01.png";
@@ -58,9 +62,27 @@ export function DynamicDestinationHero() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [rotationPaused, setRotationPaused] = useState(false);
   const [pausedUntil, setPausedUntil] = useState(0);
+  // A9: search-first entry — Where / Dates / Travellers, deep-linking into
+  // /plan. The plan form consumes destination, startDate, endDate and
+  // travelers (see TripPlanForm), so every answer here actually prefills.
+  const [wherePlace, setWherePlace] = useState<NormalizedPlace | null>(null);
+  const [heroStartDate, setHeroStartDate] = useState("");
+  const [heroEndDate, setHeroEndDate] = useState("");
+  const [heroTravelers, setHeroTravelers] = useState(1);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = destinations[activeIndex];
   const incoming = destinations[incomingIndex];
+  const searchHref = useMemo(() => {
+    // An untouched Where keeps the existing hero behaviour: the trip is
+    // prefilled with the destination currently on screen.
+    const params = new URLSearchParams({
+      destination: wherePlace?.value || wherePlace?.label || active.name,
+      travelers: String(heroTravelers)
+    });
+    if (heroStartDate) params.set("startDate", heroStartDate);
+    if (heroEndDate) params.set("endDate", heroEndDate);
+    return `/plan?${params.toString()}`;
+  }, [active.name, heroEndDate, heroStartDate, heroTravelers, wherePlace]);
   const nextIndex = useMemo(() => (activeIndex + 1) % destinations.length, [activeIndex]);
 
   useEffect(() => {
@@ -112,25 +134,82 @@ export function DynamicDestinationHero() {
 
       <div className="mx-auto grid min-h-[calc(100svh-8rem)] w-full max-w-7xl items-center gap-9 px-5 py-8 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:py-12 lg:grid-cols-[0.88fr_1.12fr] lg:gap-12 lg:px-12">
         <div className="roamly-enter order-1 flex flex-col items-start lg:order-1">
-          <h1 className="max-w-[36rem] text-[3.2rem] font-semibold leading-[0.96] tracking-[-0.055em] text-[#203c43] sm:text-6xl lg:text-[4.5rem]">
-            Go somewhere. <span className="text-[#0f6e66]">Feel at home there.</span>
+          <h1 className="max-w-[36rem] text-[3.2rem] font-semibold leading-[0.96] tracking-[-0.055em] text-[#223354] sm:text-6xl lg:text-[4.5rem]">
+            Go somewhere. <span className="text-[#087BFF]">Feel at home there.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-7 text-[#526b6c] sm:text-lg sm:leading-8">
+          <p className="mt-5 max-w-lg text-base leading-7 text-[#657795] sm:text-lg sm:leading-8">
             A thoughtful itinerary shaped around your pace, your budget, and the moments you want to remember.
           </p>
-          <div className="mt-7 flex flex-col items-start gap-2">
-            <Button href={`/plan?destination=${encodeURIComponent(active.name)}`} className="min-h-12 rounded-full bg-[#0f6e66] px-6 text-white shadow-[0_10px_24px_rgba(22,135,127,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#0e605a] hover:shadow-[0_14px_28px_rgba(22,135,127,0.25)] motion-reduce:transform-none motion-reduce:transition-none">
-              Plan a trip
-            </Button>
-            <p className="text-sm font-medium text-[#617777]">{PLAN_START_NOTE}</p>
+          <div className="mt-7 w-full max-w-lg rounded-[1.5rem] border border-[#d8e5dd] bg-white/90 p-4 shadow-[0_18px_50px_rgba(39,88,80,0.09)] sm:p-5">
+            <PlaceSelector
+              label="Where"
+              value={wherePlace}
+              onChange={setWherePlace}
+              placeholder={active.name}
+              popularPlaces={recommendedPlaces}
+            />
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-sm font-black text-ink">Start date</span>
+                <input
+                  type="date"
+                  value={heroStartDate}
+                  onChange={(event) => setHeroStartDate(event.target.value)}
+                  aria-label="Start date"
+                  className="mt-2 min-h-12 w-full rounded-xl border border-cloud bg-[#fffdf8] px-3 py-3 text-base font-semibold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-black text-ink">End date</span>
+                <input
+                  type="date"
+                  value={heroEndDate}
+                  min={heroStartDate || undefined}
+                  onChange={(event) => setHeroEndDate(event.target.value)}
+                  aria-label="End date"
+                  className="mt-2 min-h-12 w-full rounded-xl border border-cloud bg-[#fffdf8] px-3 py-3 text-base font-semibold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+                />
+              </label>
+            </div>
+            <div className="mt-4">
+              <span className="text-sm font-black text-ink">Travellers</span>
+              <div className="mt-2 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-cloud bg-[#fffdf8] px-1.5 py-1">
+                <button
+                  type="button"
+                  aria-label="Decrease travellers"
+                  disabled={heroTravelers <= 1}
+                  onClick={() => setHeroTravelers((count) => Math.max(1, count - 1))}
+                  className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-slate-700 transition hover:bg-mist hover:text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 disabled:opacity-40"
+                >
+                  <Minus aria-hidden="true" size={18} strokeWidth={2.5} />
+                </button>
+                <span aria-live="polite" className="min-w-8 text-center text-base font-bold text-ink">
+                  {heroTravelers} {heroTravelers === 1 ? "traveller" : "travellers"}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Increase travellers"
+                  onClick={() => setHeroTravelers((count) => count + 1)}
+                  className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-slate-700 transition hover:bg-mist hover:text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20"
+                >
+                  <Plus aria-hidden="true" size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-col items-start gap-2">
+              <Button href={searchHref} className="min-h-12 rounded-full bg-[#0f6e66] px-6 text-white shadow-[0_10px_24px_rgba(22,135,127,0.2)] transition duration-200 hover:-translate-y-0.5 hover:bg-[#0e605a] hover:shadow-[0_14px_28px_rgba(22,135,127,0.25)] motion-reduce:transform-none motion-reduce:transition-none">
+                Plan a trip
+              </Button>
+              <p className="text-sm font-medium text-[#617777]">{PLAN_START_NOTE}</p>
+            </div>
           </div>
         </div>
 
         <div className="roamly-enter order-2 lg:order-2" style={{ animationDelay: "100ms" }}>
-          <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#dcebe8] shadow-[0_28px_80px_rgba(39,88,80,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
+          <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#E6EFFA] shadow-[0_28px_80px_rgba(7, 30, 85,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
             <Image src={active.image} alt={`${active.name}, ${active.country}`} fill priority sizes="(min-width: 1024px) 54vw, 100vw" className="absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700" style={{ objectPosition: active.desktopPosition }} />
             <Image src={incoming.image} alt="" fill sizes="(min-width: 1024px) 54vw, 100vw" aria-hidden="true" className={`absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 via-black/15 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-5">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#071E55]/60 via-[#071E55]/15 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-5">
               <div key={active.name} aria-live="polite">
                 <p className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{active.name}</p>
                 <p className="text-sm text-white/85">{active.country}</p>
@@ -156,12 +235,12 @@ export function DynamicDestinationHero() {
                   onClick={() => setRotationPaused((paused) => !paused)}
                   aria-label={rotationPaused ? "Resume destination previews" : "Pause destination previews"}
                   aria-pressed={rotationPaused}
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/90 text-[#203c43] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/90 text-[#203c43] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
                 >
                   {rotationPaused ? (
-                    <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3 fill-current"><path d="M3 1.5v9l7-4.5-7-4.5z" /></svg>
+                    <Play aria-hidden="true" size={12} fill="currentColor" className="h-3 w-3" />
                   ) : (
-                    <svg aria-hidden="true" viewBox="0 0 12 12" className="h-3 w-3 fill-current"><path d="M2 1.5h3v9H2zM7 1.5h3v9H7z" /></svg>
+                    <Pause aria-hidden="true" size={12} fill="currentColor" className="h-3 w-3" />
                   )}
                 </button>
               </div>

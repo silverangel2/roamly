@@ -5,7 +5,7 @@
  * (2026-10-26) against screenshots-latest/correct-4-pages.jpg,
  * TOP-RIGHT panel, followed literally, top to bottom:
  * header (back chevron, "COUNTRY INFO" eyebrow, destination, date
- * line, bookmark + ellipsis icons) → tabs Overview / Entry & Travel
+ * line) → tabs Overview / Entry & Travel
  * / Transport / Safety → photo hero with weather overlay card →
  * "Key information" grid (icon + label + value lines, six cells) →
  * "Travel notes for this trip" checklist card → full-width
@@ -36,6 +36,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Clock, Cloud, Flag, MapPin, MessageCircle, Plug } from "lucide-react";
 import { COUNTRY_INFO_TABS } from "@/lib/roamly/countryInfoPanelTypes";
 import type { CountryInfoPanelModel, CountryInfoTabId } from "@/lib/roamly/countryInfoPanelTypes";
 
@@ -53,7 +54,7 @@ function CheckList({ items }: { items: string[] }) {
         <li key={item} className="flex gap-2.5 text-[16px] font-normal leading-[1.5] text-cink">
           <span
             aria-hidden
-            className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1a9e4b] text-[12px] font-bold text-white"
+            className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cgreen text-[12px] font-bold text-white"
           >
             ✓
           </span>
@@ -88,30 +89,21 @@ function GridIcon({ cellKey, countryValue }: { cellKey: string; countryValue?: s
     }
     return (
       <span aria-hidden className={`${wrap} text-cblue`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M5 21V4" />
-          <path d="M5 4h13l-2.5 4L18 12H5" />
-        </svg>
+        <Flag size={22} strokeWidth={2} aria-hidden="true" />
       </span>
     );
   }
   if (cellKey === "city") {
     return (
       <span aria-hidden className={`${wrap} rounded-full bg-csoft text-cblue`}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11Z" />
-          <circle cx="12" cy="10" r="2.5" />
-        </svg>
+        <MapPin size={16} strokeWidth={2.2} aria-hidden="true" />
       </span>
     );
   }
   if (cellKey === "timezone") {
     return (
       <span aria-hidden className={`${wrap} text-cblue`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v5l3 2" />
-        </svg>
+        <Clock size={22} strokeWidth={2} aria-hidden="true" />
       </span>
     );
   }
@@ -125,29 +117,14 @@ function GridIcon({ cellKey, countryValue }: { cellKey: string; countryValue?: s
   if (cellKey === "language") {
     return (
       <span aria-hidden className={`${wrap} text-cblue`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12a8 8 0 0 1-8 8H4l2-3.5A8 8 0 1 1 21 12Z" />
-          <path d="M8 12h8" />
-        </svg>
+        <MessageCircle size={22} strokeWidth={2} aria-hidden="true" />
       </span>
     );
   }
   return (
     <span aria-hidden className={`${wrap} text-cblue`}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M9 2v5H7v3h10V7h-2V2h-2v5h-2V2H9Z" />
-        <path d="M12 10v4" stroke="currentColor" strokeWidth="2" />
-        <path d="M8 14h8v3a4 4 0 0 1-8 0v-3Z" />
-      </svg>
+      <Plug size={22} strokeWidth={2} aria-hidden="true" />
     </span>
-  );
-}
-
-function BookmarkIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-cnavy">
-      <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1Z" />
-    </svg>
   );
 }
 
@@ -177,23 +154,25 @@ export function CountryInfoPanel({
 
   return (
     <div>
-      {/* Header, in the picture's order: back chevron left, bookmark +
-          ellipsis right; eyebrow, destination, date line. No origin
-          line — the picture has none. The bookmark / ellipsis icons
-          are present visually as in the picture; no bookmark feature
-          exists in this codebase, so they carry no action. */}
-      <div className="flex items-center justify-between">
+      {/* Header, in the picture's order: back chevron left; eyebrow,
+          destination, date line. No origin line — the picture has
+          none. Jakob's Law A7 (2026-11-03): the bookmark and
+          ellipsis icons the picture showed at top-right are REMOVED
+          — no bookmark feature exists in this codebase, and in the
+          reference apps those positions mean Save and More, so dead
+          icons there are a familiarity defect, not decoration.
+          A2: the back control now carries the 44px minimum target
+          and a visible "Itinerary" label. */}
+      <div className="flex items-center">
         <a
           href={model.itineraryHref}
           aria-label="Back to itinerary"
-          className="text-[32px] font-normal leading-none text-chead"
+          className="flex min-h-11 min-w-11 items-center gap-0.5 text-chead"
+
         >
-          ‹
+          <ChevronLeft size={32} strokeWidth={2} aria-hidden="true" />
+          <span className="text-[15px] font-semibold leading-5">Itinerary</span>
         </a>
-        <div className="flex items-center gap-4" aria-hidden>
-          <BookmarkIcon />
-          <span className="text-[22px] font-bold leading-none tracking-[0.18em] text-chead">•••</span>
-        </div>
       </div>
       <p className="mt-2 text-[15px] font-semibold uppercase tracking-[0.06em] text-cgray">COUNTRY INFO</p>
       <h1 className="mt-1.5 text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">
@@ -206,7 +185,7 @@ export function CountryInfoPanel({
       )}
 
       {/* Tabs: real tab state, one panel visible at a time. */}
-      <div role="tablist" aria-label="Country information" className="mt-5 flex gap-3 border-b border-chair sm:gap-5">
+      <div role="tablist" aria-label="Country information" className="mt-5 flex gap-1 overflow-x-auto rounded-full border border-chair bg-csoft p-1 shadow-bui-card">
         {COUNTRY_INFO_TABS.map((tab) => {
           const selected = activeTab === tab.id;
           return (
@@ -217,8 +196,8 @@ export function CountryInfoPanel({
               aria-selected={selected}
               data-tab-id={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`-mb-px whitespace-nowrap border-b-2 pb-2 text-[14px] font-semibold sm:text-[15px] ${
-                selected ? "border-cblue text-cblue" : "border-transparent text-cgray"
+              className={`bui-press bui-touch shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-[14px] font-semibold sm:text-[15px] ${
+                selected ? "bg-cnavy text-white shadow-bui-card" : "text-cgray hover:bg-white hover:text-chead"
               }`}
             >
               {tab.label}
@@ -228,7 +207,7 @@ export function CountryInfoPanel({
       </div>
 
       {activeTab === "overview" ? (
-        <div role="tabpanel" data-panel-id="overview" className="pt-5">
+        <div role="tabpanel" data-panel-id="overview" className="bui-enter pt-5">
           {/* Photo hero + weather overlay card, in the picture's
               position (top-right of the photo). The card keeps the
               picture's shape — cloud icon + date "avg." label — but
@@ -245,21 +224,37 @@ export function CountryInfoPanel({
                 loading="lazy"
                 onLoad={() => setPhotoState("loaded")}
                 onError={() => setPhotoState("failed")}
-                className={`h-[188px] w-full rounded-[18px] object-cover transition-opacity duration-300 ${
+                className={`h-[188px] w-full rounded-bui-panel border border-chair object-cover shadow-bui-card transition-opacity duration-300 ${
                   photoState === "loaded" ? "opacity-100" : "opacity-0"
                 }`}
               />
+              {/* Weather display rules at card scale (owner set,
+                  2026-11-04, applied in the BoardUI branch): the
+                  text block shares ONE left edge; gaps come from
+                  three sizes only (4/8/12); one plain text style,
+                  nothing shouting; base text (white) + ONE accent
+                  (the csoft icon); the secondary line stays at
+                  white/90 on a deepened scrim for readable
+                  contrast; the emoji glyph becomes a stroke icon
+                  at one fixed size (20px), the Lucide cloud. The
+                  weather model carries a message + a period label
+                  only — no temperature value and no hourly/daily
+                  series — so the huge-temperature, grouping and
+                  range-bar rules have no honest data on this
+                  surface and are NOT staged (APPLY-ALL-REPORT.md,
+                  section E). */}
               <span
                 data-weather-overlay
-                className="absolute right-3 top-3 flex max-w-[62%] gap-2.5 rounded-xl bg-black/55 px-3 py-2.5 text-white"
+                className="absolute right-3 top-3 flex max-w-[62%] gap-2 rounded-bui-card bg-cnavy/80 px-3 py-2.5 text-white"
               >
-                <span aria-hidden className="mt-0.5 shrink-0 text-[20px] leading-none">
-                  ☁
+                <span aria-hidden className="mt-0.5 shrink-0">
+                  <Cloud size={20} strokeWidth={2} />
                 </span>
+
                 <span>
                   <span className="block text-[14px] font-semibold leading-5">{model.weather.message}</span>
                   {model.weather.avgLabel ? (
-                    <span className="mt-0.5 block text-[13px] font-normal leading-5 text-white/90">
+                    <span className="mt-1 block text-[13px] font-normal leading-5 text-white/90">
                       {model.weather.avgLabel}
                     </span>
                   ) : null}
@@ -290,7 +285,7 @@ export function CountryInfoPanel({
           <h2 className="text-[19px] font-bold tracking-[-0.018em] text-chead">Key information</h2>
           <dl className="mt-3 grid grid-cols-3 gap-2">
             {model.grid.map((cell) => (
-              <div key={cell.key} className="flex min-w-0 gap-2 rounded-2xl bg-cbg px-2 py-3">
+              <div key={cell.key} className="flex min-w-0 gap-2 rounded-bui-card border border-chair bg-cbg px-2 py-3 shadow-bui-card">
                 <GridIcon cellKey={cell.key} countryValue={cell.key === "country" ? (cell.valueLines?.join(" ") ?? cell.value ?? null) : null} />
                 <div className="min-w-0">
                   <dt className="text-[12px] font-normal leading-4 text-cgray">{cell.label}</dt>
@@ -331,18 +326,18 @@ export function CountryInfoPanel({
 
           <a
             href={model.itineraryHref}
-            className="relative mt-6 flex min-h-12 items-center justify-center rounded-xl bg-cblue px-5 text-[16.5px] font-semibold text-white"
+            className="bui-press bui-touch relative mt-6 flex min-h-12 items-center justify-center rounded-bui-card bg-cblue px-5 text-[16.5px] font-semibold text-white shadow-bui-card"
           >
             See full itinerary
-            <span aria-hidden className="absolute right-4 text-xl leading-none">
-              ›
+            <span aria-hidden className="absolute right-4 flex items-center">
+              <ChevronRight size={20} strokeWidth={2} />
             </span>
           </a>
         </div>
       ) : null}
 
       {activeTab === "entry-travel" ? (
-        <div role="tabpanel" data-panel-id="entry-travel" className="pt-5">
+        <div role="tabpanel" data-panel-id="entry-travel" className="bui-enter pt-5">
           <h2 className="text-[19px] font-bold tracking-[-0.018em] text-chead">Entry &amp; Travel</h2>
           <p className="mt-3 text-[16px] font-normal leading-[1.5] text-cink">
             {model.entryTravel.routeLine}
@@ -360,7 +355,7 @@ export function CountryInfoPanel({
       ) : null}
 
       {activeTab === "transport" ? (
-        <div role="tabpanel" data-panel-id="transport" className="pt-5">
+        <div role="tabpanel" data-panel-id="transport" className="bui-enter pt-5">
           <h2 className="text-[19px] font-bold tracking-[-0.018em] text-chead">Transport</h2>
           {model.transport.preference ? (
             <p className="mt-3 text-[16px] font-normal leading-[1.5] text-cink">
@@ -381,7 +376,7 @@ export function CountryInfoPanel({
       ) : null}
 
       {activeTab === "safety" ? (
-        <div role="tabpanel" data-panel-id="safety" className="pt-5">
+        <div role="tabpanel" data-panel-id="safety" className="bui-enter pt-5">
           <h2 className="text-[19px] font-bold tracking-[-0.018em] text-chead">Safety</h2>
           <div className="mt-3">
             <CheckList items={model.safety.lines} />

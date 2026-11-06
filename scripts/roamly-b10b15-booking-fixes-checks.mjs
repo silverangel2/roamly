@@ -167,8 +167,8 @@ function makeFakeDb(seed, failTables = new Set()) {
   assert.equal(isActiveTripBooking(cancelled), false, "cancelled booking is not active");
   assert.equal(isActiveTripBooking({ booking_status: "booked" }), true, "rows without the lineage field stay active (back-compat)");
 
-  const confirmed = { booking_status: "confirmed", traveler_confirmed: true, superseded_by_booking_id: null };
-  const confirmedSuperseded = { booking_status: "confirmed", traveler_confirmed: true, superseded_by_booking_id: "next" };
+  const confirmed = { booking_status: "confirmed", traveler_confirmed: true, superseded_by_booking_id: null, confirmation_code: "ALPHA4821", provider: "Alpha Hotels", source_type: "manual" };
+  const confirmedSuperseded = { booking_status: "confirmed", traveler_confirmed: true, superseded_by_booking_id: "next", confirmation_code: "ALPHA4821", provider: "Alpha Hotels", source_type: "manual" };
   assert.equal(isConfirmedBooking(confirmed), true, "confirmed current booking counts");
   assert.equal(isConfirmedBooking(confirmedSuperseded), false, "superseded confirmed booking does not count");
 
@@ -213,7 +213,7 @@ function makeFakeDb(seed, failTables = new Set()) {
 
   // Agreement with the canonical wallet predicate on canonical rows.
   for (const row of rows) {
-    const canonical = { booking_status: row.booking_status === "booked" ? "confirmed" : row.booking_status, traveler_confirmed: row.traveler_confirmed, superseded_by_booking_id: row.superseded_by_booking_id };
+    const canonical = { booking_status: row.booking_status === "booked" ? "confirmed" : row.booking_status, traveler_confirmed: row.traveler_confirmed, superseded_by_booking_id: row.superseded_by_booking_id, confirmation_code: "ALPHA4821", provider: "Alpha Hotels", source_type: "manual" };
     assert.equal(isConfirmedBudgetBooking(row), isConfirmedBooking(canonical), `budget mirror agrees with isConfirmedBooking for ${row.booking_status}`);
   }
   const manager = fs.readFileSync("components/roamly/TripBookingsManager.tsx", "utf8");
