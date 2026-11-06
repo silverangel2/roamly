@@ -657,7 +657,9 @@ const generationFinalization = read("lib/roamly/generationFinalization.ts");
   "reconcileCompletedGenerationJobs",
   "reconcileQueueCompletionIfRequired",
   "sendStagedGenerationEmail",
-  "kind: \"completion\""
+  "let completionKind: \"completion\" | \"failure\" = \"completion\";",
+  "completionKind = \"failure\"",
+  "kind: completionKind"
 ].forEach((needle) => assert.ok(generationFinalization.includes(needle), `generation finalization helper missing ${needle}`));
 assert.ok(!generationFinalization.includes("if (queueFinalization.skipped)"), "direct trip completion must not depend on skipped queue finalization");
 assert.ok(generationFinalization.includes("tripId?: string | null"), "stored generation recovery must support targeted trip repair without regenerating");
@@ -685,8 +687,8 @@ assert.ok(!progressComponent.includes("role=\"progressbar\""), "generation progr
 [
   "Your trip is safely saved. Roamly will continue building it even if you close this page.",
   "Getting to know your trip",
-  "Shape your trip",
-  "Finishing touches",
+  "Shaping your journey",
+  "Adding the useful details",
   "Your journey is taking shape",
   "Putting your trip together",
   "Your itinerary is ready",

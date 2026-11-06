@@ -201,6 +201,45 @@
             "text": "Book tours & activities",
             "url": "https://kkday.tpo.lu/DrPvqlSH"
           }
+        },
+        {
+          "type": "rest",
+          "part": "break",
+          "title": "A short pause — sit down, water, breathe",
+          "start": 944,
+          "end": 959,
+          "key": "break-2026-10-23-944",
+          "startTime": "15:44",
+          "endTime": "15:59"
+        },
+        {
+          "type": "stop",
+          "key": "way/22876797",
+          "name": "Marché Jean Talon",
+          "kind": "market",
+          "role": "mustsee",
+          "start": 969,
+          "end": 1029,
+          "pos": {
+            "lat": 45.5358997,
+            "lon": -73.6150632
+          },
+          "hours": {
+            "status": "known",
+            "open": 420,
+            "close": 1200,
+            "provenance": "osm"
+          },
+          "hoursRaw": "Mo-We 07:00-18:00; Th-Fr 07:00-20:00; Sa 07:00-18:00; Su 07:00-17:00",
+          "url": "https://www.openstreetmap.org/way/22876797",
+          "price": "UNKNOWN",
+          "startTime": "16:09",
+          "endTime": "17:09",
+          "affiliate": {
+            "label": "tours",
+            "text": "Book tours & activities",
+            "url": "https://kkday.tpo.lu/DrPvqlSH"
+          }
         }
       ],
       "legs": [
@@ -271,20 +310,33 @@
         },
         {
           "fromKey": "way/119271750",
-          "toKey": "base",
+          "toKey": "way/22876797",
           "fromName": "Square des Frères-Charon",
-          "toName": "Hôtel Place d'Armes",
-          "mode": "walk",
-          "km": 0.74,
+          "toName": "Marché Jean Talon",
+          "mode": "drive",
+          "km": 6.23,
           "minutes": 10,
-          "depart": 944,
-          "arrive": 954,
-          "departTime": "15:44",
-          "arriveTime": "15:54"
+          "depart": 959,
+          "arrive": 969,
+          "departTime": "15:59",
+          "arriveTime": "16:09"
+        },
+        {
+          "fromKey": "way/22876797",
+          "toKey": "base",
+          "fromName": "Marché Jean Talon",
+          "toName": "Hôtel Place d'Armes",
+          "mode": "drive",
+          "km": 5.62,
+          "minutes": 9,
+          "depart": 1029,
+          "arrive": 1038,
+          "departTime": "17:09",
+          "arriveTime": "17:18"
         }
       ],
       "narrative": [
-        "Friday, October 23 begins at a humane hour — the first stop is Galerie D'Art Inuit Images Boréales at 09:34, and nothing on this day starts before 09:00.",
+        "Friday, October 23 starts with Galerie D'Art Inuit Images Boréales at 09:34.",
         "The base for the night is Hôtel Place d'Armes, picked for what surrounds it: 80 sights within a short walk.",
         "Expect a mild 10° — good walking weather, with layers for the shade.",
         "Galerie D'Art Inuit Images Boréales gets the morning's main slot, 09:34 to 11:04 — unhurried, with time to double back to favourites.",
@@ -299,9 +351,13 @@
         "Give Canada a full 90 minutes (13:25–14:55); rushing it would miss the point.",
         "A short wander of 4 minutes brings you to Square des Frères-Charon.",
         "Square des Frères-Charon is the day's green pause, 14:59–15:44 — no tickets, no timetable to chase.",
-        "The day winds down back at base by 15:54 — 4 stops, no long walks, and the evening left free."
+        "A short pause is built in here — sit down, water, nowhere to be for a few minutes.",
+        "Then the day's one longer leg: about 10 minutes by road to Marché Jean Talon.",
+        "Marché Jean Talon is the place to browse like a local, 16:09–17:09 — go hungry.",
+        "The drive back to base runs about 9 minutes.",
+        "The day winds down back at base by 17:18 — 5 stops, no long walks, and the evening left free."
       ],
-      "endMin": 954
+      "endMin": 1038
     },
     {
       "dayNumber": 2,
@@ -581,7 +637,7 @@
         }
       ],
       "narrative": [
-        "Saturday, October 24 is built around Sir George-Étienne Cartier NHS, with the day's stops gathered close so the walking stays easy.",
+        "Saturday, October 24 is built around Sir George-Étienne Cartier NHS.",
         "Sir George-Étienne Cartier NHS gets the morning's main slot, 09:41 to 11:11 — unhurried, with time to double back to favourites.",
         "Opening hours weren't listed for Sir George-Étienne Cartier NHS — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "From Sir George-Étienne Cartier NHS, it is a 3-minute walk to Galerie Peter W. Hart — close enough to stroll without watching the clock.",
@@ -790,7 +846,7 @@
         }
       ],
       "narrative": [
-        "Sunday, October 25 is built around Élément du mur de Berlin, with the day's stops gathered close so the walking stays easy.",
+        "Sunday, October 25 is built around Élément du mur de Berlin.",
         "Élément du mur de Berlin fills 09:36–10:36 — long enough to enjoy properly, short enough to keep the day light.",
         "Opening hours weren't listed for Élément du mur de Berlin — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "From Élément du mur de Berlin, it is a 4-minute walk to Galerie 203 — close enough to stroll without watching the clock.",
@@ -1083,7 +1139,7 @@
         }
       ],
       "narrative": [
-        "Monday, October 26 is built around Centre des sciences de Montréal, with the day's stops gathered close so the walking stays easy.",
+        "Monday, October 26 is built around Centre des sciences de Montréal.",
         "Centre des sciences de Montréal gets the morning's main slot, 09:37 to 11:07 — unhurried, with time to double back to favourites.",
         "Centre des sciences de Montréal lists its hours as 09:00–16:00 today, and the visit sits comfortably inside them.",
         "From Centre des sciences de Montréal, it is a 11-minute walk to Galerie de Chine — close enough to stroll without watching the clock.",
@@ -1377,7 +1433,7 @@
         }
       ],
       "narrative": [
-        "Tuesday, October 27 is built around Bouche de métro Guimard, with the day's stops gathered close so the walking stays easy.",
+        "Tuesday, October 27 is built around Bouche de métro Guimard.",
         "Bouche de métro Guimard fills 09:38–10:38 — long enough to enjoy properly, short enough to keep the day light.",
         "Opening hours weren't listed for Bouche de métro Guimard — worth a glance at the door, though the visit is set mid-day when places are likeliest to be open.",
         "From Bouche de métro Guimard, it is a 6-minute walk to Galerie 2000 — close enough to stroll without watching the clock.",
@@ -1431,8 +1487,9 @@
     {
       "id": "keyword-market",
       "label": "Jean Talon market morning",
-      "status": "unmet",
-      "reason": "candidate \"Marché Jean Talon\" exists but no feasible slot remained (distance/geometry)"
+      "status": "scheduled",
+      "day": 1,
+      "item": "Marché Jean Talon"
     }
   ],
   "solverNotes": [],
@@ -1455,7 +1512,7 @@
     {
       "id": "earliest-start",
       "verdict": "KEPT",
-      "evidence": "all 23 timed items start at or after 09:00"
+      "evidence": "all 24 timed items start at or after 09:00"
     },
     {
       "id": "rest-block",
@@ -1464,8 +1521,8 @@
     },
     {
       "id": "keyword-market",
-      "verdict": "VIOLATED",
-      "evidence": "nothing in the itinerary matches Jean Talon market morning"
+      "verdict": "KEPT",
+      "evidence": "itinerary mentions \"jean talon\" (Jean Talon market morning)"
     },
     {
       "id": "keyword-science-centre",

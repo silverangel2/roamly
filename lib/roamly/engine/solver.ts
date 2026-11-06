@@ -134,6 +134,16 @@ export interface MustSeeSpec {
   id: string;
   label: string;
   patterns: string[];
+  /** Head-noun requirement (2026-10-30, Banff gondola defect): when
+   *  present, a candidate satisfies this must-see only if its name
+   *  contains one of these patterns or its kind is one of these
+   *  kinds. The patterns above may match a RELATED attraction (the
+   *  summit station for a gondola ride up the same mountain); the
+   *  requirement is what stops that related place from silently
+   *  standing in for the experience the traveler actually asked
+   *  for. Absent = the historical behaviour, unchanged. */
+  requiredPatterns?: string[];
+  requiredKinds?: string[];
 }
 
 export interface RestSpec {
@@ -273,10 +283,18 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
   // name once scheduled can never be scheduled again on any day
   // of the same trip, by any path, in any run.
   const usedActivityNames = new Set<string>();
+  // V1 RESTORE (owner decision, 2026-11-01): names carried in from
+  // PRIOR batches, tracked separately. GATE-1B refuses these
+  // absolutely — the long-stay relaxation in usable() never applies
+  // to a name an earlier run scheduled (see there).
+  const priorActivityNames = new Set<string>();
   for (const prior of spec.priorActivities || []) {
     if (prior.key) used.add(prior.key);
     const priorName = mealNameKey(prior.name || "");
-    if (priorName) usedActivityNames.add(priorName);
+    if (priorName) {
+      usedActivityNames.add(priorName);
+      priorActivityNames.add(priorName);
+    }
   }
   const lastUsedDay = new Map<string, number>(); // candidate key -> 0-based day it last ran (long-stay relaxation)
   const scheduledDay = new Map<string, number>(); // candidate key -> 0-based day it was actually scheduled (any path)
@@ -318,7 +336,23 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     // `.some(nm.includes(normText(p)))` let an empty needle match
     // every candidate. The kind fallback below is unchanged and still
     // runs only when no pattern matches at all.
-    const needles = ms.patterns.map((p) => normText(p)).filter((n) => n.length > 0);
+    // Head-noun requirement: pattern matches on a candidate that
+    // does not itself name the asked-for experience/kind (nor carry
+    // its kind) are related-attraction matches — they never satisfy
+    // the must-see. Track them so an unmet result can say honestly
+    // that only related places were found. The requirement patterns
+    // are needles too: the ladder may drop the bare head noun from
+    // the pattern set when a context bigram matched the pool (the
+    // gondola case — "sulphur mountain" matched, "gondola" fell to
+    // the unused tier), yet a candidate naming the head noun itself
+    // is exactly the match the must-see wants.
+    const reqPatterns = (ms.requiredPatterns || []).map((p) => normText(p)).filter((n) => n.length > 0);
+    const reqKinds = ms.requiredKinds || [];
+    const hasRequirement = reqPatterns.length > 0 || reqKinds.length > 0;
+    const needles = [...new Set([...ms.patterns.map((p) => normText(p)), ...reqPatterns])].filter((n) => n.length > 0);
+    const requirementMet = (c: EngineCandidate): boolean =>
+      !hasRequirement || reqKinds.includes(c.kind) || reqPatterns.some((p) => normText(c.name).includes(p));
+    let relatedOnlyMatch = false;
     let best: { c: EngineCandidate; longest: number; count: number } | null = null;
     for (const c of pools) {
       const nm = normText(c.name);
@@ -331,6 +365,10 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         }
       }
       if (count === 0) continue;
+      if (!requirementMet(c)) {
+        relatedOnlyMatch = true;
+        continue;
+      }
       if (!best || longest > best.longest || (longest === best.longest && count > best.count)) {
         best = { c, longest, count };
       }
@@ -338,14 +376,17 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     let cand: EngineCandidate | null = best?.c ?? null;
     if (!cand) {
       const kinds = [...new Set(ms.patterns.map((p) => KIND_BY_PATTERN[normText(p)]).filter(Boolean))];
-      cand = pools.find((c) => kinds.includes(c.kind)) || null;
+      cand = pools.find((c) => kinds.includes(c.kind) && requirementMet(c)) || null;
     }
     if (!cand) {
       mustSeeResults.push({
         id: ms.id,
         label: ms.label,
         status: "unmet",
-        reason: "no matching candidate exists in the open data for this destination"
+        reason:
+          hasRequirement && relatedOnlyMatch
+            ? "only related places match — the requested experience itself is not in the open data for this destination"
+            : "no matching candidate exists in the open data for this destination"
       });
       continue;
     }
@@ -465,22 +506,35 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     if (softUsed.has(c.key)) return null;
     if (pinnedKeyDay.size && pinnedKeyDay.has(c.key) && pinnedKeyDay.get(c.key) !== dayIdx) return null; // reserved for its pinned day
     if (closedKeys && closedKeys.has(`${c.key}@${dayIdx}`)) return null; // a stated fact closed this place on this day
-    // GATE-1B: a name already scheduled on any day of this trip (this
-    // run or a prior batch) can never be picked again — not even via
-    // the long-stay relaxation below. Validation forbids the name
-    // repeat outright, so a relaxed repeat is a guaranteed plan
-    // failure, never a favourite returning. The relaxation path is
-    // left in place but can no longer emit a validation-failing
-    // repeat: a relaxed candidate's name is by construction already
-    // recorded, so it is refused here first.
-    if (usedActivityNames.has(mealNameKey(c.name))) return null;
-    if (!used.has(c.key)) return "fresh";
+    // V1 RESTORE (owner decision, 2026-11-01): the established
+    // long-stay relaxation (owner pacing rule, 2026-10-21) is
+    // evaluated BEFORE the GATE-1B name refusal — but only for the
+    // exact case it was built for: this very candidate was scheduled
+    // earlier IN THIS RUN (lastUsedDay holds its day; addStop stamps
+    // the repeat from it), it is a beloved repeatable kind
+    // (RELAX_KINDS), the trip is a long single-base stay
+    // (relaxFavorites), its name did NOT arrive from a prior batch
+    // (priorActivityNames — GATE-1B's batch protection stays
+    // absolute), and it has rested RELAX_GAP_DAYS days. A candidate
+    // scheduled only by a must-see/ferry/excursion path never enters
+    // lastUsedDay, so it can never relax either. The GATE-1B refusal
+    // below still governs every other repeat: same-name twins,
+    // cross-batch names, non-repeatable kinds, short gaps.
     if (
       relaxFavorites &&
       RELAX_KINDS.includes(c.kind) &&
+      lastUsedDay.has(c.key) &&
+      !priorActivityNames.has(mealNameKey(c.name)) &&
       dayIdx - (lastUsedDay.get(c.key) ?? -99) >= RELAX_GAP_DAYS
     )
       return "repeat";
+    // GATE-1B: a name already scheduled on any day of this trip (this
+    // run or a prior batch) can never be picked again outside the
+    // relaxation above. Validation forbids the name repeat, so a
+    // non-relaxed repeat is a guaranteed plan failure, never a
+    // fallback.
+    if (usedActivityNames.has(mealNameKey(c.name))) return null;
+    if (!used.has(c.key)) return "fresh";
     return null;
   };
 
@@ -875,6 +929,38 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         if (closedKeys && closedKeys.has(`${m.cand.key}@${dayIdx}`)) continue;
         const hours = hoursFor(m.cand, date);
         const km0 = haversineKm(pos, m.cand.pos);
+        // Fit gate (2026-11-01, pinned-path closure of the Fredericton
+        // defect): a pin fixes the DAY, never the clock — every start
+        // this block emits is solver-chosen, so a lead placement must
+        // fit the Make-Sense judge's HARD limits before it is placed,
+        // exactly as the force block's gate does below:
+        //   * day end: judges.ts fails any non-logistics item ending
+        //     past dayEndLimit + 60 (DAY_END + 60 = 18:30 here);
+        //   * hunger: judges.ts (MEAL_GAP_LIMIT = 300) fails a day
+        //     running more than 5 h past its last meal — or, with no
+        //     meal yet (the lead run precedes the day's lunch, which
+        //     the skeleton only inserts afterwards), more than 5 h
+        //     from the day's first waking item to the visit's end,
+        //     since no meal can start before the lead run finishes.
+        // Pins are placed back to back with no meal or pause between
+        // them, so an ungated lead run could stack visits to 19:50
+        // with the first meal at 19:50 (proven: the pinned fit
+        // checks). A pin that cannot lead legally is NOT placed
+        // here; it stays free for the force block later in this same
+        // day, whose own gate may place it legally after lunch, and
+        // if no legal slot exists on its pinned day it is reported
+        // honestly UNMET by the end-of-solve sweep — never an
+        // illegal day, and never a silent drop.
+        const durPin = DURATIONS[m.cand.kind] || 45;
+        const fitArrivalPin = t + travelMin(km0, km0 > 1.2 ? "drive" : "walk");
+        const fitChkPin = slotCheck(hours, fitArrivalPin, durPin);
+        const fitStartPin = fitChkPin.ok ? Math.max(fitArrivalPin, fitChkPin.start) : fitArrivalPin;
+        const fitEndPin = fitStartPin + durPin;
+        const lastMealPin = [...items]
+          .reverse()
+          .find((i) => i.type === "food" || (i.type === "rest" && i.part === "meal"));
+        const hungerBasePin = lastMealPin ? lastMealPin.end : (items[0]?.start ?? fitStartPin);
+        if (fitEndPin > DAY_END + 60 || fitEndPin - hungerBasePin > 300) continue;
         move(m.cand.pos, m.cand.key, m.cand.name, km0 > 1.2 ? "drive" : "walk");
         const chk = slotCheck(hours, t, DURATIONS[m.cand.kind] || 45);
         const item = addStop(m.cand, hours, chk.ok ? Math.max(t, chk.start) : t, "mustsee");
@@ -1017,7 +1103,38 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         const arrival = t + travelMin(km, "drive");
         if (!slotCheck(hours, arrival, DURATIONS[m.cand.kind] || 45).ok) continue;
       }
-      paceFor(DURATIONS[m.cand.kind] || 45); // a forced stop obeys the same break cadence
+      // Fit gate (2026-11-01, Fredericton day-1 defect): a forced
+      // must-see is still a timed stop on the traveler's day, so it
+      // must fit the Make-Sense judge's HARD limits before it is
+      // placed — the limits pick() enforces for ordinary stops via
+      // DAY_END, and the two this block previously ignored entirely:
+      //   * day end: judges.ts fails any non-logistics item ending
+      //     past dayEndLimit + 60 (DAY_END + 60 = 18:30 here);
+      //   * hunger: judges.ts (MEAL_GAP_LIMIT = 300) fails a day
+      //     running more than 5 h past its last meal.
+      // The far-drive path above only slotChecked opening hours, so
+      // Quartermain Earth Science Centre was force-placed on
+      // Fredericton day 1 at 17:22–18:52 — past both limits — when a
+      // later day held it legally. A day that cannot fit the visit
+      // leaves it for a later FULL day, exactly as the old distance
+      // skip did. The pace break paceFor may insert for the visit is
+      // rolled back when the visit is deferred, so a skipped
+      // must-see leaves the day byte-identical to not trying.
+      const durMs = DURATIONS[m.cand.kind] || 45;
+      const snapT: number = t, snapSpan: number | null = spanStart, snapItems: number = items.length;
+      paceFor(durMs); // a forced stop obeys the same break cadence
+      const fitArrival = t + travelMin(km, far ? "drive" : "walk");
+      const fitChk = slotCheck(hours, fitArrival, durMs);
+      const fitEnd = (fitChk.ok ? Math.max(fitArrival, fitChk.start) : fitArrival) + durMs;
+      const lastMeal = [...items]
+        .reverse()
+        .find((i) => i.type === "food" || (i.type === "rest" && i.part === "meal"));
+      if (fitEnd > DAY_END + 60 || (lastMeal && fitEnd - lastMeal.end > 300)) {
+        items.length = snapItems;
+        t = snapT;
+        spanStart = snapSpan;
+        continue;
+      }
       move(m.cand.pos, m.cand.key, m.cand.name, far ? "drive" : "walk");
       const chk = slotCheck(hours, t, DURATIONS[m.cand.kind] || 45);
       const item = addStop(m.cand, hours, chk.ok ? Math.max(t, chk.start) : t, "mustsee");

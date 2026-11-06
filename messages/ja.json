@@ -54,6 +54,7 @@
       "copyTripLinkFallback": "ブラウザのアドレスバーから旅のリンクをコピーしてください。",
       "emailNotConfigured": "メール送信はまだ設定されていません。PDFを書き出すか、旅のリンクをコピーできます。",
       "itineraryEmailSent": "旅程メールを送信しました。",
+      "itineraryEmailSentTo": "{email} に旅程を送信しました。",
       "emailSendFailed": "旅程メールを送信できませんでした。",
       "sending": "送信中...", "saving": "保存中…", "terminal": "ターミナル", "noActiveTrip": "アクティブな旅行はありません", "nothingLive": "まだライブ状態ではありません。", "unlockCompanion": "まずライブトラベルコンパニオンを解除すると、Roamlyが旅行を案内します。", "checkedActivities": "確認済みアクティビティ", "currentDay": "今日", "nearbyNow": "現在地周辺", "noNearbyActivity": "近くにアクティビティが見つかりません。", "nearbyUpdate": "保存した立ち寄り先の近くに到着すると、Roamlyが更新します。",
       "unexpectedError": "問題が発生しました。", "noCheckedActivities": "確認済みのアクティビティはまだありません。", "dayNumber": "{day}日目", "noTimelineActivities": "この日のタイムライン活動はまだ保存されていません。",

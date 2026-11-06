@@ -54,6 +54,7 @@
       "copyTripLinkFallback": "브라우저 주소 표시줄에서 여행 링크를 복사하세요.",
       "emailNotConfigured": "이메일 전송이 아직 설정되지 않았습니다. PDF를 내보내거나 여행 링크를 복사할 수 있습니다.",
       "itineraryEmailSent": "일정 이메일을 보냈습니다.",
+      "itineraryEmailSentTo": "{email} 로 일정을 보냈습니다.",
       "emailSendFailed": "일정 이메일을 보낼 수 없습니다.",
       "sending": "보내는 중...", "saving": "저장 중…", "terminal": "터미널", "noActiveTrip": "활성 여행 없음", "nothingLive": "아직 진행 중인 항목이 없습니다.", "unlockCompanion": "먼저 라이브 여행 컴패니언을 잠금 해제하면 Roamly가 하루를 안내합니다.", "checkedActivities": "확인한 활동", "currentDay": "현재 날짜", "nearbyNow": "현재 주변", "noNearbyActivity": "주변 활동을 찾지 못했습니다.", "nearbyUpdate": "저장된 장소 근처에 도착하면 Roamly가 업데이트합니다.",
       "unexpectedError": "문제가 발생했습니다.", "noCheckedActivities": "아직 확인한 활동이 없습니다.", "dayNumber": "{day}일차", "noTimelineActivities": "이 날짜에 저장된 타임라인 활동이 아직 없습니다.",

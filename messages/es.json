@@ -54,6 +54,7 @@
       "copyTripLinkFallback": "Copia el enlace del viaje desde la barra de direcciones del navegador.",
       "emailNotConfigured": "El envío de correos aún no está configurado. Puedes exportar el PDF o copiar el enlace del viaje.",
       "itineraryEmailSent": "Correo del itinerario enviado.",
+      "itineraryEmailSentTo": "Itinerario enviado a {email}.",
       "emailSendFailed": "No se pudo enviar el correo del itinerario.",
       "sending": "Enviando...", "saving": "Guardando…", "terminal": "Terminal", "noActiveTrip": "No hay viaje activo", "nothingLive": "Aún no hay nada activo.", "unlockCompanion": "Desbloquea primero el compañero de viaje en directo para que Roamly te guíe.", "checkedActivities": "Actividades revisadas", "currentDay": "Día actual", "nearbyNow": "Cerca ahora", "noNearbyActivity": "No se detectó ninguna actividad cercana.", "nearbyUpdate": "Roamly actualizará esto cuando llegues cerca de una parada guardada.",
       "unexpectedError": "Algo salió mal.", "noCheckedActivities": "Aún no se ha revisado ninguna actividad.", "dayNumber": "Día {day}", "noTimelineActivities": "Aún no hay actividades guardadas para este día.",
