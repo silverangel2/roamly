@@ -27,7 +27,7 @@ export default async function AdminNotificationsPage() {
       <div className="mt-6 grid gap-3">
         {(data || []).map((event) => (
           <Card key={event.id} className="p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{event.event_type}</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{event.event_type}</p>
             <h2 className="mt-1 text-xl font-black text-ink">{event.event_title || "Notification event"}</h2>
             <p className="mt-1 text-sm font-bold text-slate-500">{event.event_body}</p>
           </Card>

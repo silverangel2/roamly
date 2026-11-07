@@ -18,7 +18,7 @@ export default function AdminPage() {
   return (
     <main>
       <section className="rounded-3xl border border-cloud bg-white p-5 shadow-soft sm:p-7">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
           Roamly Admin
         </p>
 

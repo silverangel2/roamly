@@ -546,18 +546,18 @@ export default async function LiveTripPage({
               <p className="text-xs font-black uppercase tracking-[0.18em] text-sun">Admin field test • Saint John</p>
               <p className="mt-1 text-sm font-black text-slate-600">Real Roamly Live Companion runtime</p>
             </div>
-            <a href={`/trip/${id}`} className="bui-press bui-touch inline-flex items-center rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white">Exit field test</a>
+            <a href={`/trip/${id}`} className="bui-press bui-touch inline-flex items-center rounded-xl bg-cblue px-3 py-2 text-xs font-black text-white">Exit field test</a>
           </div>
         </section>
-        <section className="bui-enter mb-5 rounded-bui-panel border-2 border-ocean/30 bg-white p-6 shadow-bui-card">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Admin-controlled mobile setup</p>
+        <section className="bui-enter mb-5 rounded-bui-panel border-2 border-cblue/30 bg-white p-6 shadow-bui-card">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Admin-controlled mobile setup</p>
           <h1 className="mt-3 text-4xl font-black tracking-tight text-ink">LIVE COMPANION FIELD TEST</h1>
-          <p className="mt-2 text-2xl font-black text-ocean">Saint John</p>
+          <p className="mt-2 text-2xl font-black text-cblue">Saint John</p>
           <p className="mt-3 text-sm font-bold leading-6 text-slate-600">This is the Admin field test using the real Roamly Live Companion.</p>
           <div className="mt-5 grid gap-3 text-sm font-black text-slate-700 sm:grid-cols-3">
-            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-ocean">STEP 1</span><br />Install Roamly</div>
-            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-ocean">STEP 2</span><br />Notifications</div>
-            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-ocean">STEP 3</span><br />Location</div>
+            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-cblue">STEP 1</span><br />Install Roamly</div>
+            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-cblue">STEP 2</span><br />Notifications</div>
+            <div className="rounded-bui-card border border-chair bg-cbg p-4"><span className="text-cblue">STEP 3</span><br />Location</div>
           </div>
         </section>
         <LiveTripClient

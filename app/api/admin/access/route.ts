@@ -52,7 +52,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const form = await request.formData();
+  // Empty/invalid body (consolidation 2026-11-06, Block H): an
+  // empty JSON POST used to throw inside formData() and surface
+  // as a bare 500. An unparseable submission is a client error —
+  // a clean 400 that names what was expected.
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "Expected a form submission carrying the admin code." },
+      { status: 400 }
+    );
+  }
 
   const password = String(form.get("password") || "");
 

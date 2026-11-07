@@ -30,7 +30,7 @@ export default async function AdminSettingsPage() {
           ["Admin emails", process.env.ROAMLY_ADMIN_EMAILS ? "Configured" : "Missing ROAMLY_ADMIN_EMAILS"]
         ].map(([label, value]) => (
           <Card key={label}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{label}</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{label}</p>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{value}</p>
           </Card>
         ))}

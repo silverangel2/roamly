@@ -22,7 +22,7 @@ export default async function AdminActivitiesPage() {
           <Card key={activity.id} className="p-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{activity.status}</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{activity.status}</p>
                 <h2 className="mt-1 text-xl font-black text-ink">{activity.title}</h2>
                 <p className="mt-1 text-sm font-bold text-slate-500">{activity.category || "Activity"} · {activity.city || "No city"}</p>
               </div>

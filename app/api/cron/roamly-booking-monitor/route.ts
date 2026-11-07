@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runScheduledBookingMonitor } from "@/lib/roamly/bookingMonitor";
 import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
 
 export const maxDuration = 300;
 
@@ -33,6 +35,19 @@ export async function GET(request: NextRequest) {
 
   const result =
     await runScheduledBookingMonitor();
+
+  // Per-lane measurement (EGRESS DIET): one heartbeat row per
+  // invocation in roamly_app_events, flagged when the work gate
+  // turned the run away. Best-effort only.
+  const heartbeatAdmin = createSupabaseAdminClient();
+  if (heartbeatAdmin) {
+    await recordCronHeartbeat(
+      heartbeatAdmin,
+      "roamly-booking-monitor",
+      result.ok === true,
+      { gated: "gated" in result && result.gated === true }
+    );
+  }
 
   return NextResponse.json(result, {
     status:

@@ -18,6 +18,19 @@ type GuideContent = {
   affiliateDisclosure?: string;
 };
 
+/*
+ * D14 (consolidation 2026-11-06): guides published before the
+ * generator started writing internalLinks render their "Useful
+ * Roamly links" section EMPTY. The page now falls back to the
+ * same standard link set the generator writes today, so a
+ * published guide never shows an empty links section.
+ */
+const DEFAULT_GUIDE_LINKS = [
+  { label: "Plan a trip with Roamly", href: "/plan" },
+  { label: "Roamly pricing", href: "/pricing" },
+  { label: "Contact Roamly support", href: "/contact" }
+];
+
 type GuidePageRow = {
   slug: string;
   seo_title: string;
@@ -75,6 +88,7 @@ export default async function GuidePage({ params }: GuidePageProps) {
   if (!page) notFound();
 
   const content = page.content || {};
+  const guideLinks = content.internalLinks?.length ? content.internalLinks : DEFAULT_GUIDE_LINKS;
   const ctaHref = content.cta?.href || "/plan";
   const ctaLabel = content.cta?.label || "Start planning your trip";
 
@@ -105,11 +119,11 @@ export default async function GuidePage({ params }: GuidePageProps) {
         ))}
       </section>
 
-      {content.internalLinks?.length ? (
+      {guideLinks.length ? (
         <section className="mt-8">
           <h2 className="text-2xl font-black text-ink">Useful Roamly links</h2>
           <div className="mt-4 flex flex-wrap gap-2">
-            {content.internalLinks.map((link) => (
+            {guideLinks.map((link) => (
               <Link key={link.href} href={link.href || "/plan"} className="rounded-xl bg-white px-4 py-2 text-sm font-black text-ink shadow-soft ring-1 ring-cloud">
                 {link.label || "Open Roamly"}
               </Link>

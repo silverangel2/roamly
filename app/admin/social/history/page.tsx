@@ -18,7 +18,7 @@ function formatDate(value?: string | null) {
 }
 
 function statusClass(status: string) {
-  if (status === "published") return "bg-ocean/10 text-ocean";
+  if (status === "published") return "bg-cblue/10 text-cblue";
   if (status === "failed") return "bg-coral/10 text-coral";
   if (status === "retrying") return "bg-sun/20 text-amber-800";
   return "bg-slate-100 text-slate-600";
@@ -132,7 +132,7 @@ export default async function AdminSocialHistoryPage({ searchParams }: HistoryPa
               <Card key={item.id} className="p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
                       {item.draft.post_format} · {item.draft.content_type}
                     </p>
                     <h2 className="mt-2 text-xl font-black text-ink">{item.draft.hook}</h2>

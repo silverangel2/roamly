@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     title: "Contact Roamly — trip & account support",
     description: "Need help with a trip or your Roamly account? Reach Roamly support.",
     url: "https://roamlyhq.com/contact",
+    type: "website",
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };

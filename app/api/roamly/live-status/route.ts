@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uuidParam } from "@/lib/roamly/tripIdParam";
 import { requireUser } from "@/lib/roamly/auth";
 import { getLiveStatusReadback } from "@/lib/roamly/liveStatus";
 
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const tripId = request.nextUrl.searchParams.get("tripId") || undefined;
+  const tripId = uuidParam(request.nextUrl.searchParams.get("tripId")) || undefined;
   const status = await getLiveStatusReadback(auth.supabase, auth.user.id, { tripId });
   return NextResponse.json(
     { ok: true, status },

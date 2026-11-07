@@ -45,6 +45,7 @@ export const metadata: Metadata = {
     title: "Create your free Roamly account",
     description: "Sign up free, build one custom trip itinerary, and keep every trip in one place.",
     url: "https://roamlyhq.com/signup",
+    type: "website",
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };
@@ -79,7 +80,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-corange">Simple accounts</p>
             <p className="mt-3 text-2xl font-black">One free itinerary now. One-time trip packs later.</p>
             <p className="mt-2 text-sm font-bold leading-6 text-cink">
-              No buyer/seller/admin tier complexity. Roamly stays light.
+              One account, one kind of traveller. No subscriptions, no tiers to decode.
             </p>
           </div>
         </section>

@@ -165,7 +165,7 @@ export default async function RepairReviewPage({ params }: PageParams) {
                         {clockOf(shift.beforeStart)}
                         {shift.beforeEnd ? `–${clockOf(shift.beforeEnd)}` : ""}
                       </span>
-                      <ArrowRight aria-hidden="true" size={16} strokeWidth={2.5} className="text-ocean" />
+                      <ArrowRight aria-hidden="true" size={16} strokeWidth={2.5} className="text-cblue" />
                       <span className="bui-display-number rounded-lg bg-csoft px-2.5 py-1 font-black text-cnavy">
                         {clockOf(shift.afterStart)}
                         {shift.afterEnd ? `–${clockOf(shift.afterEnd)}` : ""}

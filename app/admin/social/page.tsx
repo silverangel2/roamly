@@ -7,7 +7,7 @@ import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getFacebookAutomationSummary } from "@/lib/roamly/socialAutomation";
 
 function statusClass(ok: boolean) {
-  return ok ? "bg-ocean/10 text-ocean" : "bg-sun/20 text-amber-800";
+  return ok ? "bg-cblue/10 text-cblue" : "bg-sun/20 text-amber-800";
 }
 
 function formatDate(value?: string | null) {
@@ -68,17 +68,17 @@ export default async function AdminSocialPage() {
 
       <section className="mt-5 grid gap-4 lg:grid-cols-3">
         <Card className="p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next post</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Next post</p>
           <h2 className="mt-2 text-xl font-black text-ink">{summary.nextPost?.draft.hook || "No post scheduled"}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{formatDate(summary.nextPost?.scheduled_for)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next Reel</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Next Reel</p>
           <h2 className="mt-2 text-xl font-black text-ink">{summary.nextReel?.draft.hook || "No Reel scheduled"}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{formatDate(summary.nextReel?.scheduled_for)}</p>
         </Card>
         <Card className="p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Last successful autopost</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Last successful autopost</p>
           <h2 className="mt-2 text-xl font-black text-ink">
             {summary.recentActivity.find((item) => item.queue_status === "published")?.draft.hook || "None yet"}
           </h2>
@@ -94,7 +94,7 @@ export default async function AdminSocialPage() {
 
       <section className="mt-5 grid gap-4 lg:grid-cols-2">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Today&apos;s schedule</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Today&apos;s schedule</p>
           <div className="mt-4 grid gap-3">
             {summary.todaySchedule.map((item) => (
               <div key={item.id} className="rounded-xl bg-mist px-4 py-3">
@@ -106,7 +106,7 @@ export default async function AdminSocialPage() {
           </div>
         </Card>
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Weekly schedule</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Weekly schedule</p>
           <div className="mt-4 grid gap-3">
             {summary.weekSchedule.slice(0, 10).map((item) => (
               <div key={item.id} className="rounded-xl bg-mist px-4 py-3">

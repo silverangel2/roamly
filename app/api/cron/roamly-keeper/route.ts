@@ -41,9 +41,28 @@ export async function GET(request: NextRequest) {
     // undefined, and the lane reports an honest note — the run never breaks.
     let suggestions: KeeperDeps["suggestions"];
     try {
+      // EGRESS WART CLOSURE (2026-11-02, EGRESS-DIET-REPORT §2 lane 8):
+      // this read used to pull EVERY concierge_suggestions row with 12
+      // columns, hourly, with no filter and no limit. Consumer trace:
+      // the only consumer is conciergeRowsToSuggestionTally, which
+      // (a) ignores every row whose outcome is not "kept"/"dropped"
+      // and (b) reads only kind, title, item_ref, pattern_key and
+      // outcome (stableSuggestionKey + label + the kept/dropped
+      // counts). The query therefore pushes that exact in-memory
+      // filter into the read (.in outcome kept/dropped) and projects
+      // exactly those five columns — the tally the suite computes is
+      // byte-identical. NO limit is added, deliberately: the tally is
+      // an all-history cross-trip aggregate and the keeper's retire
+      // rule is count-based (>= 5 drops and 0 keeps over ALL decided
+      // rows), so any row limit would silently change the counts and
+      // could hide or invent retire candidates. Growth risk, named:
+      // the DECIDED-row subset still grows unbounded with the table;
+      // the correct future bound is a database-side aggregation of
+      // this same tally, not a limit on this read.
       const { data, error } = await admin
         .from("concierge_suggestions")
-        .select("id,trip_id,user_id,kind,day_number,item_ref,title,reason,pattern_key,pattern_trip_count,applied,outcome");
+        .select("kind,title,item_ref,pattern_key,outcome")
+        .in("outcome", ["kept", "dropped"]);
       if (!error && Array.isArray(data)) {
         suggestions = conciergeRowsToSuggestionTally(data as unknown as ConciergeSuggestionRow[]);
       }

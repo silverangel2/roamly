@@ -12,10 +12,12 @@ import { getActiveFindsPromo } from "@/lib/roamly/findsPromoStore";
 export const metadata: Metadata = {
   title: "Roamly Deals — Travel Deals, Stays & Gear",
   description: "A visual collection of useful travel deals, beautiful stays, flight ideas, experiences, and essentials.",
+  alternates: { canonical: "https://roamlyhq.com/finds" },
   openGraph: {
     title: "Roamly Deals — travel deals, stays & gear",
     description: "Useful travel deals, beautiful stays, flight ideas, experiences, and essentials — curated by Roamly.",
     url: "https://roamlyhq.com/finds",
+    type: "website",
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };

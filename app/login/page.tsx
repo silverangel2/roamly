@@ -45,6 +45,7 @@ export const metadata: Metadata = {
     title: "Log in to Roamly",
     description: "Log in to access your saved trips, itineraries, and Live Trip Companion.",
     url: "https://roamlyhq.com/login",
+    type: "website",
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };

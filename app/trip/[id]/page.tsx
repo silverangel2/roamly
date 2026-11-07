@@ -25,6 +25,7 @@ import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionBu
 import { HotelProductOptions } from "@/components/trip/HotelProductOptions";
 import { TripGapCards } from "@/components/roamly/TripGapCards";
 import { CheckoutUrlCleanup } from "@/components/trip/CheckoutUrlCleanup";
+import { TripRenameControl } from "@/components/trip/TripRenameControl";
 import { GenerationNavigationRefresh } from "@/components/trip/GenerationNavigationRefresh";
 import { GenerateLockedItineraryButton } from "@/components/trip/GenerateLockedItineraryButton";
 import { MarketPriceRefreshButton } from "@/components/trip/MarketPriceRefreshButton";
@@ -35,6 +36,8 @@ import { ItineraryHomePanel } from "@/components/trip/ItineraryHomePanel";
 import { buildHomeDayView, formatHomeDateRange } from "@/lib/roamly/itineraryHome";
 import { PostTripLibraryAskCard } from "@/components/trip/PostTripLibraryAskCard";
 import { TripCommentBox } from "@/components/trip/TripCommentBox";
+import { TripWeatherCard, type TripWeatherRequest } from "@/components/roamly/TripWeatherCard";
+import { getTripWeather } from "@/lib/roamly/tripWeather";
 import {
   SectionHeading,
   NavigationChipList,
@@ -47,6 +50,7 @@ import { TripBookingsManager } from "@/components/roamly/TripBookingsManager";
 import { BuiBadge, BuiChip } from "@/components/boardui/Badge";
 import { BuiButtonLink } from "@/components/boardui/Button";
 import { BuiCard, BuiSkeleton } from "@/components/boardui/Card";
+import { BuiCheckoutSuccess } from "@/components/boardui/CheckoutSuccess";
 import {
   buildPreviewFromItinerary,
   formatMoney,
@@ -425,7 +429,7 @@ function BudgetSummary({
     return count + (day.live_timeline || []).filter((item) => String(item.cost_status || "").toUpperCase() === "UNKNOWN").length;
   }, 0);
   const presentation = buildBudgetPresentation({ budgetAmount, currency, totalEstimateAmount, breakdown: estimate, priceDiscovery, confirmedBookingCount, unknownLineItemCount });
-  const statusTone = presentation.status === "OVER_BUDGET" ? "border-coral/25 bg-coral/10 text-coral" : presentation.status === "BUDGET_UNCERTAIN" ? "border-sun/30 bg-sun/10 text-amber-900" : "border-ocean/20 bg-ocean/10 text-ocean";
+  const statusTone = presentation.status === "OVER_BUDGET" ? "border-coral/25 bg-coral/10 text-coral" : presentation.status === "BUDGET_UNCERTAIN" ? "border-sun/30 bg-sun/10 text-amber-900" : "border-cblue/20 bg-cblue/10 text-cblue";
 
   return (
     <div className="grid gap-4">
@@ -450,7 +454,7 @@ function BudgetSummary({
         </div>
         {!['archived', 'cancelled', 'completed'].includes(trip.status) ? (
           <p className="roamly-no-print mt-4 text-sm font-semibold leading-6 text-slate-600">
-            <a href="#customize" className="font-black text-ocean">Customize your trip</a> to change the budget, dates, destination, or who is going.
+            <a href="#customize" className="font-black text-cblue">Customize your trip</a> to change the budget, dates, destination, or who is going.
           </p>
         ) : null}
       </section>
@@ -459,7 +463,7 @@ function BudgetSummary({
         <section className="grid gap-3 sm:grid-cols-2">
           {presentation.committedCount ? (
             <div className="border-b border-chair pb-3">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Already committed</p>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Already committed</p>
               <p className="mt-1 text-sm font-bold text-slate-700">{presentation.committedCount} confirmed {presentation.committedCount === 1 ? "booking" : "bookings"} stay protected.</p>
             </div>
           ) : null}
@@ -1332,7 +1336,7 @@ function BookingRecommendationCard({
           {category === "transport" || category === "car_rental" ? <NavigationChipList query={mapQuery} /> : null}
         </div>
         {category === "hotel" ? (
-          <p className="roamly-print-only hidden text-xs font-black text-ocean">
+          <p className="roamly-print-only hidden text-xs font-black text-cblue">
             Book stay options: {visibleHotelPartners.length ? visibleHotelPartners.map((partner) => partner.label).join(", ") : actionLabel}
           </p>
         ) : (
@@ -1348,7 +1352,7 @@ function BookingRecommendationCard({
               hasAffiliateUrl={Boolean(link.hasAffiliateUrl)}
               urlType={link.urlType}
             />
-            <p className="roamly-print-only hidden text-xs font-black text-ocean">
+            <p className="roamly-print-only hidden text-xs font-black text-cblue">
               Search: {actionLabel}
             </p>
           </div>
@@ -1784,7 +1788,7 @@ function PreTripEssentialCard({
             urlType={urlType}
           />
         </div>
-        {href ? <p className="roamly-print-only hidden text-xs font-black text-ocean">{provider} search: {label}</p> : null}
+        {href ? <p className="roamly-print-only hidden text-xs font-black text-cblue">{provider} search: {label}</p> : null}
       </div>
     </article>
   );
@@ -2147,6 +2151,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const sessionId = one(search.session_id);
   let checkoutSyncError = "";
   let checkoutAwaitingWebhook = false;
+  let confirmedPurchase: import("@/lib/payments").ConfirmedCheckoutPurchase | null = null;
   const access = getRoamlyAccessForUser(current.user.email);
   const apiAuthToken = createRoamlySessionToken(current.user, [
     { method: "POST", path: "/api/stripe/create-trip-checkout" },
@@ -2166,6 +2171,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     } else {
       // Only waits on the webhook when the immediate return-path apply failed.
       checkoutAwaitingWebhook = confirmation.awaitingWebhook === true;
+      confirmedPurchase = confirmation.purchase;
     }
   }
 
@@ -2597,6 +2603,28 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     longitude: typeof photoPlanning.destinationLongitude === "number" ? photoPlanning.destinationLongitude : null
   }).catch(() => null);
 
+  // Trip weather (Fix Round Item 4, 2026-11-06): the itinerary's
+  // weather summary, fetched server-side from the trip's own
+  // planning-metadata coordinates + dates through the one weather
+  // module (Open-Meteo, fetch-cached 6h). No stored coordinates →
+  // no request and no card; the card itself renders nothing for a
+  // finished trip.
+  const tripWeatherRequest: TripWeatherRequest | null =
+    typeof photoPlanning.destinationLatitude === "number" &&
+    Number.isFinite(photoPlanning.destinationLatitude) &&
+    typeof photoPlanning.destinationLongitude === "number" &&
+    Number.isFinite(photoPlanning.destinationLongitude) &&
+    trip.start_date &&
+    trip.end_date
+      ? {
+          latitude: photoPlanning.destinationLatitude,
+          longitude: photoPlanning.destinationLongitude,
+          startDate: trip.start_date,
+          endDate: trip.end_date
+        }
+      : null;
+  const tripWeather = tripWeatherRequest ? await getTripWeather(tripWeatherRequest) : null;
+
   // Itinerary Home panel (panel 5): one compact day view per stored day,
   // built from the SAME plan the day cards render
   // (buildDisplayTimelineItems), so the panel and the cards never
@@ -2673,6 +2701,29 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         {checkoutCancelled ? (
           <NoticeBanner>Payment cancelled — you were not charged. Your draft is saved.</NoticeBanner>
         ) : null}
+        {/* Checkout success (consolidation 2026-11-06, spec
+            CHECKOUT-SUCCESS-FIX-SPEC): success was the only SILENT
+            payment state — justPurchased was computed and never
+            rendered. The panel renders ONLY from the
+            server-confirmed session record (confirmedPurchase,
+            set solely when confirmCheckoutSessionForTrip verified
+            the paid session for this trip + user): a forged
+            ?checkout=success without a confirming session shows
+            nothing, and the failure banners above are untouched.
+            It STAYS (no dismiss, no timer) per the success rules,
+            names the product + amount + trip, links the Stripe
+            receipt, and offers the open loop: Live Companion
+            setup + View your trip. */}
+        {justPurchased && confirmedPurchase ? (
+          <BuiCheckoutSuccess
+            productName={confirmedPurchase.productName}
+            amountLabel={confirmedPurchase.amountLabel}
+            tripTitle={destinationLabel}
+            receiptHref={confirmedPurchase.receiptUrl}
+            setupHref={`/trip/${id}/live`}
+            tripHref={`/trip/${id}`}
+          />
+        ) : null}
         {/* Picture 5 (2026-10-26): this legacy header is NOT the home
             screen. It carries .roamly-detail-only, so on a full trip it
             stays hidden until a detail tab radio is checked (see the
@@ -2691,7 +2742,12 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">
             {formatShortDateRange(trip, locale)} · {formatDayCount(dayCount)}
           </p>
-          <h1 className="mt-1.5 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">{destinationLabel}</h1>
+          <h1 className="mt-1.5 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">{(typeof trip.title === "string" && trip.title.trim()) || destinationLabel}</h1>
+          {/* D13 (consolidation 2026-11-06): the rename control —
+              trips could never be named before, despite the title
+              column + dashboard display existing since the base
+              schema. */}
+          <TripRenameControl tripId={id} currentTitle={typeof trip.title === "string" && trip.title.trim() ? trip.title.trim() : null} />
           <p className="mt-2 flex items-center gap-1.5 text-[13.5px] font-normal leading-6 text-cgray">
             <span className="calm-dot h-2 w-2 shrink-0 rounded-full bg-cblue" aria-hidden="true" />
             {travelerStatus.badge}
@@ -2923,6 +2979,9 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 </section>
                 <section id="day-by-day" className="roamly-tab-panel roamly-panel-day-by-day mt-8 scroll-mt-32">
                   {canShowFull && full ? <TripCommentBox tripId={id} /> : null}
+                  {tripWeather && tripWeather.kind !== "past" ? (
+                    <TripWeatherCard weather={tripWeather} className="mb-5" />
+                  ) : null}
                   <div className="grid gap-7">
                     {dayNumbersToRender.map((dayNumber) => {
                       const day = canonicalDayByNumber.get(dayNumber);
@@ -2997,7 +3056,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
                 <section id="budget" className="roamly-tab-panel roamly-panel-budget mt-8 scroll-mt-32">
                   <SectionHeading eyebrow="Budget" title="Budget" summary={readiness.primaryAction.id === "budget" ? readiness.urgentItems[0] || "Review the uncertainty in your trip costs." : "See what is committed, expected, and still uncertain."} />
-                  {focusedBudget ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">This is the budget context behind your current trip action.</p> : null}
+                  {focusedBudget ? <p className="mb-4 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">This is the budget context behind your current trip action.</p> : null}
                   {budgetVerdictDisplay ? (
                     <BudgetVerdictCard display={budgetVerdictDisplay} />
                   ) : (
@@ -3021,7 +3080,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                       <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.activity}</p>
                     </div>
                   ) : null}
-                  {focusedBookingLabel ? <p className="mb-4 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">Start with your {focusedBookingLabel} details below.</p> : null}
+                  {focusedBookingLabel ? <p className="mb-4 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">Start with your {focusedBookingLabel} details below.</p> : null}
                   <div className="mb-4">
                     <MarketPriceRefreshButton tripId={id} />
                     {one(search.hotel_action) === "price_changed" ? <p className="mt-2 text-sm font-bold text-slate-700">Hotel price changed. Review the updated hotel price before continuing.</p> : null}

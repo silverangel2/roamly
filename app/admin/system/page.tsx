@@ -31,7 +31,7 @@ const tables = [
 ];
 
 function statusClass(status: ReadinessStatus) {
-  if (status === "Ready") return "bg-ocean/10 text-ocean";
+  if (status === "Ready") return "bg-cblue/10 text-cblue";
   if (status === "Optional") return "bg-slate-100 text-slate-500";
   if (status === "Needs setup") return "bg-sun/20 text-amber-700";
   return "bg-coral/10 text-coral";
@@ -248,7 +248,7 @@ export default async function AdminSystemPage() {
           <Card key={check.table} className="p-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-xl font-black text-ink">{check.table}</h2>
-              <span className={`rounded-full px-3 py-2 text-xs font-black ${check.ok ? "bg-ocean/10 text-ocean" : "bg-coral/10 text-coral"}`}>
+              <span className={`rounded-full px-3 py-2 text-xs font-black ${check.ok ? "bg-cblue/10 text-cblue" : "bg-coral/10 text-coral"}`}>
                 {check.ok ? "Ready" : "Missing"}
               </span>
             </div>
@@ -334,7 +334,7 @@ export default async function AdminSystemPage() {
 
       <section className="mt-5">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Demo seed</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Demo seed</p>
           <h2 className="mt-2 text-2xl font-black text-ink">Trip simulator</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
             Creates an admin-only Toronto test trip with CN Tower, Ripley&apos;s Aquarium, Harbourfront, ROM, and Kensington Market coordinates for Live Companion testing.

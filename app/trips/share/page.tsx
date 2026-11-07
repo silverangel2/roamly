@@ -1,4 +1,23 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+
+// SEO (consolidation 2026-11-06, Block I / SEO-FIX-4): the share
+// page carried no metadata of its own; it now has a title,
+// description, self-referencing canonical, and its own OG block.
+export const metadata: Metadata = {
+  title: "Share Your Itinerary — Itinerary Library",
+  description:
+    "Share a trip you have actually taken: your proven Roamly itinerary, with the days, stays, and stops that worked, ready for the next traveller.",
+  alternates: { canonical: "https://roamlyhq.com/trips/share" },
+  openGraph: {
+    title: "Share your proven itinerary — Roamly Itinerary Library",
+    description:
+      "Turn a completed Roamly trip into a shareable itinerary for the next traveller.",
+    url: "https://roamlyhq.com/trips/share",
+    type: "website",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 import { ItineraryShareForm } from "@/components/trip/ItineraryShareForm";
 import {
   getCompletedTripsForSharing,

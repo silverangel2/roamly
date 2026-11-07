@@ -33,7 +33,7 @@ const plans = [
     title: "Full Itinerary",
     price: "$4.99 CAD",
     unit: "per trip · one-time",
-    body: "Unlock one custom, day-by-day itinerary with budget, hotel-area, transport, food, and activity guidance.",
+    body: "Unlock one custom, day-by-day itinerary, planned around your budget and your pace.",
     changes: [
       "Everything in Free itinerary, plus…",
       "Budget, hotel-area, transport, food and activity guidance in depth",
@@ -89,10 +89,12 @@ const included = [
 export const metadata: Metadata = {
   title: "Pricing — One-Time Trip Plans, No Subscriptions",
   description: "Roamly pricing: one free itinerary, full day-by-day trip itineraries from $4.99 CAD, and Live Trip Companion packs. One-time prices, no subscriptions.",
+  alternates: { canonical: "https://roamlyhq.com/pricing" },
   openGraph: {
     title: "Roamly Pricing — one-time trip plans",
     description: "One free itinerary, full trip itineraries from $4.99 CAD, Live Trip Companion packs. One-time prices, no subscriptions.",
     url: "https://roamlyhq.com/pricing",
+    type: "website",
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };
@@ -117,12 +119,12 @@ export default async function PricingPage() {
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
           {signedIn ? (
             <>
-              <BuiButtonLink href="/plan" variant="secondary">{freeUsed ? "Unlock itinerary" : "Plan a trip"}</BuiButtonLink>
+              <BuiButtonLink href="/plan">{freeUsed ? "Unlock itinerary" : "Plan a trip"}</BuiButtonLink>
               <BuiButtonLink href="/dashboard" variant="secondary">Go to Trips</BuiButtonLink>
             </>
           ) : (
             <>
-              <BuiButtonLink href="/plan" variant="secondary">Start planning</BuiButtonLink>
+              <BuiButtonLink href="/plan">Start planning</BuiButtonLink>
               <BuiButtonLink href="/signup?next=/plan" variant="secondary">Create your free account</BuiButtonLink>
             </>
           )}
@@ -131,10 +133,12 @@ export default async function PricingPage() {
 
       {/* Pricing rules (2026-11-04): the Complete Trip Pack is the
           ONE pick — it lifts (offset + lift shadow + accent ring),
-          carries the page's only "Most popular" badge and only
-          filled button; every other card steps back, outlined
-          button, and lists only what changes versus the tier
-          below. */}
+          carries the page's only "Most popular" badge; every
+          card's button is outlined, and each card lists only what
+          changes versus the tier below. The page's ONE filled
+          primary is the hero's first CTA (consolidation
+          2026-11-06, sweep NEW-6: the hero previously showed no
+          filled action at all). */}
       <section className="mt-8 grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {plans.map((plan) => (
           <BuiCard
@@ -162,7 +166,7 @@ export default async function PricingPage() {
               ))}
             </ul>
             <span className="mt-auto block pt-5">
-              <BuiButtonLink href={plan.href} variant={plan.pick ? "primary" : "secondary"} className="w-full">
+              <BuiButtonLink href={plan.href} variant="secondary" className="w-full">
                 {plan.cta}
               </BuiButtonLink>
             </span>

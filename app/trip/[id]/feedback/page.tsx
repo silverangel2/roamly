@@ -39,7 +39,7 @@ export default async function TripFeedbackPage({ params }: PageProps) {
         <BackHeader href={`/trip/${id}`} label="Trip" />
       </div>
       <div className="mb-5">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Feedback</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Feedback</p>
         <h1 className="mt-2 text-4xl font-black tracking-tight text-ink">{title}</h1>
       </div>
       <TripFeedbackForm tripId={id} initialFeedback={existingFeedback.error ? [] : existingFeedback.feedback} />

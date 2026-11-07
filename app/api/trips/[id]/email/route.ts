@@ -16,6 +16,9 @@ import { describeBudgetBalanceFromAmounts, formatBudgetMoney } from "@/lib/roaml
 import { getRoamlySupportEmail, isEmailConfigured, sendRoamlyEmail } from "@/lib/roamly/email";
 import { ROAMLY_EMAIL_FOOTER_COPY, ROAMLY_PUBLIC_DOMAIN, toRoamlyAbsoluteUrl } from "@/lib/roamly/emailTemplates";
 import { requireUser } from "@/lib/roamly/auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { consumeTripEmailQuota, emailSendActorHash } from "@/lib/roamly/emailSendQuota";
+import { trustedContactClientIp } from "@/lib/roamly/contactRequestSecurity";
 import {
   getTripBudgetAmount,
   getTripBudgetCurrency,
@@ -357,9 +360,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const locale = getRequestLocale(request, getString(body.language));
-  const to = getString(body.to);
+  // Security pass 2026-11-06 (Check 5): the recipient is NEVER taken from
+  // the request body. This route sends the itinerary to the signed-in
+  // account's own email address only -- honouring a body-supplied address
+  // turned Roamly's own mail into a spam cannon under its own domain.
+  const to = (auth.user.email || "").trim();
   if (!to) {
-    return NextResponse.json({ ok: false, error: tr(locale, "Recipient email is required.") }, { status: 400 });
+    return NextResponse.json({ ok: false, error: tr(locale, "Your account has no email address to send to.") }, { status: 400 });
   }
 
   const bundleResult = await getTripBundle(auth.supabase, auth.user.id, id);
@@ -387,6 +394,33 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const full = baseFull ? getLocalizedItinerary({ metadata: trip.metadata, baseItinerary: baseFull, locale }).itinerary : null;
   if (!full) {
     return NextResponse.json({ ok: false, error: tr(locale, "Generate and lock this itinerary before emailing it.") }, { status: 400 });
+  }
+
+  // Volume limit (security pass 2026-11-06, Check 5): per-account and
+  // per-IP quota before anything is sent, copying the contact form's
+  // pattern (DB quota RPC, service role only). Sending fails closed when
+  // the quota store is unavailable -- an unthrottled send is the hole
+  // being closed. Limits: 5/hour, 20/day per actor (migration 20261106000200).
+  const admin = createSupabaseAdminClient();
+  const quotaSecret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const userActorHash = emailSendActorHash("trip-email-user", auth.user.id, quotaSecret);
+  const clientIp = trustedContactClientIp(request.headers.get("x-forwarded-for"));
+  const ipActorHash = clientIp ? emailSendActorHash("trip-email-ip", clientIp, quotaSecret) : null;
+  if (!admin || !userActorHash) {
+    return NextResponse.json({ ok: false, error: tr(locale, "Email sending is temporarily unavailable.") }, { status: 503 });
+  }
+  for (const actorHash of [userActorHash, ipActorHash]) {
+    if (!actorHash) continue;
+    const quota = await consumeTripEmailQuota(admin, actorHash);
+    if (!quota.ok) {
+      return NextResponse.json({ ok: false, error: tr(locale, "Email sending is temporarily unavailable.") }, { status: 503 });
+    }
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { ok: false, error: tr(locale, "You have emailed this itinerary several times already. Please wait before sending it again.") },
+        { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": String(quota.retryAfterSeconds) } }
+      );
+    }
   }
 
   const preview = buildPreviewFromItinerary(full);
@@ -437,5 +471,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         ? tr(locale, "Itinerary email sent.")
         : result.error || tr(locale, "Could not send itinerary email.");
 
-  return NextResponse.json({ ok: result.ok, result, message }, { status: result.ok ? 200 : result.status === "skipped" ? 202 : 400 });
+  // `recipient` is the account's own address (the only address this route
+  // can send to), echoed so the client can name it in its confirmation.
+  return NextResponse.json(
+    { ok: result.ok, result, message, recipient: to },
+    { status: result.ok ? 200 : result.status === "skipped" ? 202 : 400 }
+  );
 }

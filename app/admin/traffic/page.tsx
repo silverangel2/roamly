@@ -60,7 +60,7 @@ export default async function AdminTrafficPage() {
 
       <section className="mt-5 grid gap-4 lg:grid-cols-2">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Top pages</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Top pages</p>
           <div className="mt-4 grid gap-2">
             {topCounts(appData, "path").map(([label, count]) => (
               <p key={label} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
@@ -71,7 +71,7 @@ export default async function AdminTrafficPage() {
           </div>
         </Card>
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Device/browser</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Device/browser</p>
           <div className="mt-4 grid gap-2">
             {[...topCounts(appData, "device_type"), ...topCounts(appData, "browser")].slice(0, 10).map(([label, count]) => (
               <p key={label} className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-600">
@@ -84,7 +84,7 @@ export default async function AdminTrafficPage() {
 
       <section className="mt-5">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Recent trip events</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Recent trip events</p>
           <div className="mt-4 grid gap-2">
             {(tripEvents.data || []).map((event) => (
               <div key={`${event.created_at}-${event.event_type}`} className="rounded-2xl bg-mist px-4 py-3">

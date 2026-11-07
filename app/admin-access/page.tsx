@@ -11,7 +11,7 @@ export default async function AdminAccessPage({
   return (
     <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-6rem)] w-full max-w-lg items-center px-4 py-10 sm:px-6">
       <Card>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
           Roamly Admin
         </p>
 
@@ -46,7 +46,7 @@ export default async function AdminAccessPage({
               type="password"
               autoComplete="current-password"
               required
-              className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:ring-4 focus:ring-ocean/10"
+              className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:ring-4 focus:ring-cblue/10"
             />
           </label>
 

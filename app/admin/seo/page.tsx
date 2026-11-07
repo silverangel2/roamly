@@ -8,7 +8,7 @@ import { ROAMLY_SEO_CONTENT_TYPES } from "@/lib/roamly/seoAutomation";
 import { isSocialTableMissingError } from "@/lib/roamly/social";
 
 function statusClass(ok: boolean) {
-  return ok ? "bg-ocean/10 text-ocean" : "bg-sun/20 text-amber-800";
+  return ok ? "bg-cblue/10 text-cblue" : "bg-sun/20 text-amber-800";
 }
 
 export default async function AdminSeoPage() {
@@ -68,7 +68,7 @@ export default async function AdminSeoPage() {
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         {ROAMLY_SEO_CONTENT_TYPES.map((type) => (
           <Card key={type} className="p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Generate</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Generate</p>
             <h2 className="mt-2 text-xl font-black text-ink">{type}</h2>
             <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
               Creates SEO title, meta description, slug, H1, content sections, FAQ, JSON-LD, Open Graph metadata, canonical URL, and Roamly CTA.
@@ -85,7 +85,7 @@ export default async function AdminSeoPage() {
                 <Card key={page.id} className="p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{page.status}</p>
+                      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{page.status}</p>
                       <h3 className="mt-2 text-xl font-black text-ink">{page.seo_title}</h3>
                       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{page.meta_description}</p>
                     </div>

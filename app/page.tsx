@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+// SEO (consolidation 2026-11-06, Block I / SEO-FIX-4): the home
+// page takes the layout's title + description defaults and adds
+// only its self-referencing canonical.
+export const metadata: Metadata = {
+  alternates: { canonical: "https://roamlyhq.com" }
+};
 import { ArrowDown, ArrowRight } from "lucide-react";
 import { BuiButtonLink } from "@/components/boardui/Button";
 import { PLAN_START_NOTE } from "@/lib/roamly/planTripUx";

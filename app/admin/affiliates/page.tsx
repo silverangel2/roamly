@@ -30,10 +30,10 @@ export default async function AdminAffiliatesPage() {
           <Card key={`${status.provider}-${status.category}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">{status.category}</p>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{status.category}</p>
                 <h2 className="mt-2 text-xl font-black text-ink">{status.provider}</h2>
               </div>
-              <span className="rounded-full border border-ocean/20 bg-ocean/10 px-3 py-1 text-xs font-black text-ocean">
+              <span className="rounded-full border border-cblue/20 bg-cblue/10 px-3 py-1 text-xs font-black text-cblue">
                 Priority {status.priority}
               </span>
             </div>
@@ -52,7 +52,7 @@ export default async function AdminAffiliatesPage() {
       <section className="mt-6 rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Validation</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Validation</p>
             <h2 className="mt-2 text-2xl font-black text-ink">Test affiliate links</h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
               Generates sample URLs through the centralized resolver and reports validity, fallback behavior, missing configuration, and disclosure requirements without exposing IDs or secrets.

@@ -66,7 +66,7 @@ export default async function AdminTripsPage() {
           <Card key={trip.id} className="p-4">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
                   {trip.itinerary_locked ? "Locked itinerary" : trip.itinerary_status || trip.status}
                 </p>
                 <h2 className="mt-1 text-xl font-black text-ink">{trip.title || getTripDestinationLabel(trip) || "Trip"}</h2>

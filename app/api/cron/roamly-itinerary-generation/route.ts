@@ -7,6 +7,10 @@ import { runPackWaitTerminalTransition } from "@/lib/roamly/packWaitTerminalTran
 import { runBookingMonitorHealthDetector } from "@/lib/roamly/bookingMonitorHealth";
 import { runCommunicationStuckDetector } from "@/lib/roamly/communicationStuckDetector";
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { generationSweeperHasWork } from "@/lib/roamly/generationWorkGate";
+import { runStrandedGenerationRecovery, type StrandedGenerationRecoverySummary } from "@/lib/roamly/generationRecovery";
+import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -38,6 +42,27 @@ function rearmInProgressTrips(summary: RoamlyGenerationWorkerSummary, request: N
   }
 }
 
+// KF-2 stranded-generation recovery sweep: runs before the queue
+// wake so retry-exhausted / driver-dead / job-less stranded trips are
+// reopened and driven first. A sweep failure is recorded like any
+// other background detector failure and never fails the wake itself.
+async function runRecoverySweep(
+  admin: ReturnType<typeof createSupabaseAdminClient>
+): Promise<StrandedGenerationRecoverySummary | null> {
+  if (!admin) return null;
+  return runStrandedGenerationRecovery(admin).catch(async () => {
+    await recordBackgroundDetectorFailure({ detector: "stranded_generation_recovery", route: "/api/cron/roamly-itinerary-generation" });
+    return {
+      scanned: 0,
+      candidates: [],
+      reopened: 0,
+      driven: 0,
+      skippedLive: 0,
+      error: "STRANDED_GENERATION_RECOVERY_FAILED"
+    } as StrandedGenerationRecoverySummary;
+  });
+}
+
 function authorized(request: NextRequest) {
   const secrets = getGenerationWorkerSecrets();
   const header = request.headers.get("authorization") || "";
@@ -56,6 +81,9 @@ export async function POST(request: NextRequest) {
   const requestId = typeof body.requestId === "string" && body.requestId ? body.requestId : randomUUID();
   const reason = typeof body.reason === "string" ? body.reason : "protected_worker_wake";
 
+  // Untargeted POSTs are sweeper wakes too: run the KF-2 recovery
+  // sweep first (a targeted POST already names its trip).
+  const strandedRecovery = tripId ? null : await runRecoverySweep(createSupabaseAdminClient());
   const summary = await processGenerationQueue({
     tripId: tripId || null,
     requestId,
@@ -84,7 +112,7 @@ export async function POST(request: NextRequest) {
     return detectorFailureResult("stuck_generation");
   });
 
-  return NextResponse.json({ ...summary, packWaitTerminalTransition: packWaitTerminal, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
+  return NextResponse.json({ ...summary, strandedRecovery, packWaitTerminalTransition: packWaitTerminal, silentFailureDetector: detector }, { status: summary.ok ? 200 : 500 });
 }
 
 export async function GET(request: NextRequest) {
@@ -94,6 +122,44 @@ export async function GET(request: NextRequest) {
   }
 
   const requestId = randomUUID();
+  // EGRESS DIET (F2): work gate. The POST above is the event-driven
+  // wake (a write creates a job, the write's request drives it); this
+  // GET is only the orphan-recovery sweeper, so when no due jobs, no
+  // generating trips and no stuck-ledger rows exist it exits after
+  // three head/count checks. The booking-monitor health detector
+  // still runs — it is three small reads and it is the watchdog for
+  // a different lane. Fail-open: a gate error proceeds normally.
+  const gateAdmin = createSupabaseAdminClient();
+  const hasWork = gateAdmin ? await generationSweeperHasWork(gateAdmin).catch(() => true) : true;
+  if (!hasWork) {
+    const bookingMonitorHealth = await runBookingMonitorHealthDetector().catch(async () => {
+      await recordBackgroundDetectorFailure({ detector: "booking_monitor_health", route: "/api/cron/roamly-itinerary-generation" });
+      return detectorFailureResult("booking_monitor_health");
+    });
+    // Per-lane measurement (EGRESS DIET): a gated run still leaves
+    // its heartbeat row, flagged gated, in roamly_app_events.
+    if (gateAdmin) await recordCronHeartbeat(gateAdmin, "roamly-itinerary-generation", true, { gated: true });
+    return NextResponse.json(
+      {
+        ok: true,
+        gated: true,
+        reason: "no_due_generation_work",
+        requestId,
+        claimed: 0,
+        processed: 0,
+        advanced: 0,
+        completed: 0,
+        failed: 0,
+        busy: 0,
+        results: [],
+        bookingMonitorHealth
+      },
+      { status: 200 }
+    );
+  }
+  // KF-2: after the gate passes, the stranded-generation recovery
+  // sweep runs BEFORE the global queue wake (see runRecoverySweep).
+  const strandedRecovery = await runRecoverySweep(gateAdmin);
   const summary = await processGenerationQueue({
     requestId,
     reason: "vercel_cron_wake",
@@ -119,5 +185,6 @@ export async function GET(request: NextRequest) {
     return detectorFailureResult("communication_stuck");
   });
 
-  return NextResponse.json({ ...summary, packWaitTerminalTransition: packWaitTerminal, silentFailureDetector: detector, bookingMonitorHealth, communicationStuck }, { status: summary.ok ? 200 : 500 });
+  if (gateAdmin) await recordCronHeartbeat(gateAdmin, "roamly-itinerary-generation", summary.ok === true);
+  return NextResponse.json({ ...summary, strandedRecovery, packWaitTerminalTransition: packWaitTerminal, silentFailureDetector: detector, bookingMonitorHealth, communicationStuck }, { status: summary.ok ? 200 : 500 });
 }

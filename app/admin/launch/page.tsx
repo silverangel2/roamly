@@ -17,7 +17,7 @@ type LaunchCheck = {
 };
 
 function statusClass(status: LaunchStatus) {
-  if (status === "Ready") return "bg-ocean/10 text-ocean";
+  if (status === "Ready") return "bg-cblue/10 text-cblue";
   if (status === "Needs attention") return "bg-sun/20 text-amber-800";
   if (status === "Not configured") return "bg-slate-100 text-slate-600";
   return "bg-coral/10 text-coral";
