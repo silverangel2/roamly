@@ -402,7 +402,7 @@ ok("descriptions: generic arrival filler cut; useful guidance retained verbatim"
   // builder and the home-row builder both route through it, and
   // no file assigns the shortened text back to a stored field.
   const card = readFileSync(new URL("../components/trip/ItineraryDayPlan.tsx", import.meta.url), "utf8");
-  assert.match(card, /displayActivityDescription\(title, strippedDescription\)/);
+  assert.match(card, /displayActivityDescription\(title, strippedDescription, \{/);
   const home = readFileSync(new URL("../lib/roamly/itineraryHome.ts", import.meta.url), "utf8");
   assert.match(home, /displayActivityDescription\(/);
 });

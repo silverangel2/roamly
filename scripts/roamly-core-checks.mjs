@@ -36,6 +36,7 @@ function loadTsModule(entryFile) {
       exports: {},
       module: { exports: {} },
       require(id) {
+        if (id === "server-only") return {};
         if (id.startsWith("@/")) {
           const local = id.slice(2);
           return load(local.match(/\.(ts|tsx|mjs|json)$/) ? local : `${local}.ts`);
@@ -255,7 +256,10 @@ assert.equal(
   "Stay22 Allez traveler links should be allowed"
 );
 
-assert.ok(affiliateResolver.includes("/allez/booking"), "Stay22 partner links should route to its Booking.com Allez endpoint");
+assert.ok(
+  affiliateResolver.includes("/allez/${providerSlug}") && affiliateResolver.includes("booking"),
+  "Stay22 partner links should route to its Booking.com Allez endpoint"
+);
 
 [
   "https://w3.org/TR/json-ld/",
@@ -549,6 +553,8 @@ const rebalanced = itineraryBookingOverrideExports.applyConfirmedBookingOverride
     booking_status: "booked",
     provider_name: "Air Canada",
     traveler_confirmed: true,
+    confirmation_number: "QWERTY1",
+    source_type: "email",
     start_at: "2026-08-05T12:00:00.000Z",
     end_at: "2026-08-05T13:30:00.000Z",
     origin: "YUL",
@@ -587,7 +593,7 @@ assert.ok(/Baggage: 1 checked bag/.test(adjustedTimeline[0].description), "fligh
 assert.equal(overrideToMinutes(adjustedTimeline[1].startTime), 10 * 60 + 30, "downstream items must not be shifted by an invented arrival buffer");
 
 const tripPageForPrintChecks = read("app/trip/[id]/page.tsx");
-assert.ok(tripPageForPrintChecks.includes('category === "flight" ? "Search Flights"'), "flight fallback must render a single Search Flights card");
+assert.ok(tripPageForPrintChecks.includes('category === "flight" ? "Search flights"'), "flight fallback must render a single Search Flights card");
 assert.ok(tripPageForPrintChecks.includes("Estimate only. Search live prices"), "flight fallback must label estimated flight searches clearly");
 assert.ok(tripPageForPrintChecks.includes('curatedBookingSuggestions(suggestions, trip, ["flight"], 1)'), "flight booking suggestions must be capped to one card");
 assert.ok(!tripPageForPrintChecks.includes("Search link unavailable"), "booking cards must not render disabled unavailable-link copy");
@@ -833,7 +839,7 @@ assert.ok(!JSON.stringify(intelligentItinerary).toLowerCase().includes("local bi
 
 const tripPage = read("app/trip/[id]/page.tsx");
 assert.ok(tripPage.includes("BookingPlan") && tripPage.includes("BookingRecommendationCard"), "booking recommendations must render in a dedicated section");
-assert.ok(!tripPage.includes("shouldShowInlineTimelineBooking") && !tripPage.includes("item.booking"), "timeline must not render booking spam inside itinerary cards");
+assert.ok(!tripPage.includes("shouldShowInlineTimelineBooking") && !/item\.booking(?![_\w])/.test(tripPage), "timeline must not render booking spam inside itinerary cards");
 assert.ok(tripPage.includes("isLegacyBookingUrl(raw)"), "trip rendering must reject legacy booking links");
 assert.ok(tripPage.includes("enrichItineraryBookingSuggestions"), "saved trips must reconstruct missing affiliate links on load");
 assert.ok(tripPage.includes("const generationFailed = generationStatus === \"failed\" || generationStatus === \"partially_failed\""), "trip page must detect terminal failed generation state");
@@ -841,9 +847,9 @@ assert.ok(tripPage.includes("(!canShowFull || generationFailed)"), "trip page mu
 assert.ok(tripPage.includes("canShowFull && full && !generationPanelVisible"), "trip page must render the itinerary automatically after generation completes");
 [
   "buildDisplayTimelineItems",
-  "roamly-day-nav",
+  "roamly-tab-day-by-day",
   "roamly-tab-nav",
-  "aria-label=\"Trip briefing sections\"",
+  "aria-label=\"Trip sections\"",
   "const briefingTabs = [",
   "const hasTravelNotes =",
   "More practical notes",
@@ -1168,11 +1174,11 @@ const generateRouteDiagnostics = read("lib/roamly/tripGenerationRoute.ts");
 ].forEach((needle) => assert.ok(generateRouteDiagnostics.includes(needle), `generation route trace missing ${needle}`));
 assert.ok(!generateRouteDiagnostics.includes("generateRoamlyItinerary"), "generate route must not call the old all-in-one AI generator");
 assert.ok(generateRouteDiagnostics.includes("status: \"queued\""), "generate route must return a queued staged job");
-const durableQueueCreatedIndex = generateRouteDiagnostics.indexOf("const queueResult = await ensureDurableGenerationQueue");
-const stagedStartIndex = generateRouteDiagnostics.indexOf("state = await startStagedItineraryGeneration", durableQueueCreatedIndex);
-const queuedResponseIndex = generateRouteDiagnostics.indexOf("status: \"queued\"", stagedStartIndex);
+const stagedStartIndex = generateRouteDiagnostics.indexOf("state = await startStagedItineraryGeneration");
+const durableQueueCreatedIndex = generateRouteDiagnostics.indexOf("const queueResult = await ensureDurableGenerationQueue", stagedStartIndex);
+const queuedResponseIndex = generateRouteDiagnostics.indexOf("status: \"queued\"", durableQueueCreatedIndex);
 assert.ok(
-  durableQueueCreatedIndex >= 0 && stagedStartIndex > durableQueueCreatedIndex && queuedResponseIndex > stagedStartIndex,
+  stagedStartIndex >= 0 && durableQueueCreatedIndex > stagedStartIndex && queuedResponseIndex > durableQueueCreatedIndex,
   "durable queue responses must initialize staged generation metadata before returning queued"
 );
 assert.ok(
@@ -2491,6 +2497,15 @@ const bookingWalletSandbox = {
       };
     }
 
+    if (
+      id === "@/lib/roamly/bookingCorrections" ||
+      id === "@/lib/roamly/bookingDateTime" ||
+      id === "@/lib/roamly/bookingTruth" ||
+      id === "@/lib/roamly/bookingNotificationWithdrawal"
+    ) {
+      return loadTsModule(`${id.slice(2)}.ts`);
+    }
+
     return require(id);
   }
 };
@@ -2504,11 +2519,20 @@ const clickedBooking = {
 };
 assert.equal(wallet.isBookingClickOnly(clickedBooking), true, "affiliate clicks must remain click-only wallet records");
 assert.equal(wallet.isConfirmedBooking(clickedBooking), false, "affiliate clicks must not become confirmed bookings");
-const confirmedBooking = {
+const travelerOnlyBooking = {
   booking_status: "confirmed",
   traveler_confirmed: true
 };
-assert.equal(wallet.isConfirmedBooking(confirmedBooking), true, "traveler-confirmed bookings must count as confirmed");
+assert.equal(wallet.isConfirmedBooking(travelerOnlyBooking), false, "traveler-confirmed-only bookings must not count as evidence-confirmed (owner ruling 2026-10-30)");
+assert.equal(wallet.isTravelerConfirmedOnlyBooking(travelerOnlyBooking), true, "traveler-confirmed-only bookings must grade as confirmed-by-you");
+const confirmedBooking = {
+  booking_status: "confirmed",
+  traveler_confirmed: true,
+  confirmation_code: "AGD8X42K",
+  provider: "Agoda",
+  source_type: "email"
+};
+assert.equal(wallet.isConfirmedBooking(confirmedBooking), true, "bookings with confirmation evidence must count as confirmed");
 const normalizedFlight = wallet.normalizeTripBookingInput({
   bookingType: "flight",
   bookingStatus: "confirmed",
@@ -2947,7 +2971,7 @@ const fixtureResults = {
 
 assert.equal(fixtureResults.flightConfirmation.extraction.booking.bookingType, "flight", "flight confirmation must extract a flight booking");
 assert.equal(fixtureResults.flightDelay.extraction.eventTypes.includes("delay"), true, "flight delay fixture must expose delay event");
-assert.equal(fixtureResults.flightDelay.extraction.requiresUserApproval, false, "minor delay fixture must not require approval by default");
+assert.equal(fixtureResults.flightDelay.extraction.requiresUserApproval, true, "unzoned minor delay fixture must require approval — the email states no timezone, so the time is unresolved and the approval tap is kept (owner decision 2026-11-07)");
 assert.equal(fixtureResults.flightCancellation.extraction.requiresUserApproval, true, "flight cancellation fixture must require approval");
 assert.equal(fixtureResults.hotelChange.extraction.booking.bookingType, "hotel", "hotel change fixture must extract a hotel booking");
 assert.equal(fixtureResults.hotelChange.extraction.requiresUserApproval, true, "hotel change fixture must require approval");
@@ -2959,8 +2983,8 @@ assert.equal(
     extraction: fixtureResults.flightDelay.extraction,
     matchScore: fixtureResults.flightDelay.score
   }),
-  true,
-  "safe high-confidence delay update must be auto-applicable"
+  false,
+  "unzoned delay update must not auto-apply even at high confidence — the email states no timezone, so the approval tap is kept (owner decision 2026-11-07)"
 );
 assert.equal(
   bookingExtractionExports.shouldAutoApplyEmailLookbackExtraction({
@@ -3060,7 +3084,7 @@ const liveCompanionQaConsole = read("components/admin/LiveCompanionQaConsole.tsx
 const liveTripClient = read("components/trip/LiveTripClient.tsx");
 const pushClient = read("lib/roamly/pushClient.ts");
 [
-  "Install Roamly on your Home Screen",
+  "Add Roamly to your Home Screen",
   "Install Roamly",
   "Tap the Share button",
   "Add to Home Screen",
