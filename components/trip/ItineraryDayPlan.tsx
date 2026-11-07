@@ -16,6 +16,11 @@ import { cleanTravelerTimeLabel, isDriveMode, isTravelLeg, looksLikeProviderSear
 import { stripTitleEcho, isUnverifiableStopTitle } from "@/lib/roamly/itineraryHome";
 import { deriveDaySummary, dayRestAndWrap, dayUncertaintyNotes, isGenericStopText } from "@/lib/roamly/daySummary";
 import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
+import {
+  isGenericStayTitle,
+  marketProvenanceForStoredItem,
+  type MarketStopProvenance
+} from "@/lib/roamly/marketStopDescription";
 import { isPlanStayRow } from "@/lib/roamly/planStayRow";
 
 function getString(value: unknown) {
@@ -269,6 +274,22 @@ export type DisplayTimelineItem = {
    *  Map tab pins; nothing is fetched or geocoded. */
   latitude: number | null;
   longitude: number | null;
+  /** Coordinate provenance/precision from the stored record
+   *  (map-honesty fix, 2026-11-07); null when the record is
+   *  unstamped. "area" means the coordinates are an area point
+   *  (the destination centre), never the place itself — and a
+   *  record can carry the "area" stamp with NO coordinates (a
+   *  booked stay whose property location was never saved), which
+   *  is how the home view explains that stay's missing pin. */
+  coordinateSource: "candidate" | "booking_record" | "destination_centre" | null;
+  coordinatePrecision: "place" | "area" | null;
+  /** Market provenance of the stop, derived from its own stored
+   *  source + factualStatus (description-boilerplate fix,
+   *  2026-11-07): "search" / "verified" render as a small chip
+   *  beside the row's time label and drive the itinerary-level
+   *  caution; null for rows that are not market bindings (engine
+   *  and pack rows, discovery suggestions, bookings). */
+  provenance: MarketStopProvenance | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -375,7 +396,12 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
     timeRetimed: false,
     retimedMinutes: null,
     latitude: coords?.latitude ?? null,
-    longitude: coords?.longitude ?? null
+    longitude: coords?.longitude ?? null,
+    // A booking record's own coordinates are a true place point
+    // (map-honesty fix, 2026-11-07).
+    coordinateSource: coords ? "booking_record" : null,
+    coordinatePrecision: coords ? "place" : null,
+    provenance: null
   };
 }
 
@@ -543,6 +569,31 @@ export function buildDisplayTimelineItems(
     // directly beneath carries the "Unverified stop" mapping.
     const strippedDescription = stripTitleEcho(title, description);
     const unverified = isUnverifiableStopTitle(title, strippedDescription);
+    // Market provenance from the row's own stored binding fields
+    // (description-boilerplate fix, 2026-11-07): drives the
+    // legacy-stamp flattening context below and the row's
+    // provenance chip. Engine/pack rows resolve to null and keep
+    // rendering exactly as before.
+    const provenance = marketProvenanceForStoredItem(
+      timelineText(record, "source"),
+      timelineText(record, "factualStatus", "factual_status")
+    );
+    // Coordinate provenance/precision from the stored record
+    // (map-honesty fix, 2026-11-07): only the known literals are
+    // honoured; anything else is unstamped (null), exactly like a
+    // record written before the stamp existed.
+    const rawCoordinatePrecision = timelineText(record, "coordinatePrecision", "coordinate_precision");
+    const rawCoordinateSource = timelineText(record, "coordinateSource", "coordinate_source");
+    const coordinatePrecision =
+      rawCoordinatePrecision === "place" || rawCoordinatePrecision === "area"
+        ? rawCoordinatePrecision
+        : null;
+    const coordinateSource =
+      rawCoordinateSource === "candidate" ||
+      rawCoordinateSource === "booking_record" ||
+      rawCoordinateSource === "destination_centre"
+        ? rawCoordinateSource
+        : null;
 
     output.push({
       itemId: timelineText(record, "item_id"),
@@ -561,7 +612,19 @@ export function buildDisplayTimelineItems(
       // flattened (generic arrival-leg filler), with walk/drive
       // times, dietary facts, opening-hour notes, and genuine
       // directions kept verbatim. See activityDescription.ts.
-      description: displayActivityDescription(title, strippedDescription),
+      // The context (2026-11-07) lets the same layer flatten a
+      // legacy market stamp into the composed one-liner from the
+      // row's own stored fields; non-stamp text ignores it.
+      description: displayActivityDescription(title, strippedDescription, {
+        category,
+        itemType: type,
+        city: timelineText(record, "location_name", "location", "place_name", "venue", "area"),
+        origin: timelineText(record, "origin"),
+        provenance,
+        genericStay:
+          (type.toLowerCase() === "hotel" || category.toLowerCase().includes("hotel")) &&
+          isGenericStayTitle(title)
+      }),
       location,
       category,
       durationLabel: duration ? `${duration} min` : timelineText(record, "duration"),
@@ -577,7 +640,10 @@ export function buildDisplayTimelineItems(
       timeRetimed: Boolean(retimedBy),
       retimedMinutes,
       latitude: coords?.latitude ?? null,
-      longitude: coords?.longitude ?? null
+      longitude: coords?.longitude ?? null,
+      coordinateSource,
+      coordinatePrecision,
+      provenance
     });
 
     if (maxRows != null && output.length >= maxRows) break;
@@ -623,6 +689,12 @@ export function TimelineItemCard({ item, tripId, dayId, staySearch, index = 0 }:
       <div className="flex items-baseline gap-2.5">
         <h4 className={`min-w-0 flex-1 break-words text-[17px] leading-[1.35] ${item.authority === "must_do" ? "font-semibold text-chead" : "font-normal text-cink"}`}>{item.unverified ? "Unverified stop" : item.title}</h4>
         {isConfirmed ? <span className="shrink-0 rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Booked</span> : null}
+        {/* Provenance chip (description-boilerplate fix, 2026-11-07):
+            a market stop's sourcing is a small chip beside the time
+            labels, never a paragraph in the description. Pack and
+            engine rows carry no chip (provenance null). */}
+        {item.provenance === "search" ? <span className="shrink-0 rounded-md bg-cbg px-2 py-0.5 text-xs font-semibold text-cgray">Search result</span> : null}
+        {item.provenance === "verified" ? <span className="shrink-0 rounded-md bg-cbg px-2 py-0.5 text-xs font-semibold text-cgray">Verified source</span> : null}
         <span className="shrink-0 text-[17px] font-normal leading-[1.35] text-cgray">{mockRowTime(item.time)}</span>
       </div>
       {item.unverified && item.planTitle ? <p className="mt-0.5 break-words text-[13px] font-normal text-cgray">Plan title: {item.planTitle}</p> : null}

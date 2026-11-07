@@ -69,6 +69,7 @@ import { TripDayMap } from "@/components/roamly/TripDayMap";
 import { TimeProvenanceLabel } from "@/components/roamly/TimeProvenanceLabel";
 import { isClockTime, provenanceForHomeRow } from "@/lib/roamly/timeProvenance";
 import { venuePhotoForTitle, type VenuePhotoMap } from "@/lib/roamly/venuePhotos";
+import { SEARCH_RESULT_CAUTION } from "@/lib/roamly/marketStopDescription";
 
 /** Venue-row thumbnail: renders only when the map holds a photo. */
 function HomeRowThumb({ venuePhotos, title }: { venuePhotos?: VenuePhotoMap; title: string }) {
@@ -229,12 +230,29 @@ export function ItineraryHomePanel({
       label: row.unverified ? "Unverified stop" : row.title,
       detail: row.time,
       placeHref: placeHrefForRow(row),
-      photoUrl: venuePhoto?.imageUrl ?? null
+      photoUrl: venuePhoto?.imageUrl ?? null,
+      // Coordinate honesty (map-honesty fix, 2026-11-07): the
+      // row's provenance/precision stamps ride to the map, so an
+      // area pin renders as approximate, and an area-stamped row
+      // with NO coordinates (a booked stay whose property
+      // location was never saved) explains its missing pin
+      // instead of borrowing the generic line.
+      coordinatePrecision: row.coordinatePrecision ?? null,
+      coordinateSource: row.coordinateSource ?? null,
+      noPinNote:
+        row.coordinatePrecision === "area" && coords.latitude == null
+          ? "No property location saved — destination area only"
+          : null
     };
   });
   const hasMappableStops = selectedDayMapStops.some(
     (stop) => stop.latitude != null && stop.longitude != null
   );
+  // Description-boilerplate fix (2026-11-07): the full search
+  // caution renders ONCE for the whole itinerary — when any day
+  // carries a live-search stop — instead of as every stop's
+  // description. Each search stop carries its own small chip.
+  const hasSearchBackedStops = days.some((day) => day.hasSearchRows);
   const showPhoto = Boolean(photo) && photoState !== "failed";
 
   const editPill = editHref ? (
@@ -396,6 +414,15 @@ export function ItineraryHomePanel({
 
       {tab === "itinerary" && selectedDay ? (
         <div className="px-4 pb-28 sm:px-5">
+          {/* Itinerary-level search caution (2026-11-07): printed
+              once here when the trip carries any live-search stop;
+              the stops themselves show a one-line description plus
+              a small "Search result" chip, never this paragraph. */}
+          {hasSearchBackedStops ? (
+            <p className="mt-3 rounded-xl bg-cbg px-4 py-3 text-[13px] leading-5 text-cgray">
+              {SEARCH_RESULT_CAUTION}
+            </p>
+          ) : null}
           {/* Day picker */}
           <div role="group" aria-label="Pick a day" className="flex snap-x gap-2 overflow-x-auto py-3">
             {days.map((day) => {
@@ -501,6 +528,20 @@ export function ItineraryHomePanel({
                             className="rounded-md bg-cblue/10 px-2 py-0.5 text-[11px] font-bold text-cblue"
                           />
                         ) : null}
+                        {/* Market provenance chip (2026-11-07): the
+                            stop's sourcing as a small muted pill —
+                            the demoted form of the caution paragraph
+                            that used to be every stop's description. */}
+                        {row.provenance === "search" ? (
+                          <span className="rounded-md bg-cbg px-2 py-0.5 text-[11px] font-semibold text-cgray">
+                            Search result
+                          </span>
+                        ) : null}
+                        {row.provenance === "verified" ? (
+                          <span className="rounded-md bg-cbg px-2 py-0.5 text-[11px] font-semibold text-cgray">
+                            Verified source
+                          </span>
+                        ) : null}
                       </span>
                       {row.unverified && row.planTitle ? (
                         <span className="mt-0.5 block break-words text-[13.5px] leading-5 text-cgray">
@@ -548,13 +589,26 @@ export function ItineraryHomePanel({
                 No mappable locations for this day — the day&apos;s stops open in your maps app instead.
               </p>
             )}
-            {selectedDay.mapStops.length ? (
+            {selectedDay.mapStopDetails.length ? (
               <ul className="mt-4 grid gap-3">
-                {selectedDay.mapStops.map((stop) => {
-                  const links = buildNavigationLinks({ destinationLabel: stop, address: stop });
+                {selectedDay.mapStopDetails.map((stopDetail) => {
+                  // Map honesty (2026-11-07): a stop with stored
+                  // coordinates links to the exact point; a stop
+                  // whose words are all we have keeps the text
+                  // link, and a stop with no real place identity
+                  // behind the words gets the search label — the
+                  // provider resolves the text, so the traveller
+                  // is told to check it lands on the right place.
+                  const links = buildNavigationLinks({
+                    destinationLabel: stopDetail.query,
+                    address: stopDetail.query,
+                    latitude: stopDetail.latitude,
+                    longitude: stopDetail.longitude,
+                    unverifiedSearch: stopDetail.searchOnly
+                  });
                   return (
-                    <li key={stop} className="rounded-xl bg-cbg px-3 py-3">
-                      <p className="text-sm font-semibold leading-5 text-chead">{stop}</p>
+                    <li key={stopDetail.query} className="rounded-xl bg-cbg px-3 py-3">
+                      <p className="text-sm font-semibold leading-5 text-chead">{stopDetail.query}</p>
                       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                         {links.map((link) => (
                           <a
@@ -564,7 +618,7 @@ export function ItineraryHomePanel({
                             rel="noreferrer"
                             className="min-h-9 py-1 text-[13px] font-medium text-cblue"
                           >
-                            Open in {link.provider === "google_maps" ? "Google Maps" : link.provider === "apple_maps" ? "Apple Maps" : "Citymapper"}
+                            {link.label}
                           </a>
                         ))}
                       </div>
