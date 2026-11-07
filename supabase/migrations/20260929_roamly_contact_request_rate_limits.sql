@@ -1,5 +1,11 @@
 -- Rate-limit public support email delivery without persisting raw client IP addresses.
 -- The application submits an HMAC-SHA256 of Vercel's trusted x-forwarded-for value.
+--
+-- GATE CORRECTED in this file 2026-11-07 (same change as migration
+-- 20261106000500, which repairs the already-applied version): the
+-- service-role check reads the role from BOTH the per-claim setting
+-- and the claims JSON, because production PostgREST no longer sets
+-- the per-claim setting. See 20261106000500 for the full story.
 
 create table if not exists public.roamly_contact_request_rate_limits (
   actor_hash text primary key check (actor_hash ~ '^[a-f0-9]{64}$'),
@@ -34,8 +40,22 @@ declare
   current_hour_count integer;
   current_day_count integer;
   retry_after integer := 0;
+  jwt_role text := coalesce(current_setting('request.jwt.claim.role', true), '');
+  claims_role text := '';
 begin
-  if coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
+  -- Newer PostgREST exposes the claims as one JSON setting instead of
+  -- the per-claim setting; read the role from it only when it is
+  -- present and JSON-shaped, and never let a malformed value break
+  -- the call (same read as the 20261106000100 entitlement guard).
+  if coalesce(current_setting('request.jwt.claims', true), '') like '{%' then
+    begin
+      claims_role := coalesce(current_setting('request.jwt.claims', true)::jsonb ->> 'role', '');
+    exception when others then
+      claims_role := '';
+    end;
+  end if;
+
+  if jwt_role <> 'service_role' and claims_role <> 'service_role' then
     raise exception 'service role required';
   end if;
   if p_actor_hash is null or p_actor_hash !~ '^[a-f0-9]{64}$' then

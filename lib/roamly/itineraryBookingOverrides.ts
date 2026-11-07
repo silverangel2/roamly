@@ -495,6 +495,13 @@ function applyNonFlightBookingOverrideToItinerary(itinerary: RoamlyItinerary, bo
     factualStatus: inactive || travelerOnly ? "unknown" : "verified",
     timing_status: inactive || travelerOnly ? "UNKNOWN" : start ? "FACTUAL" : existing?.timing_status || "UNKNOWN",
     coordinates: booking.coordinates || existing?.coordinates || undefined,
+    // Coordinate provenance (map-honesty fix, 2026-11-07): the
+    // booking record's own coordinates are a true place point;
+    // coordinates kept from the replaced item keep that item's
+    // stamp, so an area-precision centre point can never silently
+    // upgrade to a property pin by passing through a booking.
+    coordinateSource: booking.coordinates ? "booking_record" : existing?.coordinateSource || undefined,
+    coordinatePrecision: booking.coordinates ? "place" : existing?.coordinatePrecision || undefined,
     route_evidence: existing?.route_evidence || null,
     routing_status: existing?.routing_status || undefined,
     uncertainty: existing?.uncertainty || [],

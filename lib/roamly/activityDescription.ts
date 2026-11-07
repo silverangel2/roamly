@@ -35,6 +35,26 @@
 // A pattern is only ever added here after it is observed in a
 // real stored description and judged generic — never guessed.
 //
+// MARKET-BOILERPLATE FLATTENING (description-boilerplate fix,
+// 2026-11-07): the staged lane's grounding writers used to stamp
+// one canned caution paragraph as the description of EVERY
+// market-grounded stop ("Search-backed result. Confirm current
+// hours, route, availability, and price before relying on it." /
+// the "Verified source result." twin), and the repair writer
+// prefixed the same stamp onto real text. Those exact strings
+// were observed verbatim in a real stored itinerary (owner
+// screenshot, Montreal trip, 2026-11-07) — the pattern is added
+// on that evidence, per this file's rule. Display-only, like
+// everything here: when a stored description IS one of the legacy
+// stamps, the row renders the composed one-liner from
+// marketStopDescription.ts (kind · city · provenance, from the
+// row's own stored fields, passed in by the caller as context);
+// a prefix-stamped real description renders WITHOUT the stamp.
+// The stored text is never rewritten and no trip is regenerated:
+// old itineraries heal on screen. The full caution now renders
+// once per itinerary (itinerary home panel), and each stop
+// carries a small provenance chip instead.
+//
 // REST-BREAK WORDING (final refinements, 2026-10-28): the same
 // display-only rule now covers the rest break, whose stored
 // title ("A short pause — sit down, water, breathe", solver,
@@ -48,6 +68,15 @@
 // untouched — only the shown words change.
 // Pure function: no I/O, no mutation. Idempotent: shortening an
 // already-shortened string returns it unchanged.
+
+import {
+  isGenericStayTitle,
+  legacyMarketBoilerplateProvenance,
+  marketStopCategoryLabel,
+  marketStopOneLiner,
+  stripLegacyMarketStamp,
+  type MarketStopProvenance
+} from "@/lib/roamly/marketStopDescription";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -82,6 +111,19 @@ export function displayRestTitle(title: string): string {
   return title;
 }
 
+/** Stored fields a caller may pass so a legacy market stamp can
+ *  be flattened into the composed one-liner (see the header's
+ *  market-boilerplate section). Every field comes from the row's
+ *  own stored record — nothing is fetched or invented. */
+export type ActivityDescriptionContext = {
+  category?: string | null;
+  itemType?: string | null;
+  city?: string | null;
+  origin?: string | null;
+  provenance?: MarketStopProvenance | null;
+  genericStay?: boolean;
+};
+
 /** Shorten one stored activity description for display only.
  *  `title` is the row's own title; the stored description is
  *  never modified. Returns "" for an empty description, and also
@@ -90,7 +132,8 @@ export function displayRestTitle(title: string): string {
  *  the same repetition the owner flagged). */
 export function displayActivityDescription(
   title: string,
-  description: string
+  description: string,
+  context?: ActivityDescriptionContext
 ): string {
   const desc = text(description);
   if (!desc) return "";
@@ -104,6 +147,41 @@ export function displayActivityDescription(
   if (restNorm(desc).replace(/\.+$/, "") === REST_BREAKLINE_NORM) return "A short rest.";
   const descWithoutPlannedTail = desc.replace(/\s+— planned for day \d+ of this trip\.?$/i, "");
   if (restNorm(descWithoutPlannedTail).replace(/\.+$/, "") === REST_TITLE_NORM) return "";
+  // Market-boilerplate flattening (2026-11-07, header has the
+  // full note): a stored description that IS a legacy stamp — or
+  // real text carrying one as a prefix — never renders as the
+  // stamp. Prefix-stamped real text renders unstamped; a bare
+  // stamp renders as the composed one-liner from the row's own
+  // stored fields. A pack row's stored source outranks the
+  // stamp's wording (pack candidates were stamped with the
+  // search paragraph too, but they are Roamly research, not live
+  // search results).
+  const exactStampProvenance = legacyMarketBoilerplateProvenance(desc);
+  const prefixStampProvenance = exactStampProvenance
+    ? null
+    : /^Search-backed result\./.test(desc)
+      ? ("search" as const)
+      : /^Verified source result\./.test(desc)
+        ? ("verified" as const)
+        : null;
+  if (exactStampProvenance || prefixStampProvenance) {
+    const unstamped = exactStampProvenance ? "" : stripLegacyMarketStamp(desc);
+    if (unstamped) return unstamped;
+    return marketStopOneLiner({
+      category: context?.category,
+      itemType: context?.itemType,
+      city: context?.city,
+      origin: context?.origin,
+      provenance:
+        context?.provenance === "pack"
+          ? "pack"
+          : (exactStampProvenance ?? prefixStampProvenance ?? context?.provenance ?? "search"),
+      genericStay:
+        context?.genericStay ??
+        (marketStopCategoryLabel(context?.category, context?.itemType) === "Hotel" &&
+          isGenericStayTitle(text(title)))
+    });
+  }
   const cleanTitle = text(title);
   const dropTitleEcho = (value: string): string => {
     const bare = value.replace(/\.+$/, "").trim().toLowerCase();

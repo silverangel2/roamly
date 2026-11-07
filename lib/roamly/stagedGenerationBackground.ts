@@ -10,12 +10,39 @@ type ScheduleStagedGenerationAdvanceParams = {
   requestId?: string;
 };
 
-// One slice drives one stage layer. A day stage needs its 45s timeout + the
-// slice's 1s cleanup buffer = 46s; the old 55s slice left only ~9s for claim
-// and reconcile overhead. 90s doubles the slack so a slice reliably fits a
-// full day stage.
+// One slice drives the trip's remaining layers in ONE worker run
+// (SPEED FIX F6, 2026-11-07): the pre-fix chain ran a single layer
+// per slice, so a warm trip's ~7 layers paid a full worker
+// claim/reconcile round trip each (~3.6 s apart in production for
+// ~1 s stages). The worker now runs layers back to back inside the
+// run (maxLayersPerRun below) and yields cleanly when the slice
+// budget runs out mid-trip; the slice loop then continues the
+// same drive. A day stage needs its 45s timeout + the slice's 1s
+// cleanup buffer = 46s; the old 55s slice left only ~9s for claim
+// and reconcile overhead. 90s doubles the slack so a slice reliably
+// fits a full day stage.
 const BACKGROUND_WORKER_SLICE_BUDGET_MS = 90_000;
 const BACKGROUND_WORKER_MAX_SLICES = 25;
+/** Layers per worker run inside one slice — the whole trip for
+ *  any realistic length (outline + one layer per day + finalize;
+ *  the worker's own cap clamps at 25). Longer trips simply
+ *  continue into the chain's next slice: still one continuous
+ *  drive, never a wait for an outside wake. */
+const BACKGROUND_WORKER_MAX_LAYERS_PER_RUN = 25;
+
+/** The exact worker config every background slice runs with —
+ *  exported so the speed-fix checks pin the production values
+ *  (a regression to one layer per run fails the suite, not the
+ *  traveller). */
+export function getStagedGenerationBackgroundWorkerConfig() {
+  return {
+    batchSize: 25,
+    concurrency: 1,
+    maxLayersPerRun: BACKGROUND_WORKER_MAX_LAYERS_PER_RUN,
+    executionBudgetMs: BACKGROUND_WORKER_SLICE_BUDGET_MS,
+    stageCleanupBufferMs: 1_000
+  };
+}
 
 /**
  * KF-2 M5 hardening (2026-11-02): when neither generation cron secret
@@ -191,13 +218,7 @@ async function wakeWorker(params: ScheduleStagedGenerationAdvanceParams, url: st
       requestId: params.requestId || `background:${params.tripId}`,
       reason: index === 0 ? params.reason : `${params.reason}:background_slice_${index + 1}`,
       executionDeadlineMs: Date.now() + BACKGROUND_WORKER_SLICE_BUDGET_MS,
-      config: {
-        batchSize: 25,
-        concurrency: 1,
-        maxLayersPerRun: 1,
-        executionBudgetMs: BACKGROUND_WORKER_SLICE_BUDGET_MS,
-        stageCleanupBufferMs: 1_000
-      }
+      config: getStagedGenerationBackgroundWorkerConfig()
     });
     summaries.push(summary);
 

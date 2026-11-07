@@ -4,6 +4,13 @@ export type NavigationDestination = {
   latitude?: number | null;
   longitude?: number | null;
   address?: string | null;
+  /** True when the destination is only a bare text query with no
+   *  identified place behind it (map-honesty fix, 2026-11-07): the
+   *  provider will resolve the words at click time, possibly to a
+   *  guess, so the link labels must say "Search in …" instead of
+   *  presenting the words as the place. Ignored when coordinates
+   *  are present — an exact point needs no such warning. */
+  unverifiedSearch?: boolean;
 };
 
 function hasCoordinates(destination: NavigationDestination) {
@@ -58,9 +65,33 @@ export function buildNavigationLinks(destination: NavigationDestination) {
   const google = buildGoogleMapsUrl(destination);
   const apple = buildAppleMapsUrl(destination);
   const citymapper = buildCitymapperUrl(destination);
+  // A bare text search is labelled as a search (map-honesty fix,
+  // 2026-11-07): the traveller is told to check the result is the
+  // right place, because the provider resolves the words, not a
+  // verified location. Coordinate destinations keep the plain
+  // labels — the link points at the exact place.
+  const searchOnly = destination.unverifiedSearch === true && !hasCoordinates(destination);
   return [
-    google ? { provider: "google_maps", label: "Open in Google Maps", href: google } : null,
-    apple ? { provider: "apple_maps", label: "Open in Apple Maps", href: apple } : null,
-    citymapper ? { provider: "citymapper", label: "Open in Citymapper", href: citymapper } : null
+    google
+      ? {
+          provider: "google_maps",
+          label: searchOnly ? "Search in Google Maps — check it's the right place" : "Open in Google Maps",
+          href: google
+        }
+      : null,
+    apple
+      ? {
+          provider: "apple_maps",
+          label: searchOnly ? "Search in Apple Maps — check it's the right place" : "Open in Apple Maps",
+          href: apple
+        }
+      : null,
+    citymapper
+      ? {
+          provider: "citymapper",
+          label: searchOnly ? "Search in Citymapper — check it's the right place" : "Open in Citymapper",
+          href: citymapper
+        }
+      : null
   ].filter(Boolean) as Array<{ provider: string; label: string; href: string }>;
 }

@@ -20,12 +20,18 @@ import type {
 } from "@/lib/roamly/engine/packs/types";
 import {
   OPEN_PLACES_CLASSIFIER_VERSION,
+  OVERTURE_EXTRACT_CLASSIFIER_VERSION,
   PACK_CLASSIFIER_VERSION,
   PACK_FRESHNESS_MS,
   PACK_LEASE_TTL_MS,
   PackStoreError,
   toInstant
 } from "@/lib/roamly/engine/packs/types";
+import {
+  collectPoiCandidatesFromExtract,
+  extractBuildProvenance,
+  type OvertureExtractLoadOptions
+} from "@/lib/roamly/engine/packs/overtureExtract";
 import { PACK_SCHEMA_VERSION } from "@/lib/roamly/engine/types";
 import {
   collectPoiCandidates,
@@ -39,6 +45,7 @@ import {
 } from "@/lib/roamly/engine/packs/collectors";
 import { buildLegMatrix } from "@/lib/roamly/engine/packs/legMatrix";
 import { solveTrip } from "@/lib/roamly/engine/solver";
+import { scoreStays } from "@/lib/roamly/engine/anchors";
 import { DEFAULT_FETCH_POLICY } from "@/lib/roamly/engine/packs/collectors";
 import {
   collectPoiCandidatesFromOpenPlaces,
@@ -153,7 +160,9 @@ export function candidateRowToDTO(row: StoredCandidate, builtAt: UtcInstant | nu
       recordedAt: builtAt,
       label:
         source === "overture"
-          ? "Overture place (via Open Places API)"
+          ? row.tags?.source_dataset === "overture-places-extract"
+            ? "Overture place (prebuilt Overture Places extract, CDLA Permissive 2.0)"
+            : "Overture place (via Open Places API)"
           : source === "guide"
             ? "Open-guide sight (Wikipedia/Wikivoyage geosearch — thin-destination enrichment)"
             : "OpenStreetMap element"
@@ -319,9 +328,10 @@ export interface RunBuildOptions {
  * This is the kill-loop fix: a hard-killed function takes
  * neither the publish nor the fail path and leaves the job
  * "building" under a live lease, which suppresses every later
- * kick AND locks out the cron's queued-only drain. The budget
- * release happens while the function is still alive, so the job
- * can never be stranded by a mid-claim kill.
+ * kick until the lease expires (since the 2026-11-07 pack
+ * rescue, the cron's drain then reclaims it via the steal).
+ * The budget release happens while the function is still
+ * alive, so the job can never be stranded by a mid-claim kill.
  */
 export async function runBuildJob(
   store: PackStore,
@@ -343,7 +353,11 @@ export async function runBuildJob(
     // the one that served this build, restamp the DTO's
     // classifierVersion truthfully at publish (see publishVersion).
     const classifierVersionRestamp =
-      collected.provenance.source === "overture-open-places" ? OPEN_PLACES_CLASSIFIER_VERSION : undefined;
+      collected.provenance.source === "overture-open-places"
+        ? OPEN_PLACES_CLASSIFIER_VERSION
+        : collected.provenance.source === "overture-places-extract"
+          ? OVERTURE_EXTRACT_CLASSIFIER_VERSION
+          : undefined;
     return store.publishVersion(
       version.dto.packVersionId,
       jobId,
@@ -433,6 +447,16 @@ export async function requestBuild(
  * oldest first. This is the function the recorded cron attach
  * point (and the Phase 5 cold-destination path) calls. Returns the
  * published versions, in drain order.
+ *
+ * Pack rescue (2026-11-07): "building" jobs are offered to
+ * runBuildJob too, not just "queued" ones. A build the pack kick
+ * started sits at "building" under a lease for most of every hour,
+ * and when the kick's function dies mid-build the job can only be
+ * reclaimed by claimBuild's expired-lease steal — which a
+ * queued-only drain never invoked, so the reclaim waited for a
+ * later hourly tick (or forever, while a trip kept the kick busy).
+ * Offering the job is safe: claimBuild returns null for a building
+ * job whose lease is still live, and runBuildJob then no-ops.
  */
 export async function drainQueuedBuilds(
   store: PackStore,
@@ -442,7 +466,7 @@ export async function drainQueuedBuilds(
   const jobs = await store.listBuildJobs();
   const published: PackVersionRecord[] = [];
   for (const job of jobs) {
-    if (job.status !== "queued") continue;
+    if (job.status !== "queued" && job.status !== "building") continue;
     if (options.onlyDestinationId && job.destinationId !== options.onlyDestinationId) continue;
     const done = await runBuildJob(store, job.jobId, collectorFor(job.destinationId), options);
     if (done) published.push(done);
@@ -506,15 +530,15 @@ async function widenCollection(
   }
 }
 
-/** Solver shortlist for the leg matrix (fix round 2026-11-07).
+/** Solver shortlist for the leg matrix (fix round 2026-11-07;
+ *  trip-class extension, matrix-coverage fix 2026-11-07).
  *  The pack is built before any trip exists, so the matrix cannot
  *  know a real trip's stops — but it can know the stops the solver
  *  itself picks for canonical trips over THIS pack. Run the real
- *  solver at the destination centre for the common trip lengths
- *  (3/5/7 days from a Monday and a Friday anchor; empty
- *  must-sees, default earliest start and profile —
- *  runEnginePlan's shape for an unadorned payload) and
- *  collect every leg endpoint and stop key in solve order,
+ *  solver for the common trip lengths (3/5/7 days from a Monday
+ *  and a Friday anchor; empty must-sees, default earliest start
+ *  and profile — runEnginePlan's shape for an unadorned payload)
+ *  and collect every leg endpoint and stop key in solve order,
  *  shortest trips first. buildLegMatrix fills its capped point
  *  set with these keys before topping up, so the matrix covers
  *  the candidates the solver can actually choose instead of an
@@ -522,7 +546,21 @@ async function widenCollection(
  *  Quebec City's solver stops uncovered — 0/18 legs routed).
  *  Pure CPU over the collected candidates; a failed canonical
  *  solve degrades to the keys collected so far, never a build
- *  failure. */
+ *  failure.
+ *
+ *  TRIP CLASSES (2026-11-07): the canonical solves run anchored
+ *  at the destination centre AND at the pack's top scored stay.
+ *  Centre-only anchoring diverged from real trips: a real
+ *  no-booking trip anchors at its top scored stay
+ *  (deriveSolveContext's scored-fallback), and the solver's
+ *  chains — above all its meal picks, chosen by proximity to the
+ *  chain's current position — then visit a different
+ *  neighbourhood than any centre-anchored chain reaches. That
+ *  divergence is exactly how a real Tokyo trip's three food
+ *  stops missed the point set while the matrix itself was
+ *  perfect. The stay-anchored solves mirror the scored-fallback
+ *  anchor class (basePos/baseName from the top stay, no pinned
+ *  stay — the same shape runEnginePlan solves for it). */
 export function solverShortlistKeys(
   destination: DestinationDTO,
   candidates: readonly StoredCandidate[],
@@ -567,31 +605,46 @@ export function solverShortlistKeys(
       keys.push(key);
     }
   };
-  for (const startOffset of [0, 4]) {
-    for (const days of [3, 5, 7]) {
-      try {
-        const plan = solveTrip(pack, {
-          days,
-          startIso: strip[startOffset],
-          dates: strip.slice(startOffset, startOffset + days),
-          earliestMin: 9 * 60,
-          restSpec: null,
-          mustSees: [],
-          basePos: destination.centre,
-          baseName: destination.displayName
-        });
-        for (const day of plan.days) {
-          for (const leg of day.legs) {
-            push(leg.fromKey);
-            push(leg.toKey);
+  const solveClass = (basePos: { lat: number; lon: number }, baseName: string): void => {
+    for (const startOffset of [0, 4]) {
+      for (const days of [3, 5, 7]) {
+        try {
+          const plan = solveTrip(pack, {
+            days,
+            startIso: strip[startOffset],
+            dates: strip.slice(startOffset, startOffset + days),
+            earliestMin: 9 * 60,
+            restSpec: null,
+            mustSees: [],
+            basePos,
+            baseName
+          });
+          for (const day of plan.days) {
+            for (const leg of day.legs) {
+              push(leg.fromKey);
+              push(leg.toKey);
+            }
+            for (const item of day.items) push(item.key);
           }
-          for (const item of day.items) push(item.key);
+        } catch {
+          // A canonical solve is matrix advice, not a build gate:
+          // keep whatever earlier solves collected.
         }
-      } catch {
-        // A canonical solve is matrix advice, not a build gate:
-        // keep whatever earlier solves collected.
       }
     }
+  };
+  // Class 1: centre-anchored (the destination-centre base class).
+  solveClass(destination.centre, destination.displayName);
+  // Class 2: top-stay-anchored (the scored-fallback base class a
+  // real no-booking trip solves from). Skipped when the pack has
+  // no scored stay, or the top stay sits on the centre itself —
+  // that class's chains are the centre class's chains.
+  const topStay = scoreStays(pack)[0] || null;
+  if (
+    topStay &&
+    (topStay.pos.lat !== destination.centre.lat || topStay.pos.lon !== destination.centre.lon)
+  ) {
+    solveClass(topStay.pos, topStay.name);
   }
   return keys;
 }
@@ -605,6 +658,50 @@ export interface LiveCollectorOptions {
   /** Open Places collection options (deadline/sleep/clock) — proofs
    *  inject these; production takes the defaults. */
   openPlaces?: OpenPlacesOptions;
+}
+
+/** The leg-matrix tail every collection lane shares: OSRM /table
+ *  per profile at build time, cached in the version; zero per-trip
+ *  routing calls. Unreachable routing is not a build failure: the
+ *  version publishes without a matrix and the solver labels its
+ *  haversine fallback per leg. The point set leads with the
+ *  solver's own shortlist for this pack (solverShortlistKeys) so
+ *  the capped matrix covers the stops solves actually pick (fix
+ *  round 2026-11-07). Profile truth is part of the build record
+ *  (matrix-coverage fix, 2026-11-07): a dead profile is ALSO in
+ *  the stored artefact (legMatrix.profiles) — the log lines here
+ *  are so the build's own output says it out loud instead of the
+ *  pack looking identical to a fully-routed one. Extracted
+ *  verbatim from liveCollector (SPEED FIX F1) so the extract lane
+ *  builds its matrix through the identical path. */
+export async function attachLegMatrix(
+  fetcher: Fetcher,
+  destination: DestinationDTO,
+  candidates: StoredCandidate[]
+): Promise<StoredLegMatrix | null> {
+  const shortlistKeys = solverShortlistKeys(destination, candidates, new Date());
+  const legMatrix = await buildLegMatrix(
+    fetcher,
+    destination.centre,
+    candidates,
+    () => new Date(),
+    20_000,
+    shortlistKeys
+  );
+  if (!legMatrix) {
+    console.warn(
+      `[packs] leg matrix for ${destination.displayName}: routing unreachable for BOTH profiles — the pack publishes without a matrix and every leg falls back to a labelled haversine estimate.`
+    );
+  } else if (legMatrix.profiles && (!legMatrix.profiles.drive || !legMatrix.profiles.walk)) {
+    const deadFields = [
+      legMatrix.profiles.drive ? null : "profiles.drive",
+      legMatrix.profiles.walk ? null : "profiles.walk"
+    ].filter(Boolean);
+    console.warn(
+      `[packs] leg matrix for ${destination.displayName}: routing profile unreachable at build (${deadFields.join(", ")} = false, recorded on the matrix); its legs fall back to labelled haversine estimates.`
+    );
+  }
+  return legMatrix;
 }
 
 /** The live collector: the Overpass ladder first (chunked queries,
@@ -664,23 +761,7 @@ export function liveCollector(
       }
       const provenance = liveBuildProvenance(collection, collection.evidence.fetchedAt);
       if (thinNote) provenance.label += thinNote;
-      // OSRM leg matrix — ONE /table call per profile at build
-      // time, cached in the version; zero per-trip routing calls.
-      // Unreachable routing is not a build failure: the version
-      // publishes without a matrix and the solver labels its
-      // haversine fallback per leg. The point set leads with the
-      // solver's own shortlist for this pack (solverShortlistKeys)
-      // so the capped matrix covers the stops solves actually
-      // pick (fix round 2026-11-07).
-      const shortlistKeys = solverShortlistKeys(destination, candidates, new Date());
-      const legMatrix = await buildLegMatrix(
-        fetcher,
-        destination.centre,
-        candidates,
-        () => new Date(),
-        20_000,
-        shortlistKeys
-      );
+      const legMatrix = await attachLegMatrix(fetcher, destination, candidates);
       return { candidates, provenance, legMatrix };
     }
     if (!openPlacesApiKey) {
@@ -716,6 +797,71 @@ export function liveCollector(
       candidates: fallback.candidates,
       provenance: openPlacesBuildProvenance(fallback, fallback.evidence.fetchedAt)
     };
+  };
+}
+
+export interface PrimaryCollectorOptions extends LiveCollectorOptions {
+  /** Extract-lane load options (injected loader / dir / URL
+   *  template overrides) — proofs inject these; production reads
+   *  the env (ROAMLY_PACK_EXTRACT_DIR / _URL_TEMPLATE). */
+  extract?: OvertureExtractLoadOptions;
+}
+
+/** THE PRIMARY COLLECTOR (SPEED FIX F1, 2026-11-07) — the default
+ *  collector behind every pack build (kick, pack drive, hourly
+ *  cron drain). Lane order:
+ *
+ *    1. Overture Places EXTRACT (packs/overtureExtract.ts): a
+ *       prebuilt per-destination slice of the public S3 parquet
+ *       release, classified locally. Serves ONLY when an extract
+ *       exists for the destination and classifies to a viable
+ *       pack — sight stock at the codebase's thin bar
+ *       (THIN_PACK_SIGHTS), the same bar the live lane uses to
+ *       engage its own widen/enrich fallbacks. Build time is the
+ *       classification plus the shared leg-matrix tail: seconds.
+ *    2. The LIVE lane (liveCollector, unchanged): the Overpass
+ *       ladder, its thin-destination widen/enrich/label sequence,
+ *       and the Open Places API whole-pack fallback. This is the
+ *       honest fallback for destinations with no extract or a
+ *       thin one — including every destination with deliberate
+ *       subregion coverage boxes the slicer does not cut.
+ *
+ *  Whole-pack discipline holds across the lanes: exactly one
+ *  source builds a version, never a merge, and the version's
+ *  provenance names the lane that served. An extract-lane error
+ *  is a lane miss (logged), never a build failure — the live
+ *  lane behind it owns the failure surface exactly as before. */
+export function primaryCollector(
+  fetcher: Fetcher = systemFetcher,
+  policy: FetchPolicy = DEFAULT_FETCH_POLICY,
+  options: PrimaryCollectorOptions = {}
+): PackCollector {
+  const live = liveCollector(fetcher, policy, options);
+  return async (destination) => {
+    let extract = null;
+    try {
+      extract = await collectPoiCandidatesFromExtract(destination, options.extract ?? {});
+    } catch (err) {
+      console.warn(
+        `[packs] extract lane errored for ${destination.displayName} (${err instanceof Error ? err.message : String(err)}); falling back to live collection.`
+      );
+      extract = null;
+    }
+    if (extract && extract.candidates.length > 0) {
+      const counts = packCounts(extract.candidates);
+      if (counts.sights >= THIN_PACK_SIGHTS) {
+        const legMatrix = await attachLegMatrix(fetcher, destination, extract.candidates);
+        return {
+          candidates: extract.candidates,
+          provenance: extractBuildProvenance(extract, toInstant(new Date())),
+          legMatrix
+        };
+      }
+      console.warn(
+        `[packs] extract for ${destination.displayName} is thin (${counts.sights} sights < ${THIN_PACK_SIGHTS}); falling back to live collection.`
+      );
+    }
+    return live(destination);
   };
 }
 

@@ -58,6 +58,11 @@ async function runRecoverySweep(
       reopened: 0,
       driven: 0,
       skippedLive: 0,
+      deadLettered: 0,
+      skippedDeadLettered: 0,
+      zombies: [],
+      packWaits: [],
+      packWaitAlarms: 0,
       error: "STRANDED_GENERATION_RECOVERY_FAILED"
     } as StrandedGenerationRecoverySummary;
   });

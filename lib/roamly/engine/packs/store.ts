@@ -60,8 +60,8 @@ export interface PackStore {
   /** Release a claimed job back to "queued" under its lease fencing
    *  token, WITHOUT recording a failure. The distinct honest outcome
    *  for "the holder yielded": the job is live and re-drainable,
-   *  the lease is cleared, and the cron's drain (which only feeds
-   *  queued jobs) can reclaim it. Returns null when the job is not
+   *  the lease is cleared, and the cron's drain can reclaim it.
+   *  Returns null when the job is not
    *  building under the presented lease (claimed under us), and
    *  throws JOB_NOT_FOUND for an unknown job.
    *

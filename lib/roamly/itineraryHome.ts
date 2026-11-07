@@ -32,6 +32,10 @@
 
 import { deriveDaySummary } from "@/lib/roamly/daySummary";
 import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
+import {
+  isGenericStayTitle,
+  type MarketStopProvenance
+} from "@/lib/roamly/marketStopDescription";
 
 export type HomeTimelineRowInput = {
   time: string;
@@ -60,6 +64,19 @@ export type HomeTimelineRowInput = {
    *  the day cards link with. Absent/empty = no stable id, and the
    *  row must NOT be given a guessed place link (Jakob A15). */
   itemId?: string | null;
+  /** Market provenance from the display builder (stored source +
+   *  factualStatus; description-boilerplate fix, 2026-11-07).
+   *  Absent/null = not a market binding: no chip, and the row does
+   *  not count toward the itinerary-level search caution. */
+  provenance?: MarketStopProvenance | null;
+  /** Coordinate provenance/precision from the stored record
+   *  (map-honesty fix, 2026-11-07). "area" = the coordinates are an
+   *  area point (the destination centre), not the place itself;
+   *  the stamp can also arrive with NO coordinates (a booked stay
+   *  whose property location was never saved). Absent/null =
+   *  unstamped record. */
+  coordinateSource?: "candidate" | "booking_record" | "destination_centre" | null;
+  coordinatePrecision?: "place" | "area" | null;
 };
 
 export type HomeRowKind = "travel" | "arrival" | "venue" | "return-to-stay";
@@ -152,6 +169,33 @@ export type HomeRow = {
   itemId: string | null;
   /** Lowercased stored category, for the row icon only. */
   category: string;
+  /** Market provenance carried through from the row input
+   *  (description-boilerplate fix, 2026-11-07): "search" and
+   *  "verified" render as a small chip on the row; null = not a
+   *  market binding. */
+  provenance: MarketStopProvenance | null;
+  /** Coordinate provenance/precision carried through from the row
+   *  input (map-honesty fix, 2026-11-07); null when unstamped. */
+  coordinateSource: "candidate" | "booking_record" | "destination_centre" | null;
+  coordinatePrecision: "place" | "area" | null;
+  /** True when this row's external map links can only be a bare
+   *  text search: no stored coordinates AND no real place identity
+   *  behind the words (a live-search binding, an unverifiable
+   *  title, or an unbooked generic stay placeholder). The panel
+   *  labels such links as a search, never as the place itself. */
+  mapLinkSearchOnly: boolean;
+};
+
+/** One Map-tab link entry (map-honesty fix, 2026-11-07): the same
+ *  deduped query as `mapStops`, plus the first row that produced
+ *  it — its stored coordinates when it has them (the links then
+ *  point at the exact place, not the words) and whether the links
+ *  are only a text search (see HomeRow.mapLinkSearchOnly). */
+export type HomeMapStopDetail = {
+  query: string;
+  latitude: number | null;
+  longitude: number | null;
+  searchOnly: boolean;
 };
 
 export type HomeDayInput = {
@@ -182,6 +226,14 @@ export type HomeDayView = {
   rows: HomeRow[];
   /** Deduped map queries for the Map tab, in timeline order. */
   mapStops: string[];
+  /** The same entries as mapStops, with the producing row's
+   *  coordinates + search-only flag (map-honesty fix, 2026-11-07). */
+  mapStopDetails: HomeMapStopDetail[];
+  /** True when any row this day is a live-search market binding
+   *  (description-boilerplate fix, 2026-11-07). The home panel
+   *  renders the full search caution ONCE per itinerary when any
+   *  day carries this — never per stop. */
+  hasSearchRows: boolean;
 };
 
 function getString(value: unknown): string {
@@ -355,10 +407,21 @@ export function toHomeRow(
   // DISPLAY-ONLY shortening (2026-10-28): same rule as the day
   // cards (the detail usually already arrives shortened from
   // buildDisplayTimelineItems; this is idempotent defence for
-  // any other caller). Stored text is never touched.
+  // any other caller). Stored text is never touched. The context
+  // (2026-11-07) carries the row's own fields so a legacy market
+  // stamp flattens to the same one-liner here too.
   const detail = displayActivityDescription(
     getString(item.title),
-    stripTitleEcho(getString(item.title), rawDetail)
+    stripTitleEcho(getString(item.title), rawDetail),
+    {
+      category: getString(item.category),
+      itemType: getString(item.itemType),
+      city: getString(item.location),
+      provenance: item.provenance ?? null,
+      genericStay:
+        getString(item.itemType).toLowerCase() === "hotel" &&
+        isGenericStayTitle(getString(item.title))
+    }
   );
   const unverified = kind === "venue" && isUnverifiableStopTitle(getString(item.title), detail);
   // Mock order: travel rows read "Flight · 1h 45m (est.)" (detail first);
@@ -392,7 +455,36 @@ export function toHomeRow(
       typeof item.longitude === "number" && Number.isFinite(item.longitude) ? item.longitude : null,
     itemId:
       typeof item.itemId === "string" && item.itemId.trim() ? item.itemId : null,
-    category: getString(item.category).toLowerCase()
+    category: getString(item.category).toLowerCase(),
+    provenance: item.provenance ?? null,
+    coordinateSource:
+      item.coordinateSource === "candidate" ||
+      item.coordinateSource === "booking_record" ||
+      item.coordinateSource === "destination_centre"
+        ? item.coordinateSource
+        : null,
+    coordinatePrecision:
+      item.coordinatePrecision === "place" || item.coordinatePrecision === "area"
+        ? item.coordinatePrecision
+        : null,
+    // A bare-text-search link (map-honesty fix, 2026-11-07): the
+    // row has no coordinates to point at, and behind the words
+    // there is no identified place — a live-search binding, an
+    // unverifiable title, or a generic stay placeholder the
+    // traveller never booked. Named real places (a booked stay, a
+    // pack venue, the destination itself) keep ordinary links.
+    mapLinkSearchOnly:
+      !(
+        typeof item.latitude === "number" &&
+        Number.isFinite(item.latitude) &&
+        typeof item.longitude === "number" &&
+        Number.isFinite(item.longitude)
+      ) &&
+      (item.provenance === "search" ||
+        unverified ||
+        (getString(item.itemType).toLowerCase() === "hotel" &&
+          isGenericStayTitle(getString(item.title)) &&
+          item.authority !== "confirmed"))
   };
 }
 
@@ -443,11 +535,21 @@ export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView 
   const picker = homeDayPickerLabel(day.date, locale);
   const seen = new Set<string>();
   const mapStops: string[] = [];
+  const mapStopDetails: HomeMapStopDetail[] = [];
   for (const row of rows) {
     const query = row.mapQuery.trim();
     if (!query || seen.has(query.toLowerCase())) continue;
     seen.add(query.toLowerCase());
     mapStops.push(query);
+    // The first row that produced the query owns its link detail
+    // (map-honesty fix, 2026-11-07): its coordinates when it has
+    // them, and its search-only flag when it does not.
+    mapStopDetails.push({
+      query,
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+      searchOnly: row.mapLinkSearchOnly
+    });
     if (mapStops.length >= 8) break;
   }
   return {
@@ -459,7 +561,9 @@ export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView 
     subtitle,
     displaySummary,
     rows,
-    mapStops
+    mapStops,
+    mapStopDetails,
+    hasSearchRows: rows.some((row) => row.provenance === "search")
   };
 }
 

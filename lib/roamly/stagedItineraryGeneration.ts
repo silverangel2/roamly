@@ -50,6 +50,11 @@ import { buildTravelerPersonalizationContext, type TravelerPersonalizationContex
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { dualWriteGenerationState } from "@/lib/roamly/generationStateStore";
+import {
+  isGenericStayTitle,
+  marketStopOneLiner,
+  type MarketStopProvenance
+} from "@/lib/roamly/marketStopDescription";
 import { readRelevantSuccessfulTripPatterns, selectRelevantSuccessfulTripPatterns } from "@/lib/roamly/successfulTripExperiencePatterns";
 
 export type StagedGenerationStatus =
@@ -164,6 +169,22 @@ export type StagedGenerationState = {
   lastErrorCode?: string | null;
   startedAt: string;
   updatedAt: string;
+  /** SPEED FIX F8 (2026-11-07): the NAMED pack-wait state, set by
+   *  the zero-engine outline stage while the trip waits for its
+   *  destination's pack build and cleared when the outline
+   *  succeeds. `since` is the FIRST wait cycle's instant (later
+   *  cycles preserve it); `waits` counts the cycles. Staleness
+   *  checks (generationRecovery) read this to tell "waiting on a
+   *  pack" apart from "making progress": a pack-wait cycle
+   *  refreshes updatedAt like any persist, but it is not
+   *  generation progress, and the sweep must not treat it as
+   *  such. Absent/null on every non-waiting state (the incumbent
+   *  AI lane never sets it). */
+  waitingOnPack?: {
+    destinationId: string;
+    since: string;
+    waits: number;
+  } | null;
   completedAt?: string | null;
   worker?: {
     leaseId: string;
@@ -346,6 +367,14 @@ export function getStagedGenerationState(metadata: unknown, expectedTripId?: str
     lastErrorCode: getString(generation.lastErrorCode, "") || null,
     startedAt: getString(generation.startedAt, nowIso()),
     updatedAt: getString(generation.updatedAt, nowIso()),
+    waitingOnPack: (() => {
+      const waiting = getRecord(generation.waitingOnPack);
+      if (!waiting) return null;
+      const destinationId = getString(waiting.destinationId, "");
+      const since = getString(waiting.since, "");
+      if (!destinationId || !since) return null;
+      return { destinationId, since, waits: getPositiveNumber(waiting.waits, 0) };
+    })(),
     completedAt: getString(generation.completedAt, "") || null,
     worker: (getRecord(generation.worker) as StagedGenerationState["worker"]) || null,
     trace: getRecord(generation.trace) as StagedGenerationState["trace"]
@@ -883,6 +912,17 @@ function candidateFactualStatus(result: TravelMarketResult): RoamlyActivitySeed[
   return "unknown";
 }
 
+/** Provenance for the description composer: the KF-1 pack fallback
+ *  (Roamly's own inventory, retrieval "native") is Roamly research,
+ *  not a live search result, and its stops must not be worded as
+ *  one. Everything else follows the candidate's factual status. */
+function candidateProvenance(result: TravelMarketResult): MarketStopProvenance {
+  if (result.source === "roamly_internal" || marketRetrievalProvider(result) === "native") {
+    return "pack";
+  }
+  return candidateFactualStatus(result) === "verified" ? "verified" : "search";
+}
+
 function candidateCostStatus(result: TravelMarketResult): RoamlyActivitySeed["cost_status"] {
   const verification = marketVerificationStatus(result);
   if (verification !== "verified" && verification !== "native_verified") return "UNKNOWN";
@@ -934,9 +974,21 @@ function rehydrateGroundedTimelineItem(item: RoamlyActivitySeed, candidate: Trav
     source: candidate.source,
     factualStatus: candidateFactualStatus(candidate),
     title: candidate.title,
-    description: candidateFactualStatus(candidate) === "verified"
-      ? "Verified source result. Confirm current hours, route, and price before relying on it."
-      : "Search-backed result. Confirm current hours, route, availability, and price before relying on it.",
+    // Description-boilerplate fix (2026-11-07): the candidate is a
+    // commerce search result and carries no place description, so
+    // the old canned caution paragraph is NOT stamped here anymore.
+    // The stop gets the one honest line its own facts support
+    // (kind · city · provenance, composed in marketStopDescription);
+    // the full caution renders once per itinerary instead, and the
+    // price stays in its own fields (estimated_cost / cost_status).
+    description: marketStopOneLiner({
+      category: candidate.category,
+      itemType: stagedItemType(item),
+      city: location,
+      origin: candidate.origin || item.origin,
+      provenance: candidateProvenance(candidate),
+      genericStay: candidate.category === "hotel" && isGenericStayTitle(candidate.title)
+    }),
     location_name: location,
     map_query: [candidate.title, location].filter(Boolean).join(" "),
     estimated_cost: cost,

@@ -77,6 +77,15 @@ export interface EngineLegMatrix {
   keys: string[];
   driveSeconds: (number | null)[][];
   walkSeconds: (number | null)[][];
+  /** Per-profile success at build time (matrix-coverage fix,
+   *  2026-11-07): true when that profile's /table call returned a
+   *  grid, false when it failed and the profile was stored blank
+   *  (every leg of that mode then falls back to the labelled
+   *  haversine estimate). Recorded so a dead profile is visible
+   *  in the stored pack and the build log instead of looking
+   *  identical to a live one. Absent on matrices stored before
+   *  the field existed — unknown, never read as success. */
+  profiles?: { drive: boolean; walk: boolean };
 }
 
 export interface EnginePack {

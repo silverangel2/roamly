@@ -33,6 +33,12 @@
  *   highlights its card and scrolls the strip to it. A stop
  *   without coordinates appears in the strip marked as having no
  *   map pin — its coordinates are never invented to give it one.
+ * - Map-honesty (2026-11-07): a stop whose coordinates are only
+ *   an AREA point (coordinatePrecision "area" — the destination
+ *   centre standing in for an unlocated base) gets an amber pin
+ *   plus an explicit "Approximate" line in its popup and strip
+ *   card, so a fallback pin never renders identically to a real
+ *   place pin.
  *
  * Renders nothing when:
  * - there are zero stops with valid coordinates (the caller keeps
@@ -66,7 +72,39 @@ export type TripDayMapStop = {
   /** A VERIFIED photo URL for this stop (pipeline result only),
    *  or null — null renders no image area at all. */
   photoUrl?: string | null;
+  /** Coordinate precision (map-honesty fix, 2026-11-07): "place" =
+   *  the coordinates are the stop's own point; "area" = they are
+   *  an area point (the destination centre) and the pin must
+   *  render as approximate — a different marker colour plus an
+   *  explicit "Approximate" line in the popup and the strip — so
+   *  a fallback pin can never look identical to a real one.
+   *  Absent/null = an unstamped legacy row: rendered as a normal
+   *  pin, exactly as rows were before the stamp existed. */
+  coordinatePrecision?: "place" | "area" | null;
+  /** Where the coordinates came from (companion to the precision
+   *  stamp): picks the approximate wording ("destination centre"
+   *  vs a generic area note). */
+  coordinateSource?: "candidate" | "booking_record" | "destination_centre" | null;
+  /** Strip note shown INSTEAD of the default no-location line
+   *  when the stop has no pin but the record knows why — e.g. a
+   *  booked stay whose property location was never saved. */
+  noPinNote?: string | null;
 };
+
+/** The approximate-pin wording for an "area" stop: the pin marks
+ *  the destination centre (or, for any other area source, a
+ *  general area) — never the place itself. */
+export function approximatePinNote(stop: TripDayMapStop): string {
+  return stop.coordinateSource === "destination_centre"
+    ? "Approximate — destination centre, not the exact place"
+    : "Approximate — general area, not the exact place";
+}
+
+/** Marker colour per precision: the brand blue for a real place
+ *  pin, the palette's sun amber for an approximate area pin. */
+export function markerColorForStop(stop: TripDayMapStop): string {
+  return stop.coordinatePrecision === "area" ? "#FFB84D" : "#087BFF";
+}
 
 function isValidStop(stop: TripDayMapStop): boolean {
   return (
@@ -103,6 +141,11 @@ function MapPlaceCard({ stop }: { stop: TripDayMapStop }) {
         </div>
       ) : null}
       <p className="text-[14px] font-semibold leading-snug text-chead">{stop.label}</p>
+      {stop.coordinatePrecision === "area" ? (
+        <p className="mt-0.5 text-[12.5px] font-semibold leading-4 text-amber-800">
+          {approximatePinNote(stop)}
+        </p>
+      ) : null}
       {stop.detail ? (
         <p className="mt-0.5 text-[12.5px] leading-4 text-cgray">{stop.detail}</p>
       ) : null}
@@ -215,7 +258,7 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
           const popup = new maplibregl.Popup({ offset: 25, maxWidth: "240px" }).setDOMContent(
             popupNode
           );
-          const marker = new maplibregl.Marker({ color: "#087BFF" })
+          const marker = new maplibregl.Marker({ color: markerColorForStop(stop) })
             .setLngLat([stop.longitude as number, stop.latitude as number])
             .setPopup(popup)
             .addTo(map);
@@ -360,12 +403,19 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
                   <span className="mt-0.5 block text-[12.5px] leading-4 text-cgray">{stop.detail}</span>
                 ) : null}
                 {entry.mappable ? (
-                  <span className="mt-1 block text-[12px] font-medium leading-4 text-cblue">
-                    {selected ? "Shown on the map" : "Tap to see on the map"}
-                  </span>
+                  stop.coordinatePrecision === "area" ? (
+                    <span className="mt-1 block text-[12px] font-semibold leading-4 text-amber-800">
+                      {approximatePinNote(stop)}
+                      {selected ? " · shown on the map" : ""}
+                    </span>
+                  ) : (
+                    <span className="mt-1 block text-[12px] font-medium leading-4 text-cblue">
+                      {selected ? "Shown on the map" : "Tap to see on the map"}
+                    </span>
+                  )
                 ) : (
                   <span className="mt-1 block text-[12px] font-medium leading-4 text-cgray">
-                    No map pin — no location saved for this stop
+                    {stop.noPinNote || "No map pin — no location saved for this stop"}
                   </span>
                 )}
               </button>

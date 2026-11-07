@@ -69,6 +69,25 @@ export const OPEN_PLACES_CLASSIFIER_VERSION = "overture-classifier-1";
 /** Version stamp for the Open Places browse plan (roots + paging). */
 export const OPEN_PLACES_QUERY_VERSION = "open-places-browse-1";
 
+/** Version stamp for the Overture EXTRACT classification logic in
+ *  packs/overtureExtract.ts (SPEED FIX F1, 2026-11-07) — the
+ *  prebuilt-extract lane. It classifies with the same
+ *  classifyOvertureRecord as the API lane (the taxonomy is one
+ *  taxonomy), but a pack built from a sliced parquet extract is a
+ *  different artifact from an API-browsed one and its provenance
+ *  says so (source "overture-places-extract", label carrying this
+ *  stamp), so the classifier stamp is its own. Same publish-time
+ *  restamp mechanics as the API lane (see builder.ts). */
+export const OVERTURE_EXTRACT_CLASSIFIER_VERSION = "overture-extract-classifier-1";
+
+/** Version stamp for the extract slice plan (bbox row-group
+ *  pruning + the record mapping in the slicer,
+ *  scripts/roamly-overture-extract-slice.mjs). */
+export const OVERTURE_EXTRACT_SLICE_VERSION = "overture-extract-slice-1";
+
+/** The extract file format tag (slicer output / collector input). */
+export const OVERTURE_EXTRACT_FORMAT = "roamly-overture-extract-1";
+
 /** Default freshness window for stale-while-revalidate reads.
  *  A ready pack older than this still serves, but a read enqueues
  *  a coalesced refresh. Policy constant, not a per-call choice. */
