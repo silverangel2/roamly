@@ -88,7 +88,7 @@ export function ActivateTripButton({
           type="button"
           onClick={() => startCheckout(testerKind)}
           disabled={Boolean(busy)}
-          className="w-full rounded-xl border border-ocean/25 bg-ocean/10 px-4 py-3 text-sm font-bold text-ocean transition hover:bg-ocean/15 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
+          className="w-full rounded-xl border border-cblue/25 bg-cblue/10 px-4 py-3 text-sm font-bold text-cblue transition hover:bg-cblue/15 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
         >
           {busy === testerKind ? "Continuing..." : "Continue as tester"}
         </button>
@@ -107,7 +107,7 @@ export function ActivateTripButton({
             type="button"
             onClick={() => startCheckout("itinerary")}
             disabled={Boolean(busy)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-ink ring-1 ring-cloud transition hover:ring-ocean disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-ink ring-1 ring-cloud transition hover:ring-cblue disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
             {/* Animated unlock (2026-11-04): while secure checkout
                 opens, the shackle springs open on the real spring

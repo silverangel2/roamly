@@ -113,8 +113,8 @@ export function PlaceSelector({
   return (
     <div className="relative">
       <label className="block">
-        <span className="text-sm font-black text-ink">{translateText(label)}</span>
-        {helper ? <span className="mt-1 block text-sm font-bold leading-6 text-slate-500">{translateText(helper)}</span> : null}
+        <span className="text-sm font-black text-chead">{translateText(label)}</span>
+        {helper ? <span className="mt-1 block text-sm font-bold leading-6 text-cgray">{translateText(helper)}</span> : null}
         <input
           value={query}
           onChange={(event) => updateTypedValue(event.target.value)}
@@ -125,7 +125,7 @@ export function PlaceSelector({
           autoComplete="off"
           aria-label={translateText(label)}
           placeholder={translateText(placeholder)}
-          className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+          className="bui-input mt-2 w-full rounded-2xl border border-chair bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
         />
       </label>
 
@@ -158,7 +158,7 @@ export function PlaceSelector({
                 )}
               >
                 <span className="block text-sm font-black">{place.label}</span>
-                <span className={classNames("mt-1 block text-xs font-bold", samePlace(value, place) ? "text-white/85" : "text-slate-500")}>
+                <span className={classNames("mt-1 block text-xs font-bold", samePlace(value, place) ? "text-white/85" : "text-cgray")}>
                   {[place.city, place.region, place.country].filter(Boolean).join(", ") || translateText("Suggested place")}
                 </span>
               </button>
@@ -174,12 +174,12 @@ export function PlaceSelector({
                 className="bui-press w-full rounded-2xl px-4 py-3 text-left transition hover:bg-csoft"
               >
                 <span className="block text-sm font-black">{cleanedQuery}</span>
-                <span className="mt-1 block text-xs font-bold text-slate-500">{translateText("Use custom place")}</span>
+                <span className="mt-1 block text-xs font-bold text-cgray">{translateText("Use custom place")}</span>
               </button>
             ) : null}
 
             {!loading && !visiblePlaces.length && !showCustom ? (
-              <div className="rounded-2xl bg-mist px-4 py-3 text-sm font-black text-slate-500">
+              <div className="rounded-2xl bg-cbg px-4 py-3 text-sm font-black text-cgray">
                 {translateText("Start typing a city, region, or country.")}
               </div>
             ) : null}

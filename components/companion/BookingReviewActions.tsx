@@ -89,7 +89,7 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
     router.refresh();
   }
 
-  const inputClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink outline-none focus:border-ocean";
+  const inputClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink outline-none focus:border-cblue";
 
   if (mode === "done") {
     return <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">{doneMessage}</p>;
@@ -99,7 +99,7 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
     <div className="mt-3">
       {mode === "idle" ? (
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => void assertBooking()} disabled={busy} className="min-h-11 rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white disabled:opacity-60">
+          <button type="button" onClick={() => void assertBooking()} disabled={busy} className="min-h-11 rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">
             This is my booking
           </button>
           <button type="button" onClick={() => setMode("correcting")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">
@@ -119,7 +119,7 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Currency<input value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputClass} /></label>
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Start date<input value={startDate} type="date" onChange={(e) => setStartDate(e.target.value)} className={inputClass} /></label>
           <div className="flex gap-2 sm:col-span-2">
-            <button type="button" onClick={() => void saveCorrections()} disabled={busy} className="min-h-11 rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white disabled:opacity-60">Save corrections for review</button>
+            <button type="button" onClick={() => void saveCorrections()} disabled={busy} className="min-h-11 rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">Save corrections for review</button>
             <button type="button" onClick={() => setMode("idle")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">Cancel</button>
           </div>
         </div>
@@ -128,7 +128,7 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
         <div className="rounded-xl bg-white p-3">
           <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Reason (optional)<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Not my booking" className={inputClass} /></label>
           <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => void dismissBooking()} disabled={busy} className="min-h-11 rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white disabled:opacity-60">Dismiss this item</button>
+            <button type="button" onClick={() => void dismissBooking()} disabled={busy} className="min-h-11 rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">Dismiss this item</button>
             <button type="button" onClick={() => setMode("idle")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">Cancel</button>
           </div>
         </div>

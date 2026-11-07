@@ -20,7 +20,7 @@ function tags(value: unknown) {
 }
 
 function statusClass(status?: string | null) {
-  if (status === "posted") return "bg-ocean/10 text-ocean";
+  if (status === "posted") return "bg-cblue/10 text-cblue";
   if (status === "failed") return "bg-coral/10 text-coral";
   if (status === "scheduled" || status === "approved") return "bg-sun/20 text-amber-700";
   return "bg-slate-100 text-slate-600";

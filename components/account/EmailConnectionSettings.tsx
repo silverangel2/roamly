@@ -114,7 +114,7 @@ export function EmailConnectionSettings() {
     <div id="email-settings" className="space-y-4 scroll-mt-24">
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <p className="text-sm font-black text-ink">Travel email import</p>
-        <p className="mt-2 rounded-xl border border-teal-200 bg-teal-50 px-3 py-2 text-sm font-bold leading-6 text-teal-950">
+        <p className="mt-2 rounded-xl border border-chair bg-csoft px-3 py-2 text-sm font-bold leading-6 text-chead">
           {t("ui.email.importGmailOnly", "Gmail is the only email provider Roamly supports right now. Outlook and other email providers can’t be connected yet.")}
         </p>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
@@ -167,7 +167,7 @@ export function EmailConnectionSettings() {
                       type="button"
                       onClick={() => void post(provider.syncPath, `${provider.provider}:sync`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                      className="min-h-12 rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white disabled:opacity-50"
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
                     </button>
@@ -194,7 +194,7 @@ export function EmailConnectionSettings() {
                       type="button"
                       onClick={() => void post(provider.syncPath, `${provider.provider}:sync`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                      className="min-h-12 rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white disabled:opacity-50"
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
                     </button>
@@ -224,7 +224,7 @@ export function EmailConnectionSettings() {
                 ) : (
                   <a
                     href={provider.connectPath}
-                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white"
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white"
                   >
                     {provider.connectLabel}
                   </a>

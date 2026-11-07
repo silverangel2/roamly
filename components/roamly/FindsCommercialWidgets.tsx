@@ -111,7 +111,7 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
     {state === "unavailable" ? <div className="rounded-2xl border border-dashed border-[#c8ddd0] bg-[#f7fbf7] px-4 py-5 text-sm leading-6 text-[#60766d]" role="status" aria-live="polite">
       <p>Live offers aren’t available right now.</p>
       <p className="mt-1">Nothing has been substituted or guessed.</p>
-      <button type="button" onClick={() => { setState("loading"); setRetryNonce((value) => value + 1); }} className="mt-4 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">Retry</button>
+      <button type="button" onClick={() => { setState("loading"); setRetryNonce((value) => value + 1); }} className="mt-4 inline-flex min-h-11 items-center rounded-full bg-[#087BFF] px-5 font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/25">Retry</button>
     </div> : null}
     <div ref={hostRef} aria-label={state === "unavailable" ? undefined : config.heading} aria-hidden={state === "unavailable"} style={{ minHeight: state === "unavailable" ? 0 : `${visible ? config.minHeight : 72}px`, display: state === "unavailable" ? "none" : undefined }} className="min-w-0 overflow-hidden" />
   </div>;
@@ -120,7 +120,7 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
 export function FindsWidgetSection({ config, heading = true, className = "" }: { config: FindsWidgetConfig; heading?: boolean; className?: string }) {
   return <section className={`min-w-0 ${className}`} aria-labelledby={heading ? `${config.id}-heading` : undefined}>
     {heading ? <div className="mb-4">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">{config.eyebrow}</p>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#087BFF]">{config.eyebrow}</p>
       <h3 id={`${config.id}-heading`} className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">{config.heading}</h3>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-[#60766d]">{config.description}</p>
     </div> : null}
@@ -130,10 +130,10 @@ export function FindsWidgetSection({ config, heading = true, className = "" }: {
 
 export function FindsTrackedLink({ href, eyebrow, headline, description, action = "Explore" }: { href: string; eyebrow: string; headline: string; description: string; action?: string }) {
   return <article className="rounded-[1.75rem] bg-[#e8f4ec] p-6 sm:p-8">
-    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#0f6e66]">{eyebrow}</p>
+    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#087BFF]">{eyebrow}</p>
     <h3 className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">{headline}</h3>
     <p className="mt-2 max-w-xl text-sm leading-6 text-[#60766d]">{description}</p>
-    <a href={href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#0f6e66] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#0f6e66]/25">{action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#087BFF] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/25">{action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
   </article>;
 }
 

@@ -77,7 +77,7 @@ const previewTemplates = [
 ];
 
 function statusClass(status: string) {
-  if (status === "sent" || status === "Ready") return "bg-ocean/10 text-ocean";
+  if (status === "sent" || status === "Ready") return "bg-cblue/10 text-cblue";
   if (status === "failed" || status.includes("failed") || status.includes("invalid") || status.includes("Missing")) return "bg-coral/10 text-coral";
   return "bg-sun/20 text-amber-800";
 }
@@ -215,7 +215,7 @@ export function AdminEmailConsole({
         <div className="rounded-[1.25rem] border border-cloud bg-white/90 p-5 shadow-soft">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Provider</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Provider</p>
               <h2 className="mt-2 text-2xl font-black text-ink">{emailConfig.activeProviderLabel}</h2>
               <p className="mt-2 text-sm font-bold leading-6 text-slate-600">{emailConfig.smtpUser || adminEmail}</p>
             </div>
@@ -272,14 +272,14 @@ export function AdminEmailConsole({
             </div>
           ) : null}
 
-          {notice ? <p className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+          {notice ? <p className="mt-4 rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
           {error ? <p className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
         </div>
 
         <div className="rounded-[1.25rem] border border-cloud bg-white/90 p-5 shadow-soft">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Retry queue</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Retry queue</p>
               <h2 className="mt-2 text-xl font-black text-ink">Completion emails</h2>
             </div>
             <button
@@ -321,7 +321,7 @@ export function AdminEmailConsole({
         <div className="rounded-[1.25rem] border border-cloud bg-white/90 p-5 shadow-soft">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Preview</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Preview</p>
               <h2 className="mt-2 text-2xl font-black text-ink">Production renderer</h2>
             </div>
             <div className="grid gap-2 sm:grid-cols-[220px_auto]">
@@ -331,7 +331,7 @@ export function AdminEmailConsole({
                   setTemplate(event.target.value);
                   loadPreview(event.target.value);
                 }}
-                className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+                className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-cblue"
               >
                 {previewTemplates.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
@@ -407,7 +407,7 @@ export function AdminEmailConsole({
         </div>
 
         <div className="rounded-[1.25rem] border border-cloud bg-white/90 p-5 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Recent delivery logs</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Recent delivery logs</p>
           <div className="mt-4 grid gap-3">
             {logs.map((log) => (
               <article key={log.id} className="rounded-2xl bg-mist px-4 py-3">

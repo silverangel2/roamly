@@ -52,7 +52,7 @@ export function AffiliateLinkTestButton() {
         type="button"
         onClick={testLinks}
         disabled={busy}
-        className="rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:opacity-60"
+        className="rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-cblue disabled:opacity-60"
       >
         {busy ? "Testing links..." : "Test affiliate links"}
       </button>

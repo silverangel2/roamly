@@ -72,7 +72,7 @@ export function BookingRecommendationButton({
 
   const tone = emphasis === "secondary"
     ? "bg-[#f3efe6] text-ink hover:bg-[#e9e2d4]"
-    : "bg-ocean text-white hover:bg-[#17899a]";
+    : "bg-cblue text-white hover:bg-[#17899a]";
   const shape = compact
     ? "min-h-11 w-auto shrink-0 rounded-full px-3 text-[0.8125rem]"
     : `min-h-11 w-full rounded-full px-5 py-2.5 text-sm ${fill ? "" : "sm:w-auto"}`;

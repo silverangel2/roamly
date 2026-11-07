@@ -176,7 +176,7 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
         </p>
       ) : null}
       {notice ? (
-        <p role="status" className={`rounded-xl border px-3 py-3 text-sm font-black leading-6 ${notice.tone === "error" ? "border-coral/25 bg-coral/10 text-coral" : "border-ocean/20 bg-ocean/10 text-ocean"}`}>
+        <p role="status" className={`rounded-xl border px-3 py-3 text-sm font-black leading-6 ${notice.tone === "error" ? "border-coral/25 bg-coral/10 text-coral" : "border-cblue/20 bg-cblue/10 text-cblue"}`}>
           {notice.text}
         </p>
       ) : null}
@@ -186,7 +186,7 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
         const canChoose = selectable(presentation, option);
         const busy = busyProductId === productId;
         return (
-          <article key={`${productId || "unidentified"}-${option.displayName}`} className={`min-w-0 rounded-xl border p-3 ${isSelected ? "border-ocean/50 bg-ocean/5" : "border-[#eee5d7] bg-[#fffdf8]"}`}>
+          <article key={`${productId || "unidentified"}-${option.displayName}`} className={`min-w-0 rounded-xl border p-3 ${isSelected ? "border-cblue/50 bg-cblue/5" : "border-[#eee5d7] bg-[#fffdf8]"}`}>
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h4 className="break-words text-base font-black text-ink">{option.displayName}</h4>
@@ -202,15 +202,15 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
             {option.unresolvedFacts.length ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Not verified: {option.unresolvedFacts.join(" · ")}</p> : null}
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                {isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean">Selected option</p> : null}
+                {isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue">Selected option</p> : null}
                 {!canChoose && !isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Comparison only</p> : null}
               </div>
               {isSelected ? (
-                <button type="button" onClick={() => void clearSelection()} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl border border-ocean/25 bg-white px-4 py-2.5 text-sm font-black text-ocean transition hover:bg-ocean/5 disabled:cursor-wait disabled:opacity-60">
+                <button type="button" onClick={() => void clearSelection()} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl border border-cblue/25 bg-white px-4 py-2.5 text-sm font-black text-cblue transition hover:bg-cblue/5 disabled:cursor-wait disabled:opacity-60">
                   {busyProductId === "clear" ? "Clearing…" : "Clear selection"}
                 </button>
               ) : canChoose && productId ? (
-                <button type="button" onClick={() => void choose(productId)} disabled={Boolean(busyProductId)} aria-label={`Choose this hotel option: ${option.displayName}`} className="min-h-11 rounded-xl bg-ocean px-4 py-2.5 text-sm font-black text-white transition hover:bg-ocean/90 disabled:cursor-wait disabled:opacity-60">
+                <button type="button" onClick={() => void choose(productId)} disabled={Boolean(busyProductId)} aria-label={`Choose this hotel option: ${option.displayName}`} className="min-h-11 rounded-xl bg-cblue px-4 py-2.5 text-sm font-black text-white transition hover:bg-cblue/90 disabled:cursor-wait disabled:opacity-60">
                   {busy ? "Refreshing this option…" : "Choose this option"}
                 </button>
               ) : null}
@@ -223,10 +223,10 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
                 </ul>
                 <p className="mt-2 text-xs font-bold leading-5 text-amber-900">This still does not book or reserve the room.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => void choose(productId, review.changes)} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl bg-ocean px-4 py-2.5 text-sm font-black text-white transition hover:bg-ocean/90 disabled:opacity-60">
+                  <button type="button" onClick={() => void choose(productId, review.changes)} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl bg-cblue px-4 py-2.5 text-sm font-black text-white transition hover:bg-cblue/90 disabled:opacity-60">
                     {busy ? "Refreshing this option…" : "Accept changes and choose"}
                   </button>
-                  <button type="button" onClick={() => setReview(null)} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl border border-ocean/25 bg-white px-4 py-2.5 text-sm font-black text-ocean transition hover:bg-ocean/5 disabled:opacity-60">
+                  <button type="button" onClick={() => setReview(null)} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl border border-cblue/25 bg-white px-4 py-2.5 text-sm font-black text-cblue transition hover:bg-cblue/5 disabled:opacity-60">
                     Cancel
                   </button>
                 </div>

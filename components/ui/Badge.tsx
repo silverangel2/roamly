@@ -4,7 +4,7 @@ type BadgeProps = {
 };
 
 const toneClasses = {
-  ocean: "border-ocean/20 bg-ocean/10 text-ocean",
+  ocean: "border-cblue/20 bg-cblue/10 text-cblue",
   sun: "border-sun/30 bg-sun/15 text-amber-700",
   coral: "border-coral/25 bg-coral/10 text-coral",
   ink: "border-ink/10 bg-ink/5 text-ink"

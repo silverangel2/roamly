@@ -61,7 +61,7 @@ export function CompanionPushCardView({
         <p className="mt-[3px] truncate text-[12px] leading-[1.25] text-[#44605a]">
           {push.practicalLine}
         </p>
-        <div className="mt-[4px] flex gap-[14px] text-[11.5px] font-bold leading-[1.2] text-ocean">
+        <div className="mt-[4px] flex gap-[14px] text-[11.5px] font-bold leading-[1.2] text-cblue">
           {push.actions.map((action) => (
             <button
               key={action.id}
@@ -96,7 +96,7 @@ function StripActions({
           <button
             type="button"
             onClick={() => onAction("check-in", strip.itemId)}
-            className="inline-flex h-11 items-center justify-center rounded-[10px] bg-ocean px-3 text-[12.5px] font-bold text-white"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] bg-cblue px-3 text-[12.5px] font-bold text-white"
           >
             Check in
           </button>
@@ -110,7 +110,7 @@ function StripActions({
         <button
           type="button"
           onClick={() => onAction("directions", strip.itemId)}
-          className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-ocean px-3 text-[12.5px] font-bold text-ocean"
+          className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-cblue px-3 text-[12.5px] font-bold text-cblue"
         >
           Directions
         </button>
@@ -140,7 +140,7 @@ export function CompanionStripView({
       data-measure="strip"
       className="mx-auto w-[358px] max-w-full overflow-hidden rounded-[18px] border border-[#dce7e3] bg-white px-3 py-[6px] shadow-[0_8px_22px_rgba(13,60,45,0.13)]"
     >
-      <div className="flex items-baseline justify-between text-[10.5px] font-extrabold uppercase leading-none tracking-[0.05em] text-ocean">
+      <div className="flex items-baseline justify-between text-[10.5px] font-extrabold uppercase leading-none tracking-[0.05em] text-cblue">
         <span>{strip.stateLabel}</span>
       </div>
       <h2 className="mt-[2px] truncate text-[15.5px] font-bold leading-[1.16] text-ink">
@@ -174,7 +174,7 @@ export function CompanionSlimLineView({
       data-measure="slim"
       className="mx-auto flex h-10 w-[358px] max-w-full items-center gap-2 rounded-xl border border-[#dce7e3] bg-[#eef6f2] px-[11px] text-[12.5px]"
     >
-      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ocean text-white">
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cblue text-white">
         <Check size={12} strokeWidth={3} aria-hidden="true" />
       </span>
       <span className="min-w-0 flex-1 truncate font-semibold text-ink">{line}</span>
@@ -182,7 +182,7 @@ export function CompanionSlimLineView({
         <button
           type="button"
           onClick={() => onAction("undo", itemId)}
-          className="shrink-0 text-[11.5px] font-bold text-ocean"
+          className="shrink-0 text-[11.5px] font-bold text-cblue"
         >
           Undo
         </button>
@@ -216,7 +216,7 @@ export function CompanionRowView({
       className="mx-auto w-[358px] max-w-full overflow-hidden rounded-2xl border border-[#dce7e3] bg-white px-[11px] py-[7px]"
     >
       <div className="flex items-center gap-2">
-        <span className="whitespace-nowrap text-[12px] font-extrabold text-ocean">{timeHead}</span>
+        <span className="whitespace-nowrap text-[12px] font-extrabold text-cblue">{timeHead}</span>
         <h3 className="min-w-0 flex-1 truncate text-[14.5px] font-semibold leading-[1.2] text-ink">
           {row.name}
         </h3>
@@ -225,7 +225,7 @@ export function CompanionRowView({
             {row.state === "collision" ? "Heads up" : "Leave by"}
           </span>
         ) : row.state === "current" ? (
-          <span className="shrink-0 rounded-full bg-[#e2f2ec] px-[6px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-ocean">
+          <span className="shrink-0 rounded-full bg-[#e2f2ec] px-[6px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-cblue">
             Now
           </span>
         ) : null}
@@ -237,7 +237,7 @@ export function CompanionRowView({
             <button
               type="button"
               onClick={() => onAction("check-in", row.itemId)}
-              className="inline-flex h-[27px] items-center justify-center rounded-[9px] bg-ocean px-[10px] text-[11.5px] font-bold text-white"
+              className="inline-flex h-[27px] items-center justify-center rounded-[9px] bg-cblue px-[10px] text-[11.5px] font-bold text-white"
             >
               Check in
             </button>
@@ -258,7 +258,7 @@ export function CompanionRowView({
           <button
             type="button"
             onClick={() => onAction("skip", row.itemId)}
-            className="inline-flex h-[27px] items-center justify-center rounded-[9px] border-[1.5px] border-ocean px-[10px] text-[11.5px] font-bold text-ocean"
+            className="inline-flex h-[27px] items-center justify-center rounded-[9px] border-[1.5px] border-cblue px-[10px] text-[11.5px] font-bold text-cblue"
           >
             Skip
           </button>
@@ -287,7 +287,7 @@ export function DirectionsChooserView({
       <div className="mx-auto mb-2 h-1 w-[38px] rounded-full bg-[#d5e2dd]" />
       <div className="flex items-baseline justify-between">
         <h3 className="text-[14.5px] font-bold text-ink">Directions to {placeName}</h3>
-        <button type="button" onClick={onClose} className="text-[12px] font-bold text-ocean">
+        <button type="button" onClick={onClose} className="text-[12px] font-bold text-cblue">
           Close
         </button>
       </div>
@@ -302,13 +302,13 @@ export function DirectionsChooserView({
             target="_blank"
             rel="noreferrer"
             className={`mt-[7px] flex h-[38px] items-center gap-[9px] rounded-xl border px-[11px] text-[13px] ${
-              option.recommended ? "border-ocean bg-[#e9f5f1]" : "border-[#e3ece8]"
+              option.recommended ? "border-cblue bg-[#e9f5f1]" : "border-[#e3ece8]"
             }`}
           >
             <span className="font-bold text-ink">{option.label}</span>
             <span className="flex-1 text-right text-[11.5px] text-[#5d726c]">{option.note}</span>
             {option.recommended ? (
-              <span className="rounded-full bg-ocean px-[6px] py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-white">
+              <span className="rounded-full bg-cblue px-[6px] py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-white">
                 Best
               </span>
             ) : null}
@@ -388,7 +388,7 @@ export function ActivityDetailView({
           <button
             type="button"
             onClick={() => onAction("check-in", detail.itemId)}
-            className="inline-flex h-11 items-center justify-center rounded-[10px] bg-ocean px-4 text-[13px] font-bold text-white"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] bg-cblue px-4 text-[13px] font-bold text-white"
           >
             Check in
           </button>
@@ -397,7 +397,7 @@ export function ActivityDetailView({
           <button
             type="button"
             onClick={() => onDirections(detail.itemId)}
-            className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-ocean px-4 text-[13px] font-bold text-ocean"
+            className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-cblue px-4 text-[13px] font-bold text-cblue"
           >
             Directions
           </button>

@@ -3,9 +3,9 @@
 import { useState } from "react";
 
 const primaryClass =
-  "inline-flex min-h-11 min-w-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 disabled:pointer-events-none disabled:opacity-60 bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] hover:bg-[#167f8d]";
+  "inline-flex min-h-11 min-w-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 disabled:pointer-events-none disabled:opacity-60 bg-cblue text-white shadow-[0_8px_20px_rgba(8,123,255,0.18)] hover:bg-[#071E55]";
 const secondaryClass =
-  "inline-flex min-h-11 min-w-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 disabled:pointer-events-none disabled:opacity-60 border border-[#d9d1c4] bg-[#fffdf8] text-ink shadow-sm hover:border-ocean/50 hover:bg-white hover:text-ocean";
+  "inline-flex min-h-11 min-w-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 disabled:pointer-events-none disabled:opacity-60 border border-[#d9d1c4] bg-[#fffdf8] text-ink shadow-sm hover:border-cblue/50 hover:bg-white hover:text-cblue";
 
 export function RepairReviewActions({ tripId, repairId }: { tripId: string; repairId: string }) {
   const [busy, setBusy] = useState<"approve" | "reject" | null>(null);

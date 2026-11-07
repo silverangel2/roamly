@@ -39,14 +39,14 @@ export function HotelProductOptions({ presentation, tripId, pendingChoice }: { p
     <section aria-labelledby="hotel-product-options-title" className="mt-6 rounded-2xl border border-[#e8dfd0] bg-white/90 p-4 shadow-[0_12px_34px_rgba(16,32,51,0.04)] sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Selected hotel</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Selected hotel</p>
           <h3 id="hotel-product-options-title" className="mt-1 text-xl font-black text-ink">Room &amp; rate options</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Room and rate details are for comparison; exact product booking is not verified.</p>
         </div>
       </div>
 
       {presentation.inventoryStatus === "CONFIRMED_BOOKING" ? (
-        <p className="mt-4 rounded-xl border border-ocean/20 bg-ocean/5 px-3 py-3 text-sm font-black text-ocean">Your confirmed hotel booking remains authoritative.</p>
+        <p className="mt-4 rounded-xl border border-cblue/20 bg-cblue/5 px-3 py-3 text-sm font-black text-cblue">Your confirmed hotel booking remains authoritative.</p>
       ) : presentation.products.length ? (
         <HotelProductChoicePicker tripId={tripId} presentation={presentation} initialPendingChoice={pendingChoice} />
       ) : (

@@ -2187,7 +2187,7 @@ export function LiveTripClient({
               <span className="mt-0.5 block text-[15px] font-normal leading-[1.45] text-cink">
                 These are your planned activities for Day {eyebrowDay?.idx || 1}
                 {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
-                You&apos;ll get real-time updates when the trip begins.
+                You&apos;ll get trip messages on your travel days once the trip begins.
               </span>
             </span>
           </div>
@@ -2693,7 +2693,7 @@ export function LiveTripClient({
             </button>
           </div>
         ) : fieldTestMode && pushReady && !setupComplete ? (
-          <div className="mt-3 rounded-xl bg-ocean/20 p-4">
+          <div className="mt-3 rounded-xl bg-cblue/20 p-4">
             <h3 className="text-xl font-semibold text-chead">Notifications ready</h3>
             <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">This phone is registered. Continue with location setup for the field test.</p>
             {!watching ? (
@@ -2703,7 +2703,7 @@ export function LiveTripClient({
             ) : null}
           </div>
         ) : fieldTestMode && setupComplete ? (
-          <div className="mt-3 rounded-xl bg-ocean/20 p-4">
+          <div className="mt-3 rounded-xl bg-cblue/20 p-4">
             <h3 className="text-xl font-semibold text-chead">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
             <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Roamly will help you stay on track during your trip.</p>
           </div>

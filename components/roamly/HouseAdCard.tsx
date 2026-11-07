@@ -143,14 +143,14 @@ export function HouseAdCard({
           />
         </span>
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3.5 pe-11 sm:gap-1.5 sm:p-6">
-          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0f6e66]">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#087BFF]">
             {creative.sponsorLabel}
           </span>
           <span className="line-clamp-2 text-base font-bold leading-snug text-ink sm:line-clamp-none sm:text-xl">
             {creative.headline}
           </span>
           <span className="line-clamp-1 text-[13px] leading-snug text-slate-600 sm:line-clamp-none sm:text-sm sm:leading-relaxed">{creative.body}</span>
-          <span className="mt-1.5 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full bg-[#0f6e66] px-3 py-1.5 text-[13px] font-bold text-white transition group-hover:bg-[#0e605a] sm:mt-2 sm:px-4 sm:py-2 sm:text-sm">
+          <span className="mt-1.5 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full bg-[#087BFF] px-3 py-1.5 text-[13px] font-bold text-white transition group-hover:bg-[#0e605a] sm:mt-2 sm:px-4 sm:py-2 sm:text-sm">
             {creative.ctaLabel}
             <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} />
           </span>

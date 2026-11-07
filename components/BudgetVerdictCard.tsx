@@ -12,7 +12,7 @@ import type { BudgetVerdictDisplay } from "@/lib/roamly/engine/budgetVerdictDisp
  */
 
 const VERDICT_TONES: Record<BudgetVerdictDisplay["verdict"], string> = {
-  WITHIN: "border-ocean/40 bg-ocean/5",
+  WITHIN: "border-cblue/40 bg-cblue/5",
   "AT RISK": "border-sun/60 bg-sun/10",
   OVER: "border-coral/50 bg-coral/5",
   UNVERIFIABLE: "border-[#e8dfd0] bg-white"

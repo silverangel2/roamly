@@ -87,9 +87,9 @@ export function BookingCardsClient({
               destination
             })
           }
-          className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/40"
+          className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-cblue/40"
         >
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{link.label}</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{link.label}</p>
           <h3 className="mt-2 text-lg font-black text-ink">{link.title}</h3>
           <p className="mt-2 text-sm font-bold leading-5 text-slate-500">{link.description}</p>
           <p className="mt-3 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">

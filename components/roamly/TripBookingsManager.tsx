@@ -80,7 +80,7 @@ export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
 
   return (
     <BuiCard className="p-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Committed budget</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Committed budget</p>
       {totals.length ? (
         totals.map(({ currency, cents }) => (
           <p key={currency} className="bui-display-number mt-2 text-3xl font-black text-ink">{formatMoney(cents, currency, locale)}</p>
@@ -115,7 +115,7 @@ function Field({
         type={type}
         inputMode={type === "number" ? "decimal" : undefined}
         onChange={(event) => onChange(event.target.value)}
-        className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+        className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10"
       />
     </label>
   );
@@ -146,7 +146,7 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
           <article key={booking.id || booking.title} className="bui-enter bui-lift rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">{booking.booking_type}</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">{booking.booking_type}</p>
                 <h3 className="mt-1 text-lg font-black text-ink">{booking.title || "Booking"}</h3>
                 <p className="mt-1 text-sm font-bold text-slate-500">
                   {[bookingProvider(booking), booking.flight_number, bookingWhen(booking, locale)].filter(Boolean).join(" · ")}
@@ -193,7 +193,7 @@ export function ExtractedBookingReviewCard({
 }) {
   return (
     <div className="bui-enter rounded-bui-panel border border-cblue/25 bg-csoft p-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Review extracted booking</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Review extracted booking</p>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
         Roamly extracted these details. Submit them for review; screenshot extraction alone does not confirm a booking.
       </p>
@@ -203,7 +203,7 @@ export function ExtractedBookingReviewCard({
           <select
             value={booking.booking_type || "other"}
             onChange={(event) => setBooking({ ...booking, booking_type: event.target.value })}
-            className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+            className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10"
           >
             {bookingTypes.map((type) => (
               <option key={type} value={type}>
@@ -344,7 +344,7 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
     <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
       <div className="space-y-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Already booked something?</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Already booked something?</p>
           <h2 className="mt-2 text-2xl font-black text-ink">Import bookings by screenshot.</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
             Upload a screenshot of your flight, hotel, ticket, or reservation. Roamly will read it and add it to your trip.

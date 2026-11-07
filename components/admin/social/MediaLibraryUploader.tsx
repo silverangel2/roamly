@@ -176,7 +176,7 @@ export function MediaLibraryUploader() {
 
   return (
     <Card className="p-4 sm:p-5">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Add photos</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Add photos</p>
       <h2 className="mt-2 text-xl font-black text-ink">Upload to the content library</h2>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
         New photos are approved for the autopost rotation immediately. Tag a destination so
@@ -184,7 +184,7 @@ export function MediaLibraryUploader() {
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_220px]">
-        <label className="grid cursor-pointer place-items-center rounded-xl border-2 border-dashed border-[#d8e2da] bg-mist px-4 py-6 text-center text-sm font-black text-slate-500 transition hover:border-ocean hover:text-ink">
+        <label className="grid cursor-pointer place-items-center rounded-xl border-2 border-dashed border-[#d8e2da] bg-mist px-4 py-6 text-center text-sm font-black text-slate-500 transition hover:border-cblue hover:text-ink">
           <input
             ref={inputRef}
             type="file"
@@ -230,7 +230,7 @@ export function MediaLibraryUploader() {
         {uploading ? (
           <div className="h-2 w-48 overflow-hidden rounded-full bg-mist">
             <div
-              className="h-full rounded-full bg-ocean transition-all"
+              className="h-full rounded-full bg-cblue transition-all"
               style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }}
             />
           </div>

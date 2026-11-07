@@ -59,7 +59,7 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             aria-label="Full name"
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
           />
         </label>
 
@@ -88,7 +88,7 @@ export function AccountProfileForm({ initialName, email }: AccountProfileFormPro
           <button
             type="submit"
             form="account-logout-form"
-            className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink shadow-soft ring-1 ring-cloud transition hover:-translate-y-0.5 hover:ring-ocean/30"
+            className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink shadow-soft ring-1 ring-cloud transition hover:-translate-y-0.5 hover:ring-cblue/30"
           >
             Log out
           </button>

@@ -18,7 +18,6 @@ const buttonClass =
 export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripShareActionsProps) {
   const { locale, t } = useI18n();
   const [modalOpen, setModalOpen] = useState(false);
-  const [recipient, setRecipient] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -71,32 +70,35 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
 
     setBusy(true);
     try {
+      // The server sends only to the account's own email address
+      // (security pass 2026-11-06, Check 5) -- there is no recipient
+      // field anymore, and the address that was used comes back in the
+      // response so the confirmation below can name it truthfully.
       const response = await fetch(`/api/trips/${tripId}/email`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ to: recipient, language: locale })
+        body: JSON.stringify({ language: locale })
       });
       const data = (await response.json().catch(() => null)) as {
         ok?: boolean;
         message?: string;
         error?: string;
+        recipient?: string;
         result?: { status?: string };
       } | null;
 
       if (response.ok && data?.ok) {
         // Success Rules pass (2026-11-03), rule 1: say what
-        // happened, specifically — name the recipient. The server's
-        // message ("Itinerary email sent.") doesn't carry the
-        // address, so the confirmation is composed here, where the
-        // address is known. The send-another loop stays open: the
-        // form remains, cleared, inside the sheet (rule 2/4).
-        const sentTo = recipient.trim();
+        // happened, specifically — name the recipient. The address is
+        // the account email the server actually sent to, returned in
+        // the response. The send-another loop stays open: the form
+        // remains inside the sheet (rule 2/4).
+        const sentTo = (data.recipient || "").trim();
         setMessage(
           sentTo
             ? t("ui.status.itineraryEmailSentTo", "Itinerary sent to {email}.").replace("{email}", sentTo)
             : t("ui.status.itineraryEmailSent", "Itinerary email sent.")
         );
-        setRecipient("");
         setSentPulse(true);
         if (sentTimer.current) window.clearTimeout(sentTimer.current);
         sentTimer.current = window.setTimeout(() => setSentPulse(false), 1500);
@@ -172,17 +174,13 @@ export function TripShareActions({ tripId, tripTitle, emailConfigured }: TripSha
               </p>
             ) : (
               <form onSubmit={(event) => void sendEmail(event)} className="mt-4 grid gap-3">
-                <label className="grid gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{t("ui.email.recipientEmail", "Recipient email")}</span>
-                  <input
-                    value={recipient}
-                    onChange={(event) => setRecipient(event.target.value)}
-                    type="email"
-                    required
-                    placeholder="friend@example.com"
-                    className="rounded-xl border border-chair bg-white px-4 py-3 text-base font-normal text-cink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/15"
-                  />
-                </label>
+                {/* No recipient field: the itinerary goes to the
+                    account's own email address only (security pass
+                    2026-11-06, Check 5). The copy says so up front so
+                    nobody expects it to reach a typed-in address. */}
+                <p className="text-sm font-medium leading-6 text-cgray">
+                  {t("ui.email.sentToAccountEmail", "We'll send this itinerary to your account email address.")}
+                </p>
                 <BuiMorphButton
                   phase={morphPhase}
                   className="bg-cblue px-5 text-sm font-semibold text-white"

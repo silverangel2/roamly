@@ -69,7 +69,7 @@ export default function PlanningConflictRepair(props: Props) {
           {props.protectedTitles.length ? <p>Protected: {props.protectedTitles.join(" · ")}</p> : null}
           <p className="text-xs font-semibold text-slate-500">The result will be checked after the update; no route or booking evidence is being invented.</p>
           <div className="mt-2 flex flex-wrap gap-3">
-            <button type="button" onClick={apply} disabled={busy} className="min-h-11 rounded-full bg-ocean px-4 py-2 text-sm font-black text-white disabled:opacity-60">{busy ? "Applying…" : "Apply change"}</button>
+            <button type="button" onClick={apply} disabled={busy} className="min-h-11 rounded-full bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">{busy ? "Applying…" : "Apply change"}</button>
             <button type="button" onClick={() => setProposal(null)} disabled={busy} className="min-h-11 rounded-full border border-slate-300 px-4 py-2 text-sm font-black text-slate-700 disabled:opacity-60">Keep as-is</button>
           </div>
         </div>

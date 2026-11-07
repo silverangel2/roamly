@@ -87,7 +87,7 @@ export function TripHeroCard({
           </div>
         </figure>
       ) : (
-        <div data-testid="roamly-photo-fallback" className="bui-enter rounded-bui-panel border border-chair bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 p-4 shadow-bui-card">
+        <div data-testid="roamly-photo-fallback" className="bui-enter rounded-bui-panel border border-chair bg-gradient-to-br from-[#071E55] via-[#087BFF] to-[#223354] p-4 shadow-bui-card">
           <p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/80">Roamly</p>
           <p className="mt-1 text-[22px] font-bold leading-[1.2] text-white">{destination}</p>
           {line ? <p className="mt-0.5 text-[15px] font-normal leading-[1.4] text-white/90">{line}</p> : null}

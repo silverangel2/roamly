@@ -51,7 +51,7 @@ export function TranslateItineraryButton({ tripId, displayedLanguage }: Translat
       <button type="button" onClick={() => void translate()} disabled={busy} className={buttonClass}>
         {busy ? t("ui.status.translating", "Translating...") : t("ui.actions.translateItinerary", "Translate itinerary")}
       </button>
-      {message ? <p className="text-xs font-bold leading-5 text-ocean">{message}</p> : null}
+      {message ? <p className="text-xs font-bold leading-5 text-cblue">{message}</p> : null}
       {error ? <p className="text-xs font-bold leading-5 text-coral">{error}</p> : null}
     </div>
   );

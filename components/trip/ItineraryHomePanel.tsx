@@ -332,7 +332,7 @@ export function ItineraryHomePanel({
           ) : null}
         </figure>
       ) : photo && photoState === "failed" ? (
-        <div data-testid="roamly-photo-fallback" className="relative bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 px-4 pb-4 pt-4 sm:px-5">
+        <div data-testid="roamly-photo-fallback" className="relative bg-gradient-to-br from-[#071E55] via-[#087BFF] to-[#223354] px-4 pb-4 pt-4 sm:px-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[13px] font-bold uppercase tracking-[0.12em] text-white/80">Roamly</p>

@@ -142,15 +142,15 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
 
   if (done) {
     return (
-      <div className="rounded-3xl border border-ocean/20 bg-white/80 px-6 py-10 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Shared</p>
+      <div className="rounded-3xl border border-cblue/20 bg-white/80 px-6 py-10 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Shared</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">Thanks — your proven itinerary is in the library.</h2>
         <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
           {consent
             ? "You consented to anonymized reuse, so future travelers heading the same way may benefit from what you learned."
             : "You did not consent to anonymized reuse, so this stays as your personal record only."}
         </p>
-        <a href={selectedTripId ? `/trip/${selectedTripId}` : "/dashboard"} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-ocean px-5 text-sm font-bold text-white">
+        <a href={selectedTripId ? `/trip/${selectedTripId}` : "/dashboard"} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-bold text-white">
           Back to your trip
         </a>
       </div>
@@ -159,14 +159,14 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
 
   if (existingSubmission) {
     return (
-      <div className="rounded-3xl border border-ocean/20 bg-white/80 px-6 py-10 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Already shared</p>
+      <div className="rounded-3xl border border-cblue/20 bg-white/80 px-6 py-10 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Already shared</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">This trip is already in the library.</h2>
         <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
           One submission per completed trip keeps the library honest. Shared{" "}
           {existingSubmission.created_at ? new Date(existingSubmission.created_at).toLocaleDateString() : "earlier"}.
         </p>
-        <a href={`/trip/${existingSubmission.trip_id}`} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-ocean px-5 text-sm font-bold text-white">
+        <a href={`/trip/${existingSubmission.trip_id}`} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-bold text-white">
           View your trip
         </a>
       </div>
@@ -308,7 +308,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                     </div>
                   );
                 })}
-                <button type="button" onClick={addRow} className="min-h-11 self-start rounded-full border border-ocean/30 px-5 text-sm font-bold text-ocean">
+                <button type="button" onClick={addRow} className="min-h-11 self-start rounded-full border border-cblue/30 px-5 text-sm font-bold text-cblue">
                   + Rate another booked item
                 </button>
               </div>
@@ -321,7 +321,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                 type="checkbox"
                 checked={consent}
                 onChange={(event) => setConsent(event.target.checked)}
-                className="mt-1 h-5 w-5 accent-[#0f766e]"
+                className="mt-1 h-5 w-5 accent-[#087BFF]"
               />
               <span>
                 I consent to Roamly reusing this itinerary <strong>anonymously</strong> in suggestions for
@@ -334,7 +334,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
             <button
               type="submit"
               disabled={submitting || !ratedRows.length}
-              className="mt-5 inline-flex min-h-12 items-center rounded-full bg-ocean px-6 text-sm font-black text-white disabled:opacity-50"
+              className="mt-5 inline-flex min-h-12 items-center rounded-full bg-cblue px-6 text-sm font-black text-white disabled:opacity-50"
             >
               {submitting ? "Sharing…" : "Share my proven itinerary"}
             </button>

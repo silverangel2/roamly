@@ -378,7 +378,7 @@ export function CompanionPanel({
       {passView ? (
         <a
           href={`/trip/${tripId}/pass`}
-          className="mt-2 block px-[2px] text-[12px] font-bold text-ocean"
+          className="mt-2 block px-[2px] text-[12px] font-bold text-cblue"
         >
           Open your day pass <ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
         </a>

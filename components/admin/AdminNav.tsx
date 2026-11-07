@@ -41,7 +41,7 @@ export function AdminNav() {
                 key={href}
                 href={href}
                 className={`rounded-xl px-4 py-3 text-sm font-black transition ${
-                  active ? "bg-ocean text-white" : "text-slate-600 hover:bg-mist hover:text-ink"
+                  active ? "bg-cblue text-white" : "text-slate-600 hover:bg-mist hover:text-ink"
                 }`}
               >
                 {label}

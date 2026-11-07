@@ -109,14 +109,14 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
   return (
     <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
       <section className="rounded-[1.5rem] border border-cloud bg-white/92 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Composer</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Composer</p>
         <div className="mt-4 grid gap-4">
           <label className="block">
             <span className="text-sm font-black text-ink">Content type</span>
             <select
               value={contentType}
               onChange={(event) => setContentType(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-cblue"
             >
               {contentTypes.map((item) => (
                 <option key={item} value={item}>
@@ -132,7 +132,7 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
               value={destination}
               onChange={(event) => setDestination(event.target.value)}
               placeholder="Optional"
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-cblue"
             />
           </label>
 
@@ -142,7 +142,7 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
               value={topic}
               onChange={(event) => setTopic(event.target.value)}
               rows={4}
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold leading-6 outline-none focus:border-cblue"
             />
           </label>
 
@@ -152,7 +152,7 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
               value={mediaUrl}
               onChange={(event) => setMediaUrl(event.target.value)}
               placeholder="Optional"
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-cblue"
             />
           </label>
 
@@ -165,7 +165,7 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
                     type="checkbox"
                     checked={selectedPartners.includes(partner)}
                     onChange={() => togglePartner(partner)}
-                    className="h-4 w-4 rounded border-cloud text-ocean"
+                    className="h-4 w-4 rounded border-cloud text-cblue"
                   />
                   {partner}
                 </label>
@@ -179,7 +179,7 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
               value={scheduledFor}
               onChange={(event) => setScheduledFor(event.target.value)}
               type="datetime-local"
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold outline-none focus:border-cblue"
             />
           </label>
         </div>
@@ -205,18 +205,18 @@ export function SocialDraftComposer({ contentTypes, affiliatePartners }: SocialD
             type="button"
             onClick={() => save("scheduled")}
             disabled={Boolean(busy) || !scheduledFor}
-            className="rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white shadow-soft disabled:opacity-60"
+            className="rounded-2xl bg-cblue px-4 py-3 text-sm font-black text-white shadow-soft disabled:opacity-60"
           >
             {busy === "scheduled" ? "Scheduling..." : "Schedule post"}
           </button>
         </div>
 
-        {notice ? <p className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+        {notice ? <p className="mt-4 rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
         {error ? <p className="mt-4 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
       </section>
 
       <section className="rounded-[1.5rem] border border-cloud bg-white/92 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Draft preview</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Draft preview</p>
         {generated ? (
           <div className="mt-4 grid gap-4">
             <div>

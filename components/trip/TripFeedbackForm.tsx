@@ -151,7 +151,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
               restoreFeedback(nextMode);
             }}
             className={`rounded-full px-4 py-2 text-sm font-black ${
-              mode === nextMode ? "bg-ocean text-white" : "bg-slate-100 text-slate-700"
+              mode === nextMode ? "bg-cblue text-white" : "bg-slate-100 text-slate-700"
             }`}
           >
             {nextMode === "post_trip" ? "Trip feedback" : "Today"}
@@ -243,7 +243,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
         type="button"
         onClick={submit}
         disabled={saving}
-        className="mt-5 rounded-full bg-ocean px-5 py-3 text-sm font-black text-white shadow-soft disabled:opacity-60"
+        className="mt-5 rounded-full bg-cblue px-5 py-3 text-sm font-black text-white shadow-soft disabled:opacity-60"
       >
         {saving ? "Saving..." : "Save feedback"}
       </button>
