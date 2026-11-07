@@ -48,7 +48,7 @@ export function DestinationPhotoBand({
       <figure data-testid="roamly-photo-fallback" className="mb-5">
         <div
           aria-label={`Roamly placeholder for ${alt}`}
-          className="flex h-[188px] w-full flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 text-white"
+          className="flex h-[188px] w-full flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br from-[#071E55] via-[#087BFF] to-[#223354] text-white"
         >
           <span className="text-[22px] font-bold tracking-tight">Roamly</span>
           <span className="max-w-[90%] truncate px-4 text-center text-[15px] font-normal text-white/90">{alt}</span>

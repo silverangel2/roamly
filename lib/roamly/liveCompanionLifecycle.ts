@@ -26,6 +26,51 @@ import type { TrackingActivity, TrackingTrip } from "@/lib/roamly/tripActivation
 // even though its window already resolved destination-locally here
 // via resolveBackgroundTripTimezone (hold-on-unknown preserved).
 import { clearLastLocationIfNoOperationalTrip } from "@/lib/roamly/locationLifecycle";
+import { anyWorkPresent, countWorkRows } from "@/lib/roamly/workGate";
+
+/**
+ * EGRESS DIET (2026-11-02, F2/F4) — column projections for this lane.
+ * The trip scan used to select("*") on every locked trip every five
+ * minutes, and each in-window trip's activities were read twice with
+ * select("*"). These lists are exactly the fields processTrip and
+ * its helpers consume (TrackingTrip / LifecycleActivity shapes).
+ */
+const LIFECYCLE_TRIP_COLUMNS =
+  "id,user_id,title,destination,destination_name,destination_country,destination_region,destination_city,start_date,end_date,status,activated_at,itinerary_status,itinerary_locked,itinerary_generated_at,tracking_unlocked,live_companion_unlocked,trip_companion_status,metadata";
+const LIFECYCLE_ACTIVITY_COLUMNS =
+  "id,title,scheduled_start,scheduled_end,sort_order,status,description,address,city,region,country,latitude,longitude,radius_meters";
+
+/**
+ * EGRESS DIET (F2) — the work gate's broad date superset. Destination
+ * timezones span UTC-12…UTC+14, so a trip whose window contains
+ * "today" anywhere on Earth has start_date <= UTC today + 2 days and
+ * end_date >= UTC today - 2 days (or no end_date). The gate only
+ * decides "possibly work"; per-trip eligibility is still decided by
+ * the unchanged tripWindowState logic below — no second window rule.
+ */
+export function liveCompanionGateWindow(now: Date) {
+  const dayMs = 24 * 60 * 60 * 1000;
+  return {
+    earliestEnd: new Date(now.getTime() - 2 * dayMs).toISOString().slice(0, 10),
+    latestStart: new Date(now.getTime() + 2 * dayMs).toISOString().slice(0, 10)
+  };
+}
+
+export async function countLiveCompanionCandidateTrips(
+  admin: SupabaseClient,
+  now: Date
+): Promise<number | null> {
+  const { earliestEnd, latestStart } = liveCompanionGateWindow(now);
+  return countWorkRows(admin, "roamly_trips", (query) =>
+    query
+      .eq("itinerary_locked", true)
+      .or("tracking_unlocked.eq.true,live_companion_unlocked.eq.true")
+      .in("status", ["locked", "active", "planned", "generated"])
+      .not("start_date", "is", null)
+      .lte("start_date", latestStart)
+      .or(`end_date.is.null,end_date.gte.${earliestEnd}`)
+  );
+}
 
 type LifecycleActivity = Pick<TrackingActivity, "id" | "title" | "scheduled_start" | "scheduled_end" | "sort_order" | "status" | "description" | "address" | "city" | "region" | "country" | "latitude" | "longitude" | "radius_meters">;
 
@@ -105,15 +150,21 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
     return { expired: 0, started: 0, skipped: "disabled_or_paused" };
   }
 
-  const activitiesResult = await admin.from("roamly_activities").select("*").eq("trip_id", trip.id).in("status", unresolvedStatuses);
+  const activitiesResult = await admin.from("roamly_activities").select(LIFECYCLE_ACTIVITY_COLUMNS).eq("trip_id", trip.id).in("status", unresolvedStatuses);
   if (activitiesResult.error) throw new Error(activitiesResult.error.message);
   const activities = ((activitiesResult.data || []) as LifecycleActivity[]).sort(chronology);
   const expired = await expireActivities(admin, trip, activities, timezone, now);
 
-  // Re-read after expiry so chronology advances in the same lifecycle run.
-  const remainingResult = await admin.from("roamly_activities").select("*").eq("trip_id", trip.id).in("status", unresolvedStatuses);
-  if (remainingResult.error) throw new Error(remainingResult.error.message);
-  const current = ((remainingResult.data || []) as LifecycleActivity[]).sort(chronology)[0];
+  // EGRESS DIET (F4): the second read exists only to advance
+  // chronology after expiry mutated statuses. When nothing expired
+  // no write happened, so the first read's head IS the current
+  // activity — re-read only when expired > 0.
+  let current = activities[0];
+  if (expired > 0) {
+    const remainingResult = await admin.from("roamly_activities").select(LIFECYCLE_ACTIVITY_COLUMNS).eq("trip_id", trip.id).in("status", unresolvedStatuses);
+    if (remainingResult.error) throw new Error(remainingResult.error.message);
+    current = ((remainingResult.data || []) as LifecycleActivity[]).sort(chronology)[0];
+  }
   if (!current) return { expired, started: 0, skipped: "no_unresolved_activity" };
 
   const start = activityStartDate({ activity: liveActivity(current), tripStartDate: trip.start_date, timezone });
@@ -184,10 +235,18 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
   return { expired, started: pushed.ok && !queued.deduplicated ? 1 : 0, skipped: queued.deduplicated ? "already_delivered_or_queued" : undefined };
 }
 
-export async function processLiveCompanionTimeLifecycle(params: { now?: Date } = {}) {
-  const admin = createSupabaseAdminClient();
+export async function processLiveCompanionTimeLifecycle(params: { now?: Date; admin?: SupabaseClient } = {}) {
+  const admin = params.admin || createSupabaseAdminClient();
   if (!admin) return { ok: false as const, error: "Supabase service role is not configured." };
   const now = params.now || new Date();
+  // EGRESS DIET (F2): work gate — one head/count over the candidate
+  // predicate. Zero candidates in any possible window means zero
+  // work: exit before the paged scan. A failed count fails OPEN
+  // (countWorkRows returns null → anyWorkPresent treats it as work).
+  const candidateCount = await countLiveCompanionCandidateTrips(admin, now);
+  if (!anyWorkPresent([candidateCount])) {
+    return { ok: true as const, processed: 0, results: [], gated: true as const };
+  }
   const results = [];
   const pageSize = LIVE_COMPANION_PROCESSING_PAGE_SIZE;
   let cursor: { startDate: string; id: string } | null = null;
@@ -195,7 +254,7 @@ export async function processLiveCompanionTimeLifecycle(params: { now?: Date } =
   for (;;) {
     const query = admin
       .from("roamly_trips")
-      .select("*")
+      .select(LIFECYCLE_TRIP_COLUMNS)
       .not("start_date", "is", null)
       .eq("itinerary_locked", true)
       .or(cursor
@@ -233,7 +292,7 @@ export async function processLiveCompanionTimeLifecycleForTrip(tripId: string, u
   if (!admin) return { ok: false as const, error: "Supabase service role is not configured." };
   const tripResult = await admin
     .from("roamly_trips")
-    .select("*")
+    .select(LIFECYCLE_TRIP_COLUMNS)
     .eq("id", tripId)
     .eq("user_id", userId)
     .eq("itinerary_locked", true)

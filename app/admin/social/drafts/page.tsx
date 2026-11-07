@@ -67,7 +67,7 @@ export default async function AdminSocialDraftsPage() {
               <Card key={item.id} className="p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
                       {item.draft.post_format} · {item.draft.content_type}
                     </p>
                     <h2 className="mt-2 text-xl font-black text-ink">{item.draft.hook}</h2>

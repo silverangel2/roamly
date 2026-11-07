@@ -221,14 +221,14 @@ export function applyEarlyCheckIn(
       const km = it.walkKmFromPrev, wm = walkMin(km);
       legs.push({
         fromKey: it.fromKeyPrev || "base", toKey: it.key || "", fromName: it.fromNamePrev || baseName,
-        toName: it.name || "", mode: "walk", km, minutes: wm,
+        toName: it.name || "", mode: "walk", km, minutes: wm, minutesSource: "haversine-estimate",
         depart: it.start - wm, arrive: it.start, departTime: fmt(it.start - wm), arriveTime: fmt(it.start)
       });
       const backKm = basePos ? Math.round(haversineKm(it.pos, basePos) * 100) / 100 : km;
       const backMin = walkMin(backKm);
       legs.push({
         fromKey: it.key || "", toKey: "base", fromName: it.name || "", toName: baseName,
-        mode: "walk", km: backKm, minutes: backMin,
+        mode: "walk", km: backKm, minutes: backMin, minutesSource: "haversine-estimate",
         depart: it.end, arrive: it.end + backMin, departTime: fmt(it.end), arriveTime: fmt(it.end + backMin)
       });
     }

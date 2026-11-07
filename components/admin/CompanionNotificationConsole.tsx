@@ -162,7 +162,7 @@ export default function CompanionNotificationConsole() {
   return (
     <div className="grid gap-6">
       <section className="rounded-[2rem] border border-cloud bg-white/90 p-6 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
           Companion notifications
         </p>
 
@@ -179,7 +179,7 @@ export default function CompanionNotificationConsole() {
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+            className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
           >
             {STATUSES.map((value) => (
               <option key={value || "all"} value={value}>
@@ -191,7 +191,7 @@ export default function CompanionNotificationConsole() {
           <select
             value={type}
             onChange={(event) => setType(event.target.value)}
-            className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+            className="rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
           >
             {TYPES.map((value) => (
               <option key={value || "all"} value={value}>
@@ -210,7 +210,7 @@ export default function CompanionNotificationConsole() {
         </div>
 
         {notice ? (
-          <p className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
+          <p className="mt-4 rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">
             {notice}
           </p>
         ) : null}

@@ -102,6 +102,7 @@ import { placesClientFromEnv } from "@/lib/roamly/engine/places/client";
 import { SupabasePackStore } from "@/lib/roamly/engine/packs/supabaseStore";
 import { SupabasePlacesLedgerStore } from "@/lib/roamly/engine/places/supabaseLedgerStore";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { dualWriteGenerationState } from "@/lib/roamly/generationStateStore";
 
 /* ------------------------------------------------------------------ */
 /* Identity + flag                                                     */
@@ -397,7 +398,19 @@ export function createSupabaseEngineGenerationStore(supabase: SupabaseClient): E
     if (cas) update = update.eq("updated_at", trip.updated_at);
     const { data, error } = await update.select("id,user_id,metadata,updated_at").maybeSingle();
     if (error) throw new StagedGenerationError(error.message, "GENERATION_STATE_SAVE_FAILED", 500);
-    return (data as EngineTripRow | null) || null;
+    const row = (data as EngineTripRow | null) || null;
+    if (row) {
+      // GAP-CLOSURE 5a: dual-write the same nextState this funnel
+      // persisted into trip metadata (this writeState backs both the
+      // persist and the CAS claim funnels) — only when the metadata
+      // write actually landed, fail-soft as always.
+      await dualWriteGenerationState(supabase, {
+        tripId: trip.id,
+        userId: trip.user_id,
+        state: nextState
+      });
+    }
+    return row;
   }
 
   return {
@@ -955,6 +968,37 @@ export interface DayConversionContext {
   originLabel: string | null;
 }
 
+/** Day titles (consolidation 2026-11-06, sweep NEW-3): a title is
+ *  the day's THEME plus its headline stops — never a bare single
+ *  venue name ("Day 1: Jean Castor" told a paying traveller
+ *  nothing about their day). The theme derives from the day's
+ *  role and the mix of stop kinds actually planned; the headline
+ *  names are the day's first real stops, so the title stays true
+ *  to the content under it. A day with no stops keeps the honest
+ *  place title. */
+export function dayTitleFor(
+  day: EngineDay,
+  destination: string,
+  firstStop?: EngineItem | null
+): string {
+  const stops = day.items.filter((i) => i.type === "stop");
+  if (!stops.length && !firstStop) return `Day ${day.dayNumber} in ${destination}`;
+  const kinds = new Set(stops.map((i) => i.kind || ""));
+  let theme: string;
+  if (/arriv/i.test(day.role)) theme = "Arrival day";
+  else if (/depart/i.test(day.role)) theme = "Departure day";
+  else if (kinds.has("museum") || kinds.has("gallery")) theme = "Museums & galleries";
+  else if (kinds.has("falls") || kinds.has("lighthouse") || kinds.has("park")) theme = "Parks & the outdoors";
+  else if (kinds.has("historic")) theme = "Historic streets & sights";
+  else if (kinds.has("market")) theme = "Markets & local finds";
+  else if (kinds.has("ferry") || kinds.has("station")) theme = "Out & about";
+  else theme = "Sights & neighbourhoods";
+  const headlines = [...new Set(stops.map((i) => i.name || i.title || "").filter(Boolean))].slice(0, 2);
+  const lead = firstStop && (firstStop.name || firstStop.title);
+  const names = headlines.length ? headlines : lead ? [lead] : [];
+  return names.length ? `Day ${day.dayNumber}: ${theme} — ${names.join(" · ")}` : `Day ${day.dayNumber}: ${theme} in ${destination}`;
+}
+
 export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionContext): RoamlyDayPlan {
   const timeline: RoamlyActivitySeed[] = [];
   const isFirst = day.dayNumber === 1;
@@ -1084,7 +1128,7 @@ export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionConte
     day_number: day.dayNumber,
     date: day.date,
     city: ctx.destination,
-    title: firstStop ? `Day ${day.dayNumber}: ${firstStop.name || firstStop.title || ctx.destination}` : `Day ${day.dayNumber} in ${ctx.destination}`,
+    title: dayTitleFor(day, ctx.destination, firstStop),
     morning: blockText(0, 12 * 60, GUEST_EMPTY_WINDOW_TEXT),
     afternoon: blockText(12 * 60, 17 * 60, GUEST_EMPTY_WINDOW_TEXT),
     evening: blockText(17 * 60, 24 * 60, GUEST_EMPTY_WINDOW_TEXT),
@@ -1395,9 +1439,12 @@ export interface EngineAdvanceDeps {
   packStore: PackStore;
   placesService?: PlacesEnrichmentService | null;
   /** Place geocoder for destination auto-registration (fix #5).
-   *  Optional: production uses the live Nominatim geocoder;
-   *  checks inject a fake. */
-  geocoder?: (name: string) => Promise<GeocodeOutcome>;
+   *  Optional: production uses the live geocoder (Photon primary,
+   *  Nominatim fallback since the 2026-11-06 consolidation);
+   *  checks inject a fake. The optional country hint is the
+   *  country the traveller picked — it narrows the candidate
+   *  field before classification, it never overrides it. */
+  geocoder?: (name: string, countryHint?: string | null) => Promise<GeocodeOutcome>;
   /** Plan-time-zone resolver for auto-registered destinations.
    *  Optional: production asks Open-Meteo (timezone=auto) and
    *  degrades to UTC; checks inject a fixed zone. */
@@ -1481,7 +1528,7 @@ export async function resolveDestinationId(deps: EngineAdvanceDeps, payload: Tri
 export async function autoRegisterDestination(deps: EngineAdvanceDeps, payload: TripPlannerPayload): Promise<string> {
   const rawName = (getString(payload.destinationCity) || getString(payload.destination)).trim();
   const geocoder = deps.geocoder ?? liveGeocoder;
-  const outcome = await geocoder(rawName);
+  const outcome = await geocoder(rawName, getString(payload.destinationCountry) || null);
   if (outcome.kind === "unavailable") {
     throw new StagedGenerationError(
       `The map lookup for "${rawName}" is unavailable right now, so this trip cannot start yet. It will be retried automatically.`,

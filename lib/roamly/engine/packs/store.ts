@@ -8,6 +8,7 @@ import type {
   PackVersionRecord,
   StoredCandidate,
   StoredEnrichment,
+  StoredLegMatrix,
   WeatherSnapshotRecord
 } from "@/lib/roamly/engine/packs/types";
 import { PackStoreError, systemPackClock, toInstant } from "@/lib/roamly/engine/packs/types";
@@ -98,7 +99,11 @@ export interface PackStore {
     leaseId: string,
     candidates: StoredCandidate[],
     provenance: PackVersionRecord["dto"]["provenance"],
-    classifierVersionRestamp?: string
+    classifierVersionRestamp?: string,
+    /** OSRM leg matrix built with the version (consolidation
+     *  2026-11-06). Optional: recorded/fixture builds and
+     *  routing-unreachable builds publish without one. */
+    legMatrix?: StoredLegMatrix | null
   ): Promise<PackVersionRecord>;
   failVersion(packVersionId: string, jobId: string, leaseId: string, error: string): Promise<PackVersionRecord>;
   getVersion(packVersionId: string): Promise<PackVersionRecord | null>;
@@ -395,7 +400,8 @@ export class InMemoryPackStore implements PackStore {
     leaseId: string,
     candidates: StoredCandidate[],
     provenance: PackVersionRecord["dto"]["provenance"],
-    classifierVersionRestamp?: string
+    classifierVersionRestamp?: string,
+    legMatrix?: StoredLegMatrix | null
   ): Promise<PackVersionRecord> {
     // The fencing check comes FIRST: a stolen lease refuses the
     // publish no matter what state the version row is in (I3).
@@ -424,6 +430,7 @@ export class InMemoryPackStore implements PackStore {
       ...(classifierVersionRestamp ? { classifierVersion: classifierVersionRestamp } : {})
     };
     record.contentHash = candidateContentHash(stored);
+    record.legMatrix = legMatrix ? clone(legMatrix) : null;
     record.supersedesPackVersionId = previousReady ? previousReady.dto.packVersionId : null;
     if (previousReady) {
       // The ONLY mutation an already-published version ever sees

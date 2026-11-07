@@ -332,7 +332,17 @@ if (section("B")) {
     const noKey = await run({ openPlacesApiKey: null });
     const withKey = await run({ openPlacesApiKey: TEST_KEY, openPlaces: { sleep: NO_SLEEP, now: FIXED_NOW } });
     eqC(withKey.out.candidates, noKey.out.candidates, "B6: OSM-success candidates identical with/without the key");
-    eqC(withKey.out.provenance, noKey.out.provenance, "B6: OSM-success provenance identical with/without the key");
+    // Consolidation (2026-11-06): provenance is compared with the
+    // recordedAt fetch instant stripped. Block A's thin-destination
+    // work (widen + guide enrich + leg matrix) makes each build do
+    // several more fetches, so two real builds' fetch instants can
+    // no longer land in the same millisecond — the timestamp is the
+    // one field that is volatile BY DESIGN across any two builds.
+    // Every deterministic field (source, sourceRef, label) is still
+    // compared byte-for-byte: the gate property B6 proves — the key
+    // changes nothing on the happy path — is fully preserved.
+    const stripInstant = (p) => ({ ...p, recordedAt: null });
+    eqC(stripInstant(withKey.out.provenance), stripInstant(noKey.out.provenance), "B6: OSM-success provenance identical with/without the key");
     eq(withKey.opCalls.length, 0, "B6: no adapter calls on OSM success even with a key");
   }
   // B7: the env var alone activates the gate (production wiring:

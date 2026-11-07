@@ -41,11 +41,11 @@ export function MarketPriceRefreshButton({ tripId }: { tripId: string }) {
         type="button"
         onClick={refreshPrices}
         disabled={busy}
-        className="w-fit rounded-full border border-ocean/20 bg-white px-4 py-2 text-sm font-black text-ocean shadow-[0_10px_24px_rgba(16,32,51,0.08)] transition hover:border-ocean/40 hover:bg-ocean/5 disabled:opacity-60"
+        className="w-fit rounded-full border border-cblue/20 bg-white px-4 py-2 text-sm font-black text-cblue shadow-[0_10px_24px_rgba(16,32,51,0.08)] transition hover:border-cblue/40 hover:bg-cblue/5 disabled:opacity-60"
       >
         {busy ? "Refreshing prices..." : "Refresh prices"}
       </button>
-      {message ? <p className="text-xs font-bold leading-5 text-ocean">{message}</p> : null}
+      {message ? <p className="text-xs font-bold leading-5 text-cblue">{message}</p> : null}
       {error ? <p className="text-xs font-bold leading-5 text-coral">{error}</p> : null}
     </div>
   );

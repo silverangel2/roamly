@@ -128,22 +128,44 @@ export async function GET() {
     return NextResponse.json({ ok: true, trips: [], message: "No trips found." });
   }
 
+  /*
+   * GAP-E (Wave 3b, EGRESS-DIET-REPORT §3G future pass): the three
+   * star-select reads below are now projected to exactly the fields
+   * the response returns or consumes. The response maps every row
+   * through cleanRecord, which strips metadata / full_json /
+   * preview_json and any key whose name contains token / secret /
+   * key — so a projected list is response-identical iff it keeps
+   * every non-stripped column plus the consumed-but-stripped ones:
+   *   - jobs: every column from the queue + scalability migrations
+   *     EXCEPT idempotency_key / duplicate_request_key (stripped by
+   *     cleanRecord's "key" rule, never returned, never consumed).
+   *   - layers: every column — nothing is stripped and the *_json
+   *     blobs ARE the returned payload, so the explicit list equals
+   *     the old "*" set; it pins the contract against future columns.
+   *   - itineraries: every column EXCEPT preview_json (stripped,
+   *     never consumed); full_json stays because hasFullJson and
+   *     finalStoredItinerary consume it (it is stripped from the
+   *     response body itself). Dropping preview_json removes the
+   *     one genuinely fat unused column on this surface.
+   * The trips read above was already projected; its metadata column
+   * is consumed by generationSummary / completionEmailDiagnostics.
+   */
   const [jobs, layers, itineraries] = await Promise.all([
     supabase
       .from("roamly_trip_generation_jobs")
-      .select("*")
+      .select("id,trip_id,user_id,status,priority,current_stage,generation_version,model_version,retry_count,next_attempt_at,locked_at,locked_by,lease_expires_at,last_error_code,last_error_message,created_at,started_at,completed_at,updated_at,user_plan,paid_priority,queue_priority_reason,cancelled_at,cancellation_reason,dead_lettered_at,dead_letter_reason,estimated_cost_json,provider_usage_json,worker_metrics_json,rate_limit_bucket")
       .eq("trip_id", tripId)
       .order("created_at", { ascending: false })
       .limit(10),
     supabase
       .from("roamly_trip_generation_layers")
-      .select("*")
+      .select("id,trip_id,job_id,user_id,layer_type,layer_sequence,status,input_json,output_json,evidence_json,dependency_versions_json,retry_count,next_attempt_at,locked_at,locked_by,lease_expires_at,started_at,completed_at,error_code,error_message,generation_version,created_at,updated_at,duration_ms,worker_execution_ms,estimated_cost_json,provider_usage_json")
       .eq("trip_id", tripId)
       .order("layer_sequence", { ascending: true })
       .limit(40),
     supabase
       .from("roamly_itineraries")
-      .select("*")
+      .select("id,trip_id,user_id,ai_summary,full_json,created_at,updated_at,repair_revision,source")
       .eq("trip_id", tripId)
       .order("created_at", { ascending: false })
       .limit(5)

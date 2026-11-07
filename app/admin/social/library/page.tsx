@@ -61,7 +61,7 @@ export default async function AdminSocialLibraryPage() {
           <Card key={asset.id} className="p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{asset.asset_type || "media"}</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{asset.asset_type || "media"}</p>
                 <h2 className="mt-2 break-words text-xl font-black text-ink">{asset.title || asset.media_url || "Untitled asset"}</h2>
                 <p className="mt-2 break-words text-sm font-bold leading-6 text-slate-600">{asset.media_url || "No public URL saved."}</p>
               </div>

@@ -84,10 +84,10 @@ check("SETUP-MOCK: optional cascade has all three mock cards + buttons (QR/lock 
   cascade.includes("Connect Gmail for Booking Recon") &&
   cascade.includes("Automatically find your flight, hotel and activity confirmations.") &&
   cascade.includes("Add Roamly to your home screen") &&
-  cascade.includes("Get instant alerts and a smoother experience.") &&
+  cascade.includes("Get trip messages on your travel days and a smoother experience.") &&
   cascade.includes("Show instructions") &&
   cascade.includes("Enable location (for Live Companion)") &&
-  cascade.includes("Get real-time nearby suggestions and turn-by-turn guidance.") &&
+  cascade.includes("See what is near when you open Roamly during your trip.") &&
   cascade.includes("Enable location"));
 check("SETUP-MOCK: generated row is a status row, not a bypass link",
   !/Itinerary generated and saved[\s\S]{0,200}href=/.test(gate));

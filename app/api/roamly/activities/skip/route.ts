@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uuidParam } from "@/lib/roamly/tripIdParam";
 import { normalizeCoordinates } from "@/lib/roamly/location";
 import { performActivityAction } from "@/lib/roamly/activityActions";
 import { getRoamlyAccessForUser } from "@/lib/roamly/access";
@@ -7,7 +8,7 @@ import { getFieldTestSession, requireUserOrFieldTest } from "@/lib/roamly/fieldT
 export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const activityId = typeof body.activityId === "string" ? body.activityId : "";
-  const tripId = typeof body.tripId === "string" ? body.tripId : "";
+  const tripId = uuidParam(typeof body.tripId === "string" ? body.tripId : null) || "";
   const auth = await requireUserOrFieldTest(tripId);
   if (!auth.ok) return auth.response;
   const location = normalizeCoordinates({

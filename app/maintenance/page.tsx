@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function MaintenancePage() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-col items-center px-5 py-16 text-center sm:py-24">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">
         Roamly is briefly down for maintenance
       </p>
       <h1 className="mt-4 text-4xl font-black leading-tight text-ink sm:text-5xl">
@@ -31,7 +31,7 @@ export default function MaintenancePage() {
         <p className="mt-4 text-sm font-black text-ink">Need a hand right now?</p>
         <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
           Email us at{" "}
-          <a className="text-ocean underline" href="mailto:support@roamlyhq.com">
+          <a className="text-cblue underline" href="mailto:support@roamlyhq.com">
             support@roamlyhq.com
           </a>{" "}
           and we&rsquo;ll help.

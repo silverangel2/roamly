@@ -93,14 +93,14 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
                   maxLength={60}
                   className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink"
                 />
-                <button type="button" disabled={saving === item.id} onClick={() => save(item)} className="min-h-11 rounded-xl bg-ocean px-3 py-2 text-sm font-black text-white disabled:opacity-60">
+                <button type="button" disabled={saving === item.id} onClick={() => save(item)} className="min-h-11 rounded-xl bg-cblue px-3 py-2 text-sm font-black text-white disabled:opacity-60">
                   {saving === item.id ? "Saving" : "Save"}
                 </button>
               </div>
               <p className="text-xs font-semibold leading-5 text-slate-500">This helps Roamly review this traveler independently. It does not prove visa approval or entry clearance.</p>
             </div> : <div className="mt-3 grid gap-2">
               <p className="text-sm font-semibold leading-6 text-slate-600">Add this traveler’s details to review requirements independently.</p>
-              <button type="button" disabled={syncing} onClick={prepareCompanionSlots} className="min-h-11 w-fit rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white disabled:opacity-60">
+              <button type="button" disabled={syncing} onClick={prepareCompanionSlots} className="min-h-11 w-fit rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">
                 {syncing ? "Preparing" : "Add traveler details"}
               </button>
             </div>
@@ -112,19 +112,19 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
                   country. The button shows only when the entry
                   requirement itself is applicable (not NOT_APPLICABLE)
                   and no passport country is saved. */}
-              {!item.passportIssuingCountry && item.requirements.some((requirement) => requirement.category === "VISA_OR_AUTHORIZATION" && requirement.status !== "NOT_APPLICABLE") ? <a className="inline-flex min-h-11 w-fit items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${tripId}?focus=requirements#requirements`)}#traveler-memory`}>Add your passport country</a> : null}
+              {!item.passportIssuingCountry && item.requirements.some((requirement) => requirement.category === "VISA_OR_AUTHORIZATION" && requirement.status !== "NOT_APPLICABLE") ? <a className="inline-flex min-h-11 w-fit items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${tripId}?focus=requirements#requirements`)}#traveler-memory`}>Add your passport country</a> : null}
             </div>
           )}
           {item.requirements.map((requirement) => (
             <div key={requirement.title} className="mt-3 border-t border-slate-100 pt-3">
               <p className="text-sm font-black text-ink">{requirement.title}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{requirement.summary}</p>
-              {requirement.actionUrl ? <a className="mt-2 inline-block text-sm font-black text-ocean underline" href={requirement.actionUrl} target="_blank" rel="noreferrer">Official source</a> : null}
+              {requirement.actionUrl ? <a className="mt-2 inline-block text-sm font-black text-cblue underline" href={requirement.actionUrl} target="_blank" rel="noreferrer">Official source</a> : null}
             </div>
           ))}
         </div>
       ))}
-      {message ? <p className="text-sm font-bold text-ocean md:col-span-2" role="status">{message}</p> : null}
+      {message ? <p className="text-sm font-bold text-cblue md:col-span-2" role="status">{message}</p> : null}
       {error ? <p className="text-sm font-bold text-coral md:col-span-2" role="alert">{error}</p> : null}
     </div>
   );

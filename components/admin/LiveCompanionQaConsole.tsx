@@ -360,7 +360,7 @@ export function LiveCompanionQaConsole({
       <section className="rounded-[1.5rem] border border-cloud bg-white p-4 shadow-soft">
         <div className="grid gap-3 lg:grid-cols-[1fr_0.65fr_0.65fr]">
           <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Trip</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Trip</span>
             <select
               value={selectedTrip.id}
               onChange={(event) => {
@@ -377,7 +377,7 @@ export function LiveCompanionQaConsole({
             </select>
           </label>
           <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Simulated time</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Simulated time</span>
             <input
               value={simulatedNow.slice(0, 16)}
               onChange={(event) => setSimulatedNow(new Date(event.target.value).toISOString())}
@@ -386,7 +386,7 @@ export function LiveCompanionQaConsole({
             />
           </label>
           <label className="block">
-            <span className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Location</span>
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Location</span>
             <select
               value={selectedLocationActivity?.id || ""}
               onChange={(event) => moveToActivity(event.target.value)}
@@ -417,7 +417,7 @@ export function LiveCompanionQaConsole({
               key={String(label)}
               type="button"
               onClick={action as () => void}
-              className="min-h-11 rounded-2xl border border-ocean/20 bg-ocean/5 px-3 py-2 text-xs font-black text-ocean"
+              className="min-h-11 rounded-2xl border border-cblue/20 bg-cblue/5 px-3 py-2 text-xs font-black text-cblue"
             >
               {String(label)}
             </button>
@@ -451,7 +451,7 @@ export function LiveCompanionQaConsole({
                   onClick={() => setPreviewMode(value)}
                   className={classNames(
                     "min-h-11 rounded-2xl px-3 py-2 text-xs font-black",
-                    previewMode === value ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"
+                    previewMode === value ? "bg-cblue text-white" : "border border-slate-200 bg-white text-slate-700"
                   )}
                 >
                   {label}
@@ -476,7 +476,7 @@ export function LiveCompanionQaConsole({
 
           <div className="mt-5 overflow-x-auto rounded-[1.5rem] bg-slate-100 p-4">
             <div className={classNames("mx-auto overflow-hidden rounded-[2rem] border shadow-soft", darkMode ? "dark border-slate-800" : "border-slate-200")} style={{ width: `${phoneWidth}px` }}>
-              <div className="min-h-[680px] bg-[#fbf8ef] p-3 text-ink dark:bg-slate-950 dark:text-white">
+              <div className="min-h-[680px] bg-[#F2F6FC] p-3 text-ink dark:bg-slate-950 dark:text-white">
                 {previewMode === "live" ? (
                   <div className="rounded-[1.35rem] bg-ink p-4 text-white dark:bg-black">
                     <div className="flex items-center justify-between gap-3">
@@ -516,7 +516,7 @@ export function LiveCompanionQaConsole({
 
                 {previewMode === "itinerary" ? (
                   <div className="grid gap-3">
-                    <div className="sticky top-0 -mx-3 bg-[#fbf8ef]/95 px-3 py-2 backdrop-blur dark:bg-slate-950/95">
+                    <div className="sticky top-0 -mx-3 bg-[#F2F6FC]/95 px-3 py-2 backdrop-blur dark:bg-slate-950/95">
                       <div className="flex gap-2 overflow-x-auto">
                         {dayNumbers.map((day) => (
                           <button
@@ -534,7 +534,7 @@ export function LiveCompanionQaConsole({
                     </div>
                     {dayActivities.map((activity) => (
                       <article key={activity.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/10">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean dark:text-cyan-200">{activity.timeLabel || "Flexible"}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue dark:text-cyan-200">{activity.timeLabel || "Flexible"}</p>
                         <h3 className="mt-1 text-lg font-black">{activity.title}</h3>
                         <p className="mt-1 text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">{activity.shortDescription}</p>
                         <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">{activity.address || activity.placeName || "Address unavailable"}</p>
@@ -545,17 +545,17 @@ export function LiveCompanionQaConsole({
 
                 {previewMode === "generation" ? (
                   <div className="rounded-[1.35rem] border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/10">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean dark:text-cyan-200">Generation</p>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue dark:text-cyan-200">Generation</p>
                     <h2 className="mt-2 text-2xl font-black">Building your trip</h2>
                     <div className="mt-4 grid gap-3">
                       {["Outline", "Day 1 of N", "Finalizing", "Complete"].map((step, index) => (
                         <div key={step} className="flex items-center gap-3">
-                          <span className={classNames("h-4 w-4 rounded-full", index <= 1 ? "bg-ocean" : "bg-slate-200 dark:bg-white/20")} />
+                          <span className={classNames("h-4 w-4 rounded-full", index <= 1 ? "bg-cblue" : "bg-slate-200 dark:bg-white/20")} />
                           <p className="text-sm font-black">{step}</p>
                         </div>
                       ))}
                     </div>
-                    <button className="mt-5 min-h-12 w-full rounded-2xl bg-ocean text-sm font-black text-white">Retry</button>
+                    <button className="mt-5 min-h-12 w-full rounded-2xl bg-cblue text-sm font-black text-white">Retry</button>
                   </div>
                 ) : null}
 
@@ -563,7 +563,7 @@ export function LiveCompanionQaConsole({
                   <div className="grid gap-3">
                     {tripBookings.slice(0, 6).map((booking) => (
                       <article key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/10">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean dark:text-cyan-200">{booking.booking_type}</p>
+                        <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue dark:text-cyan-200">{booking.booking_type}</p>
                         <h3 className="mt-1 text-lg font-black">{booking.title || "Booking"}</h3>
                         <p className="mt-1 text-sm font-bold text-slate-600 dark:text-slate-300">{[booking.provider_name, booking.start_date, booking.start_time].filter(Boolean).join(" · ") || "Details saved"}</p>
                         <details className="mt-3 rounded-2xl bg-slate-50 p-3 dark:bg-white/10">
@@ -582,7 +582,7 @@ export function LiveCompanionQaConsole({
 
         <aside className="grid gap-4">
           <section className="rounded-[1.5rem] border border-cloud bg-white p-4 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">State</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">State</p>
             <div className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
               <p>Activation: {companionState.activationStatus}</p>
               <p>Now: {companionState.now?.title || "None"}</p>
@@ -604,7 +604,7 @@ export function LiveCompanionQaConsole({
           </section>
 
           <section className="rounded-[1.5rem] border border-cloud bg-white p-4 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Thresholds</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Thresholds</p>
             {[
               ["Reminder lead", "reminderLeadMinutes", 5, 180],
               ["Cooldown", "cooldownMinutes", 1, 120],
@@ -632,7 +632,7 @@ export function LiveCompanionQaConsole({
       <section className="rounded-[1.5rem] border border-cloud bg-white p-4 shadow-soft">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Notification test log</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Notification test log</p>
             <h2 className="mt-1 text-xl font-black text-ink">Why each notification fired</h2>
           </div>
           <button type="button" onClick={() => setLogs([])} className="min-h-11 rounded-2xl border border-slate-200 px-4 py-2 text-xs font-black">

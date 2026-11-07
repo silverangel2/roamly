@@ -18,7 +18,7 @@ export default function RoamlyOgImage() {
           height: "100%",
           padding: "72px 80px",
           color: "#ffffff",
-          background: "linear-gradient(135deg, #082f2c 0%, #0f766e 52%, #155e59 100%)",
+          background: "linear-gradient(135deg, #071E55 0%, #087BFF 52%, #223354 100%)",
           fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif"
         }}
       >

@@ -18,6 +18,7 @@ import { countAlertsBadgeNotifications } from "@/lib/roamly/alertsBadge";
 import { looksLikeProviderSearchTitle } from "@/lib/roamly/itineraryPresentation";
 import type { TrackingTrip } from "@/lib/roamly/tripActivation";
 import { getTripDestinationLabel, getTripOriginLabel, getTripPlanningMetadata } from "@/lib/roamly/tripMetadata";
+import { getTripWeather } from "@/lib/roamly/tripWeather";
 import {
   bookingProvenanceSuffix,
   bookingTruthState,
@@ -45,9 +46,10 @@ import {
  * VALUE is real and dynamic (selected trip, real dates, real counts
  * from real rows, real confirmed bookings). The picture's sample
  * values (its weather numbers, its hotel, its times) are NEVER copied
- * as live values. Weather has no provider in this codebase, so its row
- * keeps the picture's exact position and format with the honest
- * unavailable state — the single named gap for this picture.
+ * as live values. Weather is served by the one weather module
+ * (lib/roamly/tripWeather, Open-Meteo — Fix 4), and its row keeps
+ * the picture's exact position and format with the module's honest
+ * states (real headline / forecast-window / unavailable).
  */
 
 /* Info reminders open the single-event sheet (same info-type set the
@@ -391,13 +393,62 @@ export default async function NotificationsPage({
       title: "Pack for your trip",
       body: sanitizeStoredNotificationBody(item.body, tripTimezone) || "Personalized packing checklist is ready."
     } as SectionNotificationItem, "packing"));
-  const weatherUnavailableRow: AlertsSectionRow = {
-    id: "weather-unavailable",
-    title: "Check weather",
-    body: "Weather is not available for this trip yet.",
-    href: null,
-    icon: "weather"
-  };
+  // Weather row (consolidation 2026-11-06, Block H): this page
+  // still carried the pre-Fix-4 residue — a permanent "not
+  // available" line written when weather had no provider. Since
+  // Fix 4 the ONE weather module (lib/roamly/tripWeather,
+  // Open-Meteo) serves display, and this row now mirrors its
+  // honest states exactly: a real headline when a forecast
+  // exists, the forecast-window line when the trip is too far
+  // out, and the quiet unavailable line only when there is
+  // genuinely nothing to show. Never an invented value.
+  const alertsPlanning = getTripPlanningMetadata(trip.metadata);
+  const alertsWeather =
+    typeof alertsPlanning.destinationLatitude === "number" &&
+    Number.isFinite(alertsPlanning.destinationLatitude) &&
+    typeof alertsPlanning.destinationLongitude === "number" &&
+    Number.isFinite(alertsPlanning.destinationLongitude) &&
+    trip.start_date &&
+    trip.end_date
+      ? await getTripWeather({
+          latitude: alertsPlanning.destinationLatitude,
+          longitude: alertsPlanning.destinationLongitude,
+          startDate: trip.start_date,
+          endDate: trip.end_date
+        }).catch(() => null)
+      : null;
+  const weatherUnavailableRow: AlertsSectionRow =
+    alertsWeather?.kind === "ready"
+      ? {
+          id: "weather-ready",
+          title: "Check weather",
+          body: `${alertsWeather.headline.label}: ${alertsWeather.headline.conditionLabel}, ${alertsWeather.headline.tMinC}–${alertsWeather.headline.tMaxC}°C · Open-Meteo`,
+          href: `/trip/${trip.id}`,
+          icon: "weather"
+        }
+      : alertsWeather?.kind === "past"
+        ? {
+            id: "weather-past",
+            title: "Check weather",
+            body: "This trip has finished — there is no forecast to check.",
+            href: null,
+            icon: "weather"
+          }
+      : alertsWeather?.kind === "too-early"
+        ? {
+            id: "weather-too-early",
+            title: "Check weather",
+            body: "Forecast appears about two weeks before your trip — this trip starts further out than the forecast reaches.",
+            href: null,
+            icon: "weather"
+          }
+        : {
+            id: "weather-unavailable",
+            title: "Check weather",
+            body: "Weather is not available for this trip yet.",
+            href: null,
+            icon: "weather"
+          };
   const travelUpdateItems = notificationItems.filter((item) => item.action_state !== "history" && !INFO_NOTIFICATION_TYPES.has(item.type));
   const travelUpdateNotificationRows = travelUpdateItems.map((item) =>
     notificationSectionRow(

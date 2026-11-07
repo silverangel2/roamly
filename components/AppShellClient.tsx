@@ -23,6 +23,7 @@ import {
 } from "@/lib/roamly/liveCompanion";
 import { resolveTripTimezone, zoneForMath } from "@/lib/roamly/tripTimezone";
 import { clearPlannerDraftOnLogout } from "@/lib/roamly/planDraftStorage";
+import { ROAMLY_LAST_ACTIVITY_COOKIE } from "@/lib/roamly/sessionActivity";
 import { primaryNavActiveHref } from "@/lib/roamly/shellNav";
 import { animateSpringValue, type BuiSpringHandle } from "@/components/boardui/spring";
 
@@ -184,6 +185,10 @@ function AppTabBar({
       active: pathname === "/account" || pathname.startsWith("/account/")
     }
   ];
+  // Same duplicate-link fix as the mobile bar (consolidation
+  // 2026-11-06): with no trip in frame, Itinerary and Live share
+  // the /dashboard href — render the destination once.
+  const visibleTabs = tabs.filter((tab, index) => tabs.findIndex((other) => other.href === tab.href) === index);
   /* Feels-right set + iPhone-feel springs (2026-11-04): the
    * selection PILL SLIDES between tabs on the foundation spring —
    * the eye follows it instead of jump-cutting (jump cuts make
@@ -195,7 +200,7 @@ function AppTabBar({
   const pillRef = useRef<HTMLSpanElement | null>(null);
   const linkRefs = useRef<Array<HTMLAnchorElement | null>>([]);
   const pillSprings = useRef<{ x: BuiSpringHandle; w: BuiSpringHandle } | null>(null);
-  const activeIndex = tabs.findIndex((tab) => tab.active);
+  const activeIndex = visibleTabs.findIndex((tab) => tab.active);
   const activeIndexRef = useRef(activeIndex);
   activeIndexRef.current = activeIndex;
 
@@ -279,7 +284,7 @@ function AppTabBar({
   return (
     <nav
       aria-label="App navigation"
-      className="roamly-app-tabbar fixed inset-x-0 bottom-0 z-40 grid min-w-0 grid-cols-5 border-t border-[rgba(61,78,109,0.28)] bg-white/95 px-2.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] backdrop-blur-[18px]"
+      className={`roamly-app-tabbar fixed inset-x-0 bottom-0 z-40 grid min-w-0 ${visibleTabs.length === 4 ? "grid-cols-4" : "grid-cols-5"} border-t border-[rgba(8,123,255,0.16)] bg-white/70 px-2.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] shadow-[0_-1px_0_rgba(255,255,255,0.65)_inset,0_-12px_32px_rgba(7,30,85,0.08)] backdrop-blur-xl backdrop-saturate-150`}
     >
       <span
         ref={pillRef}
@@ -287,7 +292,7 @@ function AppTabBar({
         className="pointer-events-none absolute left-0 top-0 rounded-full bg-csoft"
         style={{ opacity: 0 }}
       />
-      {tabs.map((tab, tabIndex) => (
+      {visibleTabs.map((tab, tabIndex) => (
         <Link
           key={tab.href + tab.label}
           ref={(el) => {
@@ -366,6 +371,41 @@ function AppShellContent({
   useEffect(() => {
     setAuthenticated(initialAuth.authenticated);
   }, [initialAuth.authenticated]);
+
+  // Inactivity expiry, client half (consolidation 2026-11-06,
+  // Block D): while signed in, real activity stamps the
+  // roamly_last_activity cookie the middleware reads — 30 days
+  // without a stamp and the next load is signed out server-side.
+  // Stamps are throttled (a stamp per minute is plenty of
+  // resolution for a 30-day limit) and stop the moment the
+  // session ends. See lib/roamly/sessionActivity.ts.
+  useEffect(() => {
+    if (!authenticated) return;
+    let lastStamp = 0;
+    const stamp = () => {
+      const now = Date.now();
+      if (now - lastStamp < 60_000) return;
+      lastStamp = now;
+      try {
+        document.cookie = `${ROAMLY_LAST_ACTIVITY_COOKIE}=${now}; path=/; max-age=34560000; SameSite=Lax`;
+      } catch {
+        /* cookies unavailable — the server half never sees a stamp and never expires the session */
+      }
+    };
+    stamp();
+    const onActivity = () => stamp();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") stamp();
+    };
+    window.addEventListener("pointerdown", onActivity, { passive: true });
+    window.addEventListener("keydown", onActivity);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener("pointerdown", onActivity);
+      window.removeEventListener("keydown", onActivity);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [authenticated]);
 
   useEffect(() => {
     try {
@@ -676,18 +716,26 @@ function AppShellContent({
   // and the app-surface action pill, not in the bar. The old bar's
   // "Trip" / "Plan" labels are retired (NN/g: same words, same
   // meaning, everywhere).
+  // Duplicate-link fix (consolidation 2026-11-06, Block H): with
+  // no framed trip, Itinerary and Live BOTH fell back to
+  // /dashboard — the dashboard's nav carried two links to the
+  // page the traveller is already on (and React keys collided on
+  // the shared href). Identical hrefs render once: Live without a
+  // trip is not a destination, it is the trips list wearing a
+  // second label. With a trip framed, all five destinations are
+  // distinct and all five render, as the nav law requires.
   const signedInMobileRoutes: Array<{ href: string; label: string; count?: number }> = [
     { href: frameTripId ? `/trip/${frameTripId}` : "/dashboard", label: t("ui.nav.itinerary", "Itinerary") },
     { href: frameTripId ? `/trip/${frameTripId}/live` : "/dashboard", label: t("ui.nav.live", "Live") },
     { href: "/finds", label: t("ui.nav.finds", "Deals") },
     { href: alertsTripId ? `/notifications?trip=${encodeURIComponent(alertsTripId)}` : "/notifications", label: t("ui.nav.alerts", "Alerts"), count: unreadCount },
     { href: "/account", label: t("ui.nav.account", "Account") }
-  ];
+  ].filter((route, index, all) => all.findIndex((other) => other.href === route.href) === index);
   const visibleMobileRoutes = authenticated ? signedInMobileRoutes : mobileRoutes;
 
   return (
     <TranslatedTextBoundary>
-      <div data-bottom-nav="visible" className={`roamly-app-shell min-h-dvh min-w-0 ${appFrame ? "bg-cbg" : "bg-[#fbf8ef]"} text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
+      <div data-bottom-nav="visible" className={`roamly-app-shell min-h-dvh min-w-0 ${appFrame ? "bg-cbg" : "bg-[#F2F6FC]"} text-ink ${authenticated ? "roamly-authenticated" : ""}`}>
         {!appFrame ? (
         <header className="sticky top-0 z-30 border-b border-cloud/80 bg-white/90 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_8px_30px_rgba(16,32,51,0.04)] backdrop-blur-2xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
@@ -697,14 +745,14 @@ function AppShellContent({
                 The marketing homepage is reached only from
                 signed-out surfaces. It never again throws a
                 traveller out of their trip to the sales page. */}
-            <Link href={authenticated ? (frameTripId ? `/trip/${frameTripId}` : "/dashboard") : "/"} className="flex items-center gap-2" aria-label="Roamly home">
+            <Link href={authenticated ? (frameTripId ? `/trip/${frameTripId}` : "/dashboard") : "/"} className="flex h-11 items-center gap-2" aria-label="Roamly home">
               <Image
                 src="/roamly-wordmark@2x.png"
                 alt="Roamly"
                 width={150}
                 height={62}
                 priority
-                className="h-10 w-auto object-contain sm:h-12"
+                className="block h-10 w-auto object-contain sm:h-12"
               />
             </Link>
 
@@ -733,7 +781,7 @@ function AppShellContent({
                 <>
                   <Link
                     href="/login"
-                    className="inline-flex rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700"
+                    className="inline-flex min-h-11 items-center rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-black text-slate-700 shadow-soft transition hover:-translate-y-0.5 hover:border-cyan-300 hover:text-cyan-700"
                   >
                     {t("ui.nav.login", "Log in")}
                   </Link>
@@ -742,12 +790,12 @@ function AppShellContent({
                 <form
                   action="/auth/logout"
                   method="post"
-                  className="hidden sm:block"
+                  className="block"
                   onSubmit={() => clearPlannerDraftOnLogout(window.localStorage, window.sessionStorage)}
                 >
                   <button
                     type="submit"
-                    className="rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-coral"
+                    className="inline-flex min-h-11 items-center rounded-full border border-cloud bg-white px-4 py-2 text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-coral"
                   >
                     {t("ui.nav.logout", "Logout")}
                   </button>
@@ -756,7 +804,7 @@ function AppShellContent({
               {/* Jakob round (2026-11-03, A4): "Plan trip" is the
                   persistent header CTA for signed-in travellers too
                   (it left the tab bar; it does not leave reach). */}
-              <Link href={planTripHref} className="hidden min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-bold text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] transition-colors hover:bg-[#167f8d] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25 sm:inline-flex">
+              <Link href={planTripHref} className="hidden min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-bold text-white shadow-[0_8px_20px_rgba(8,123,255,0.18)] transition-colors hover:bg-[#071E55] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 sm:inline-flex">
                 {planTripLabel}
               </Link>
             </div>
@@ -804,6 +852,22 @@ function AppShellContent({
             Jakob round (2026-11-03, A4): the bar is now FIVE tabs
             everywhere it renders, and the signed-in non-app bar
             carries the same five — one nav model, no exceptions. */}
+        {/* Fix round item 3 (2026-11-06, audit D9): /dashboard is the
+            trips home but NOT an app surface, so the branch below
+            never mounted the "Plan trip" pill there — on a phone
+            inside the account, "make another plan" had no persistent
+            action (the header CTA is hidden below sm). Mount the SAME
+            pill for the dashboard route, signed-in only — the same
+            rule the /plan and /finds mounts below use. The dashboard
+            keeps its header and its bottom bar; only the pill is
+            added. The !appFrame guard keeps this from ever
+            double-mounting the pill if the surface set changes; app
+            surfaces get the pill from the branch below, trip pages
+            are untouched, and /plan stays suppressed inside the
+            component itself. */}
+        {!appFrame && authenticated && pathname === "/dashboard" ? (
+          <AppPlanTripAction pathname={pathname} t={t} />
+        ) : null}
         {appFrame || (authenticated && pathname === "/plan") || (authenticated && isFindsSurface(pathname)) ? (
           <>
             <AppPlanTripAction pathname={pathname} t={t} />
@@ -812,14 +876,14 @@ function AppShellContent({
         ) : (
         <nav
           aria-label="Mobile navigation"
-          className={`roamly-bottom-nav fixed inset-x-0 bottom-0 z-40 grid min-w-0 border-t border-[rgba(61,78,109,0.28)] bg-white/95 px-1.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] backdrop-blur-[18px] lg:hidden ${authenticated ? "grid-cols-5" : "grid-cols-6"}`}
+          className={`roamly-bottom-nav fixed inset-x-0 bottom-0 z-40 grid min-w-0 px-1.5 pb-[max(0.3rem,env(safe-area-inset-bottom))] pt-[7px] lg:hidden ${authenticated ? `${visibleMobileRoutes.length === 4 ? "grid-cols-4" : "grid-cols-5"} border-t border-[rgba(8,123,255,0.16)] bg-white/70 shadow-[0_-1px_0_rgba(255,255,255,0.65)_inset,0_-12px_32px_rgba(7,30,85,0.08)] backdrop-blur-xl backdrop-saturate-150` : "grid-cols-6 border-t border-[rgba(61,78,109,0.28)] bg-white/95 backdrop-blur-[18px]"}`}
         >
           {visibleMobileRoutes.map((route) => (
             <Link
               key={route.href}
               href={route.href}
               aria-current={isActive(pathname, route.href, visibleMobileRoutes.map((item) => item.href)) ? "page" : undefined}
-              className={`relative flex min-h-11 min-w-0 flex-col items-center gap-[3px] whitespace-nowrap px-0 py-1 text-center text-[0.65rem] font-medium leading-tight tracking-[-0.01em] transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
+              className={`relative flex min-h-11 min-w-0 flex-col items-center gap-[3px] whitespace-nowrap px-0 py-1 text-center text-[0.65rem] font-medium leading-tight tracking-[-0.01em] transition max-[374px]:text-[0.59rem] max-[374px]:tracking-[-0.02em] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
                 isActive(pathname, route.href, visibleMobileRoutes.map((item) => item.href))
                   ? "text-chead"
                   : "text-cgray2"

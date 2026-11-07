@@ -4,7 +4,7 @@ import {
   canAutomaticallyApplyCompanionAction,
   getCompanionPreferences
 } from "@/lib/roamly/companionPreferences";
-import { getTripBundle } from "@/lib/trips";
+import { getTripBundleSlim } from "@/lib/trips";
 import { payloadFromTrip } from "@/lib/roamly/marketPriceRefresh";
 import { validateItineraryDeterministically } from "@/lib/roamly/itineraryValidation";
 import { deriveTripReadiness } from "@/lib/roamly/tripReadiness";
@@ -1003,7 +1003,10 @@ export async function verifyAppliedVerifiedCompanionRepair(params: {
     return { ok: true, proposal: proposalResult.data, actions: [], appliedAutomatically: false };
   }
 
-  const bundle = await getTripBundle(params.supabase, params.userId, params.tripId);
+  // GAP-E slim verify read: only itinerary.full_json + the trip
+  // payload/readiness fields below are consumed; days/activities/
+  // checklist are never read here (see getTripBundleSlim).
+  const bundle = await getTripBundleSlim(params.supabase, params.userId, params.tripId);
   const itinerary = bundle.data?.itinerary?.full_json;
   if (!bundle.data || !itinerary) return { ok: false, error: "CANONICAL_ITINERARY_RELOAD_FAILED" };
 

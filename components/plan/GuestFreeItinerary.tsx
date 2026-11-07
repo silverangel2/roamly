@@ -52,7 +52,7 @@ function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
               <p className="text-sm font-black leading-5 text-ink">{presentTravelerTitle({ title: card.title, category: card.title }).title}</p>
               {card.detail ? <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{card.detail}</p> : null}
               <p className="mt-1 text-xs font-bold text-slate-500">
-                {card.priceLabel ? <span className="text-ocean">{card.priceLabel}</span> : null}
+                {card.priceLabel ? <span className="text-cblue">{card.priceLabel}</span> : null}
                 {card.priceLabel && card.provider ? " · " : null}
                 {card.provider ? <span>{card.provider}</span> : null}
               </p>
@@ -61,7 +61,7 @@ function BookingCardList({ cards }: { cards: GuestBookingCard[] }) {
               href={card.url}
               target="_blank"
               rel="noopener noreferrer sponsored"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-cblue px-4 py-2 text-xs font-black text-white"
             >
               {card.ctaLabel}
             </a>
@@ -154,6 +154,14 @@ export function GuestFreeItinerary() {
   useEffect(() => {
     let stopped = false;
     let timer = 0;
+    // EGRESS DIET (F1b): unchanged-progress backoff, same law as the
+    // member generation poller — the base 3 s cadence is untouched,
+    // but when completedDayCount has not moved, the delay doubles up
+    // to a 30 s cap; any movement (or a status change) resets it
+    // instantly. Implemented with closure state only, so the effect
+    // still mounts exactly once.
+    let lastProgressKey: string | null = null;
+    let unchangedPolls = 0;
 
     async function load() {
       const response = await fetch("/api/trips/guest-itinerary", { credentials: "same-origin" });
@@ -180,7 +188,17 @@ export function GuestFreeItinerary() {
           ? (data as { essentials: GuestBookingCard[] }).essentials
           : []
       } as GuestItineraryResponse);
-      if (data.status === "building") timer = window.setTimeout(load, 3000);
+      if (data.status === "building") {
+        const progressKey = `${data.status}:${data.generationStatus?.completedDayCount ?? ""}:${data.generationStatus?.phase ?? ""}`;
+        if (progressKey === lastProgressKey) {
+          unchangedPolls += 1;
+        } else {
+          lastProgressKey = progressKey;
+          unchangedPolls = 0;
+        }
+        const backoffMs = Math.min(30000, 3000 * 2 ** Math.max(0, unchangedPolls - 1));
+        timer = window.setTimeout(load, backoffMs);
+      }
     }
 
     void load();
@@ -206,7 +224,7 @@ export function GuestFreeItinerary() {
 
   return (
     <section data-guest-free-itinerary className="rounded-[1.75rem] border border-cloud bg-white p-4 shadow-soft sm:p-6">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Free itinerary")}</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Free itinerary")}</p>
       <h2 className="mt-2 text-2xl font-black tracking-[-0.03em] text-ink sm:text-3xl">
         {itinerary?.title || translateText("Your free itinerary")}
       </h2>
@@ -215,7 +233,7 @@ export function GuestFreeItinerary() {
 
       {error ? <p className="mt-4 text-sm font-bold leading-6 text-slate-600">{translateText(error)}</p> : null}
       {needsRecovery ? (
-        <div data-guest-recovery className="mt-4 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+        <div data-guest-recovery className="mt-4 rounded-2xl border border-cblue/20 bg-[#f7fbfb] p-4">
           <p className="text-sm font-black leading-6 text-ink">
             {translateText("Lost this trip? Enter the email you gave us and we'll send you a link to get it back.")}
           </p>
@@ -247,7 +265,7 @@ export function GuestFreeItinerary() {
                   type="button"
                   disabled={recoveryBusy || !recoveryEmail.trim()}
                   onClick={() => void requestRecovery()}
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-cblue px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
                 >
                   {translateText(recoveryBusy ? "Sending…" : "Send me the link")}
                 </button>
@@ -335,7 +353,7 @@ export function GuestFreeItinerary() {
                           href={item.bookingUrl}
                           target="_blank"
                           rel="noopener noreferrer sponsored"
-                          className="font-black text-ocean underline decoration-ocean/30 underline-offset-4"
+                          className="font-black text-cblue underline decoration-cblue/30 underline-offset-4"
                         >
                           {displayTitle}
                           {item.bookingLabel ? ` · ${item.bookingLabel}` : ""}
@@ -363,7 +381,7 @@ export function GuestFreeItinerary() {
             {translateText("We'll send the rest to")} {deliveryEmail}.
           </p>
         ) : (
-          <div data-guest-delivery-email className="mt-5 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+          <div data-guest-delivery-email className="mt-5 rounded-2xl border border-cblue/20 bg-[#f7fbfb] p-4">
             <p className="text-sm font-black leading-6 text-ink">{translateText("Where do I send the rest?")}</p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
               {translateText("Day 1 is ready. Leave your email and we'll send the rest of this itinerary to you — and you can get this trip back if you switch browsers.")}
@@ -390,7 +408,7 @@ export function GuestFreeItinerary() {
                   type="button"
                   disabled={emailSaving || !emailDraft.trim()}
                   onClick={() => void saveDeliveryEmail()}
-                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl bg-cblue px-5 py-3 text-base font-semibold text-white disabled:opacity-50"
                 >
                   {translateText(emailSaving ? "Saving…" : "Send the rest to me")}
                 </button>
@@ -405,20 +423,20 @@ export function GuestFreeItinerary() {
         <div className="mt-6 grid gap-4">
           {itinerary.stays.length ? (
             <section className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Where to stay")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Where to stay")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText("Stay picks matched to your budget")}</h3>
               <BookingCardList cards={itinerary.stays} />
             </section>
           ) : null}
           {itinerary.flights.length ? (
             <section className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Flights & getting there")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Flights & getting there")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText("Best flight and cheaper ways there")}</h3>
               <BookingCardList cards={itinerary.flights} />
             </section>
           ) : itinerary.flightSearchUrl ? (
             <section className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Flights & getting there")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Flights & getting there")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText(GUEST_NO_FLIGHTS_TEXT)}</h3>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
                 {translateText("Roamly didn't find flight options for this trip. Search current flights yourself — nothing here is booked or priced.")}
@@ -427,7 +445,7 @@ export function GuestFreeItinerary() {
                 href={itinerary.flightSearchUrl}
                 target="_blank"
                 rel="noopener noreferrer sponsored"
-                className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-ocean px-4 py-2 text-xs font-black text-white"
+                className="mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-cblue px-4 py-2 text-xs font-black text-white"
               >
                 {translateText(GUEST_FLIGHT_SEARCH_CTA)}
               </a>
@@ -435,14 +453,14 @@ export function GuestFreeItinerary() {
           ) : null}
           {itinerary.experiences.length ? (
             <section className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Experiences")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Experiences")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText("Bookable experiences for your interests")}</h3>
               <BookingCardList cards={itinerary.experiences} />
             </section>
           ) : null}
           {itinerary.essentials.length ? (
             <section className="rounded-2xl bg-mist p-4">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Travel essentials")}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Travel essentials")}</p>
               <h3 className="mt-1 text-lg font-black text-ink">{translateText("Amazon finds for your trip")}</h3>
               <BookingCardList cards={itinerary.essentials} />
             </section>
@@ -455,20 +473,20 @@ export function GuestFreeItinerary() {
 
       {itinerary?.status === "ready" && itinerary.days.length > 0 ? (
         <>
-          <div data-guest-live-companion-offer className="mt-6 rounded-2xl border border-ocean/20 bg-white p-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Live Companion")}</p>
+          <div data-guest-live-companion-offer className="mt-6 rounded-2xl border border-cblue/20 bg-white p-4">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Live Companion")}</p>
             <h3 className="mt-2 text-lg font-black text-ink">{translateText("Add Live Companion")}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {translateText("Pre-trip reminders, a booking timeline, and up-next help for this trip. This is an offer only. Nothing is unlocked yet. Live Companion needs an account — sign in to add it.")}
             </p>
             <Link
               href={planAuthUrl("/login")}
-              className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl border border-ocean/30 bg-ocean/5 px-5 py-3 text-sm font-semibold text-ocean"
+              className="mt-4 inline-flex min-h-12 items-center justify-center rounded-xl border border-cblue/30 bg-cblue/5 px-5 py-3 text-sm font-semibold text-cblue"
             >
               {translateText("Add Live Companion")}
             </Link>
           </div>
-          <div data-guest-account-wall className="mt-4 rounded-2xl border border-ocean/20 bg-[#f7fbfb] p-4">
+          <div data-guest-account-wall className="mt-4 rounded-2xl border border-cblue/20 bg-[#f7fbfb] p-4">
             <p className="text-sm font-black leading-6 text-ink">
               {translateText("Sign in to save this itinerary, purchase Live Companion, or buy paid packs.")}
             </p>
@@ -480,13 +498,13 @@ export function GuestFreeItinerary() {
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
               <Link
                 href={planAuthUrl("/login")}
-                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-ocean px-5 py-3 text-center text-sm font-semibold text-white"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl bg-cblue px-5 py-3 text-center text-sm font-semibold text-white"
               >
                 {translateText("Sign in to save")}
               </Link>
               <Link
                 href={planAuthUrl("/signup")}
-                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-cloud bg-white px-5 py-3 text-center text-sm font-semibold text-ocean"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-cloud bg-white px-5 py-3 text-center text-sm font-semibold text-cblue"
               >
                 {translateText("Create an account")}
               </Link>
@@ -495,7 +513,7 @@ export function GuestFreeItinerary() {
         </>
       ) : null}
       {!itinerary ? (
-        <Link href="/plan" className="mt-4 inline-flex text-sm font-black text-ocean underline decoration-ocean/30 underline-offset-4">
+        <Link href="/plan" className="mt-4 inline-flex text-sm font-black text-cblue underline decoration-cblue/30 underline-offset-4">
           {translateText("Back to plan")}
         </Link>
       ) : null}

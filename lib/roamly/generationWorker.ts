@@ -19,6 +19,7 @@ import {
   markQueueFromLegacyState,
   reconcileGenerationLayersFromStagedState,
   releaseGenerationJob,
+  renewGenerationLease,
   scheduleGenerationJobRetry,
   type GenerationClaimConfig,
   type RoamlyGenerationJob
@@ -350,12 +351,17 @@ async function finalizeStoredFullItinerary(params: {
   workerId?: string | null;
   state?: ReturnType<typeof getStagedGenerationState> | null;
   source: "stored_itinerary_recovery" | "terminal_state_cleanup";
+  /** Pre-probed snapshot (see the hoist in processClaimedJob); when
+   *  supplied, the stored-itinerary probe is not re-run. */
+  stored?: Awaited<ReturnType<typeof loadStoredFullItinerary>>;
 }) {
-  const stored = await loadStoredFullItinerary({
-    admin: params.admin,
-    tripId: params.job.trip_id,
-    userId: params.job.user_id
-  });
+  const stored =
+    params.stored ||
+    (await loadStoredFullItinerary({
+      admin: params.admin,
+      tripId: params.job.trip_id,
+      userId: params.job.user_id
+    }));
   if (!stored.exists) return null;
 
   const finalized = await finalizeCompletedStagedGeneration({
@@ -498,8 +504,81 @@ async function processClaimedJob(params: {
   let advanced = false;
   let currentWork: ReturnType<typeof nextStagedGenerationWork> = null;
 
+  // EGRESS TRIM (2026-11-02): the stored-full-itinerary probe is
+  // computed AT MOST ONCE per claimed run (lazily, on first need) and
+  // the snapshot is passed into the in-loop recovery/terminal calls,
+  // instead of re-reading the itinerary row at the top of every loop
+  // iteration. Equivalence: during one claimed run this worker is the
+  // only finalization writer (it holds the queue job lease — renewed
+  // per iteration below — and the staged claim arbitrates the state
+  // document); every path that finalizes a stored itinerary returns
+  // immediately; and an advance that completes generation writes a
+  // state-terminal result in the same iteration, which the loop
+  // already handles through finishTerminalJob without the probe. So
+  // no final stored itinerary can newly appear mid-loop while the
+  // loop continues, and a snapshot taken on first need stays exact.
+  let storedFullItinerarySnapshot: Awaited<ReturnType<typeof loadStoredFullItinerary>> | null = null;
+  const probeStoredFullItinerary = async () => {
+    if (!storedFullItinerarySnapshot) {
+      storedFullItinerarySnapshot = await loadStoredFullItinerary({
+        admin: params.admin,
+        tripId: params.job.trip_id,
+        userId: params.job.user_id
+      });
+    }
+    return storedFullItinerarySnapshot;
+  };
+
   try {
     for (let index = 0; index < params.config.maxLayersPerRun; index += 1) {
+      // M2 (KF-2 diagnosis): the queue lease was never renewed, so a
+      // loop running past leaseSeconds could be claimed by a second
+      // worker mid-flight. Renew at the top of every stage iteration;
+      // if the lease is no longer ours, stop without releasing or
+      // scheduling a retry — the other worker owns the job now. A
+      // renewal RPC error (e.g. queue tables missing in a legacy
+      // deployment) must never strand a job that would previously
+      // have progressed, so it is logged and the loop continues.
+      const renewal = await renewGenerationLease({
+        supabase: params.admin,
+        jobId: params.job.id,
+        workerId: params.workerId,
+        leaseSeconds: params.config.leaseSeconds
+      });
+      if (renewal.ok && !renewal.renewed) {
+        logGenerationDiagnostic("generation_worker_lease_lost", {
+          requestId: params.requestId,
+          route: "generationWorker",
+          tripId: params.job.trip_id,
+          supabaseHost: getPublicSupabaseHost(),
+          jobId: params.job.id,
+          workerId: params.workerId,
+          iteration: index + 1
+        });
+        return {
+          tripId: params.job.trip_id,
+          jobId: params.job.id,
+          ok: true,
+          claimed: true,
+          advanced,
+          terminal: false,
+          busy: true,
+          error: "GENERATION_JOB_LEASE_LOST"
+        } satisfies RoamlyGenerationWorkerResult;
+      }
+      if (!renewal.ok) {
+        logGenerationDiagnostic("generation_worker_lease_renew_failed", {
+          requestId: params.requestId,
+          route: "generationWorker",
+          tripId: params.job.trip_id,
+          supabaseHost: getPublicSupabaseHost(),
+          jobId: params.job.id,
+          workerId: params.workerId,
+          iteration: index + 1,
+          errorCode: renewal.error
+        });
+      }
+
       let trip = await loadTrip(params.admin, params.job.trip_id, params.job.user_id);
       if (!trip) {
         throw new StagedGenerationError("Trip not found.", "TRIP_NOT_FOUND", 404, true);
@@ -555,7 +634,8 @@ async function processClaimedJob(params: {
             job: params.job,
             workerId: params.workerId,
             state,
-            source: "terminal_state_cleanup"
+            source: "terminal_state_cleanup",
+            stored: await probeStoredFullItinerary()
           });
           if (recovered) return recovered;
         }
@@ -582,7 +662,8 @@ async function processClaimedJob(params: {
         job: params.job,
         workerId: params.workerId,
         state,
-        source: "stored_itinerary_recovery"
+        source: "stored_itinerary_recovery",
+        stored: await probeStoredFullItinerary()
       });
       if (recovered) return recovered;
 

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getTripBundle } from "@/lib/trips";
+import { getTripBundleSlim } from "@/lib/trips";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type JsonRecord = Record<string, unknown>;
@@ -471,7 +471,10 @@ export async function verifyAppliedShiftTimingRepair(params: {
     };
   }
 
-  const bundle = await getTripBundle(params.supabase, params.userId, params.tripId);
+  // GAP-E slim verify read: only itinerary.full_json is consumed here;
+  // the full bundle's days/activities/checklists are never read (see
+  // getTripBundleSlim in lib/trips.ts).
+  const bundle = await getTripBundleSlim(params.supabase, params.userId, params.tripId);
   const itinerary = bundle.data?.itinerary?.full_json;
   if (!bundle.data || !itinerary) return { ok: false, error: "CANONICAL_ITINERARY_RELOAD_FAILED" };
 

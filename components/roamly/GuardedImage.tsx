@@ -73,8 +73,8 @@ export function GuardedImage({
         data-testid="roamly-photo-fallback"
         className={
           fill
-            ? "absolute inset-0 bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 p-4"
-            : "bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 p-4"
+            ? "absolute inset-0 bg-gradient-to-br from-[#071E55] via-[#087BFF] to-[#223354] p-4"
+            : "bg-gradient-to-br from-[#071E55] via-[#087BFF] to-[#223354] p-4"
         }
         style={fill ? undefined : { width, height }}
       >

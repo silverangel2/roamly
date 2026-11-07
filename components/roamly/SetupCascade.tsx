@@ -6,7 +6,7 @@
  * reused as the gate at the "Your trip is ready" moment.
  *
  *   1. Gmail in          -> Booking Recon (booking emails, matched to your trip)
- *   2. Download the app  -> Roamly can reach you in the moment
+ *   2. Download the app  -> Roamly can message you on your travel days
  *   3. Turn on location  -> Companion goes live
  *
  * Each step is labeled with the feature it powers; completing a step
@@ -480,7 +480,7 @@ export function SetupCascade({
                 <h3 className="text-[17px] font-semibold leading-tight text-chead">Add Roamly to your home screen</h3>
                 <p className="mt-0.5 text-[14.5px] font-normal leading-snug text-cgray">
                   {setup.notificationsSubscribed
-                    ? "Installed. When something matters on your trip, Roamly can reach you right away."
+                    ? "Installed. On your travel days, Roamly can send you timely messages about your trip."
                     : "Installed. Alerts are a separate step — turn them on so Roamly can reach you."}
                 </p>
               </div>
@@ -493,7 +493,7 @@ export function SetupCascade({
                   <Smartphone size={22} strokeWidth={2} aria-hidden="true" />
                 )),
                 "Add Roamly to your home screen",
-                "Get instant alerts and a smoother experience."
+                "Get trip messages on your travel days and a smoother experience."
               )}
               <div className="ml-14 mt-3">
                 <button type="button" className={outlineButtonClass} onClick={() => setShowAppInstructions((v) => !v)}>
@@ -536,7 +536,7 @@ export function SetupCascade({
               <div className="min-w-0 flex-1 px-3">
                 <h3 className="text-[17px] font-semibold leading-tight text-chead">Enable location (for Live Companion)</h3>
                 <p className="mt-0.5 text-[14.5px] font-normal leading-snug text-cgray">
-                  On. During your trip days, Live Companion follows along and speaks up only when it matters.
+                  On. While Roamly is open on your travel days, Live Companion shows what is near, flags timing, and offers changes for you to approve.
                 </p>
               </div>
               {chevron}
@@ -544,11 +544,11 @@ export function SetupCascade({
           ) : (
             <>
               {cardHead(
-                iconBox("bg-teal-50 text-teal-600", (
+                iconBox("bg-csoft text-cblue", (
                   <MapPin size={22} strokeWidth={2} aria-hidden="true" />
                 )),
                 "Enable location (for Live Companion)",
-                "Get real-time nearby suggestions and turn-by-turn guidance."
+                "See what is near when you open Roamly during your trip."
               )}
               <div className="ml-14 mt-3">
                 {locationDone && setup.locationGranted && !setup.locationEnabled ? (
@@ -704,12 +704,12 @@ export function SetupCascade({
         {stepShell(
           1,
           "Download the app",
-          "Roamly can reach you in the moment",
+          "Roamly can message you on your travel days",
           appDone ? (
             <div className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
               <p>
                 {setup.notificationsSubscribed
-                  ? "Installed. When something matters on your trip, Roamly can reach you right away."
+                  ? "Installed. On your travel days, Roamly can send you timely messages about your trip."
                   : "Installed. Alerts are separate — turn them on below so Roamly can reach you."}
               </p>
               {setup.notificationsSubscribed ? (
@@ -799,7 +799,7 @@ export function SetupCascade({
               {setup.locationGranted ? (
                 setup.locationEnabled ? (
                   <>
-                    <p>On. During your trip days, Live Companion follows along and speaks up only when it matters.</p>
+                    <p>On. While Roamly is open on your travel days, Live Companion shows what is near, flags timing, and offers changes for you to approve.</p>
                     {liveActivation && liveActivation.tripId && !liveActivation.armed ? (
                       <p className="mt-2">{liveActivation.reason}</p>
                     ) : null}
@@ -833,8 +833,9 @@ export function SetupCascade({
                 </p>
               ) : null}
               <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
-                One grant, remembered. Roamly follows along only during your trip days, and you can switch
-                it off any time — the grant stays yours.
+                One grant, remembered. Location is foreground-only: Roamly checks where you are only while
+                the app is open on screen, and only during your trip days. You can switch it off any time —
+                the grant stays yours.
               </p>
               <BuiButton type="button" busy={busy === "location"} onClick={() => void turnOnLocation()} className="mt-3 w-full">
                 {busy === "location" ? "Turning on…" : "Turn on location"}

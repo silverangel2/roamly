@@ -1,5 +1,25 @@
+import type { Metadata } from "next";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+
+// SEO (consolidation 2026-11-06, Block I / SEO-FIX-3): this page
+// shipped the HOMEPAGE title + description with og:url at the
+// root. It now carries its own title, description, canonical,
+// and og:url.
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "The terms for using Roamly: what the service provides, one-time trip pricing, Live Companion and Booking Recon, and your responsibilities as a traveller.",
+  alternates: { canonical: "https://roamlyhq.com/terms" },
+  openGraph: {
+    title: "Roamly Terms of Service",
+    description:
+      "What Roamly provides, how one-time trip pricing works, and the terms that govern Live Companion and Booking Recon.",
+    url: "https://roamlyhq.com/terms",
+    type: "website",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
 
 const sections = [
   [

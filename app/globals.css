@@ -5,9 +5,9 @@
 :root {
   color-scheme: light;
   --font-geist-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --background: #fbf8ef;
+  --background: #F2F6FC;
   --foreground: #102033;
-  --roamly-page: #fbf8ef;
+  --roamly-page: #F2F6FC;
   --roamly-surface: #fffdf8;
   --roamly-line: #e7dfd2;
   --roamly-muted: #64748b;

@@ -73,7 +73,7 @@ export function MaintenanceModePanel() {
         <p className="mt-2 text-xs font-bold text-slate-500">Last changed: {state.updatedAt}</p>
       ) : null}
       {notice ? (
-        <p role="status" className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">
+        <p role="status" className="mt-4 rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">
           {notice}
         </p>
       ) : null}
@@ -95,7 +95,7 @@ export function MaintenanceModePanel() {
           type="button"
           onClick={() => void flip(false)}
           disabled={busy || state === null || !state.enabled}
-          className="inline-flex min-h-11 items-center justify-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
+          className="inline-flex min-h-11 items-center justify-center rounded-full bg-cblue px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
         >
           {busy ? "Working…" : "Turn maintenance OFF — back live"}
         </button>

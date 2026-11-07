@@ -34,9 +34,9 @@ export async function TripCommentBox({ tripId }: { tripId: string }) {
     return (
       <section
         aria-label="Notes for your trip"
-        className="roamly-enter mb-5 rounded-3xl border border-ocean/25 bg-white/90 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.06)] sm:px-7"
+        className="roamly-enter mb-5 rounded-3xl border border-cblue/25 bg-white/90 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.06)] sm:px-7"
       >
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Notes for your trip</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Notes for your trip</p>
         <h2 className="mt-2 text-xl font-black tracking-tight text-ink">Tell us anything</h2>
         <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
           Your words steer your plan — pace, food, mobility, must-haves. Only you can see these notes.

@@ -73,13 +73,13 @@ export function renderEmailBodyCopy(text: string) {
     .filter(Boolean)
     .map(
       (part) =>
-        `<p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#344054;">${escapeEmailHtml(part).replace(/\n/g, "<br>")}</p>`
+        `<p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;color:#223354;">${escapeEmailHtml(part).replace(/\n/g, "<br>")}</p>`
     )
     .join("");
 }
 
 export function renderEmailHeading(title: string) {
-  return `<h1 style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:28px;line-height:34px;font-weight:700;color:#101828;">${escapeEmailHtml(title)}</h1>`;
+  return `<h1 style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:28px;line-height:34px;font-weight:700;color:#223354;">${escapeEmailHtml(title)}</h1>`;
 }
 
 export function renderEmailCta(label?: string, url?: string) {
@@ -89,7 +89,7 @@ export function renderEmailCta(label?: string, url?: string) {
   return `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="Margin:22px 0 0 0;border-collapse:separate;">
       <tr>
-        <td bgcolor="#0f766e" style="border-radius:8px;text-align:center;">
+        <td bgcolor="#087BFF" style="border-radius:8px;text-align:center;">
           <a href="${escapeEmailHtml(ctaUrl)}" style="display:inline-block;padding:14px 20px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;">${escapeEmailHtml(label)}</a>
         </td>
       </tr>
@@ -103,8 +103,8 @@ export function renderEmailSummary(items?: RoamlyEmailSummaryItem[]) {
     .map(
       (item) => `
         <tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #e4e7ec;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#101828;width:38%;">${escapeEmailHtml(item.label)}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #e4e7ec;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#475467;">${escapeEmailHtml(item.value)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #D9E2EE;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#223354;width:38%;">${escapeEmailHtml(item.label)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #D9E2EE;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#657795;">${escapeEmailHtml(item.value)}</td>
         </tr>`
     )
     .join("");
@@ -112,7 +112,7 @@ export function renderEmailSummary(items?: RoamlyEmailSummaryItem[]) {
   if (!rows) return "";
 
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="Margin:18px 0;border-collapse:collapse;border:1px solid #e4e7ec;border-radius:8px;background:#f9fafb;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="Margin:18px 0;border-collapse:collapse;border:1px solid #D9E2EE;border-radius:8px;background:#F2F6FC;">
       ${rows}
     </table>`;
 }
@@ -145,10 +145,10 @@ export function renderRoamlyEmailFooter({
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
       <tr>
         <td align="left" style="padding:20px 0 0 0;">
-          <p style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">${escapeEmailHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
-          ${managePreferencesUrl && managePreferencesLabel ? `<p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;"><a href="${escapeEmailHtml(managePreferencesUrl)}" style="color:#0f766e;font-weight:700;text-decoration:none;">${escapeEmailHtml(managePreferencesLabel)}</a></p>` : ""}
-          <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">Need help? Reply to this email or contact <a href="mailto:${escapeEmailHtml(supportEmail)}" style="color:#0f766e;font-weight:700;text-decoration:none;">${escapeEmailHtml(supportEmail)}</a>.</p>
-          <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">Roamly · <a href="${escapeEmailHtml(footerUrl)}" style="color:#0f766e;font-weight:700;text-decoration:none;">roamlyhq.com</a></p>
+          <p style="Margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#657795;">${escapeEmailHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
+          ${managePreferencesUrl && managePreferencesLabel ? `<p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;"><a href="${escapeEmailHtml(managePreferencesUrl)}" style="color:#087BFF;font-weight:700;text-decoration:none;">${escapeEmailHtml(managePreferencesLabel)}</a></p>` : ""}
+          <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#657795;">Need help? Reply to this email or contact <a href="mailto:${escapeEmailHtml(supportEmail)}" style="color:#087BFF;font-weight:700;text-decoration:none;">${escapeEmailHtml(supportEmail)}</a>.</p>
+          <p style="Margin:10px 0 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#657795;">Roamly · <a href="${escapeEmailHtml(footerUrl)}" style="color:#087BFF;font-weight:700;text-decoration:none;">roamlyhq.com</a></p>
         </td>
       </tr>
     </table>`;
@@ -204,9 +204,9 @@ export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRend
       }
     </style>
   </head>
-  <body style="Margin:0;padding:0;background:#eef7f5;color:#101828;">
+  <body style="Margin:0;padding:0;background:#F2F6FC;color:#223354;">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeEmailHtml(preheader)}</div>
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#eef7f5" style="border-collapse:collapse;background:#eef7f5;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#F2F6FC" style="border-collapse:collapse;background:#F2F6FC;">
       <tr>
         <td align="center" class="roamly-email-pad" style="padding:28px 16px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="roamly-email-container" style="width:600px;max-width:600px;border-collapse:collapse;">
@@ -214,10 +214,10 @@ export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRend
               <td>${renderRoamlyEmailHeader(footerUrl)}</td>
             </tr>
             <tr>
-              <td bgcolor="#ffffff" class="roamly-email-card" style="padding:32px;border:1px solid #d0d5dd;border-radius:10px;background:#ffffff;">
+              <td bgcolor="#ffffff" class="roamly-email-card" style="padding:32px;border:1px solid #D9E2EE;border-radius:10px;background:#ffffff;">
                 ${
                   input.eyebrow
-                    ? `<p style="Margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#0f766e;">${escapeEmailHtml(input.eyebrow)}</p>`
+                    ? `<p style="Margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#087BFF;">${escapeEmailHtml(input.eyebrow)}</p>`
                     : ""
                 }
                 ${renderEmailHeading(title)}
@@ -227,7 +227,7 @@ export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRend
                 ${renderEmailCta(input.ctaLabel, ctaUrl)}
                 ${
                   disclosure
-                    ? `<p style="Margin:22px 0 0 0;padding-top:14px;border-top:1px solid #e4e7ec;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#667085;">${escapeEmailHtml(disclosure)}</p>`
+                    ? `<p style="Margin:22px 0 0 0;padding-top:14px;border-top:1px solid #D9E2EE;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#657795;">${escapeEmailHtml(disclosure)}</p>`
                     : ""
                 }
               </td>

@@ -31,11 +31,11 @@ export function DemoSeedButton() {
         type="button"
         onClick={seed}
         disabled={busy}
-        className="rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:opacity-60"
+        className="rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-cblue disabled:opacity-60"
       >
         {busy ? "Creating test trip..." : "Create Toronto test trip"}
       </button>
-      {notice ? <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+      {notice ? <p className="mt-3 rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
       {error ? <p className="mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
     </div>
   );

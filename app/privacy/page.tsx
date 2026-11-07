@@ -1,10 +1,30 @@
+import type { Metadata } from "next";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 
+// SEO (consolidation 2026-11-06, Block I / SEO-FIX-3): this page
+// shipped the HOMEPAGE title + description with og:url at the
+// root. It now carries its own title, description, canonical,
+// and og:url.
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "How Roamly handles your data: what is collected for accounts, trips, and travel-email import, why it is used, and the choices and controls you keep.",
+  alternates: { canonical: "https://roamlyhq.com/privacy" },
+  openGraph: {
+    title: "Roamly Privacy Policy",
+    description:
+      "What Roamly collects, why, and the choices you control — accounts, trips, and travel-email import explained plainly.",
+    url: "https://roamlyhq.com/privacy",
+    type: "website",
+    images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
+  }
+};
+
 const sections = [
   ["Data we collect", "Roamly stores account details, trip destinations and dates, traveler and budget choices, itinerary content, saved booking and checklist details, and basic product usage. If you use traveler memory, Roamly also stores travel preferences you provide, which may include your passport-issuing country. Trip feedback can include ratings, activity choices, and free-text comments linked to that trip."],
-  ["Where trip data is stored", "Roamly uses a dedicated Supabase project for account and trip records. The database includes tables with different names; the roamly_ prefix is not a complete list of where app data is stored."],
-  ["Travel email import", "If you connect Gmail, Roamly requests read-only access to identify travel confirmations and changes. Messages the travel filter identifies are saved as limited metadata (sender, subject, and received date) plus structured booking facts; Roamly does not retain the raw email body. For matching messages, the sender, subject, Gmail snippet, and up to 5,000 characters of text preview may be sent to OpenAI for booking extraction. Personal emails are not saved or used for advertising. Messages that do not pass the travel filter are skipped and not saved. Disconnecting Gmail revokes the connection and clears stored access credentials, but does not automatically delete message metadata or booking details already saved to a trip."],
+  ["Where trip data is stored", "Roamly uses a dedicated Supabase project for account and trip records, kept separate from other services."],
+  ["Travel email import", "If you connect Gmail, Roamly requests read-only access to identify travel confirmations and changes. Messages the travel filter identifies are saved as limited metadata (sender, subject, and received date) plus structured booking facts; Roamly does not retain the raw email body. For matching messages, the sender, subject, Gmail snippet, and up to 6,000 characters of text preview may be sent to OpenAI for booking extraction. Personal emails are not saved or used for advertising. Messages that do not pass the travel filter are skipped and not saved. Disconnecting Gmail revokes the connection and clears stored access credentials, but does not automatically delete message metadata or booking details already saved to a trip."],
   ["AI processing", "Trip details may be sent to the OpenAI API to generate itineraries. Matching Gmail content may also be sent there to extract booking details. Locked itineraries are not regenerated."],
   ["Payments", "Stripe handles checkout. Roamly stores payment status and Stripe identifiers, not raw card numbers."],
   ["Product analytics", "For new app-use events, Roamly records a query-free page path linked to your account or a random browser identifier, along with device/browser category, language, and referring site domain. Trip UUIDs in analytics paths are replaced with a generic marker; full URLs and referrer paths are not recorded."],

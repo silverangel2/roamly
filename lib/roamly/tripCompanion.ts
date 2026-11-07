@@ -332,7 +332,10 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
     {
       event_type: "packing_check",
       title: "Packing reminder",
-      body: "Roamly can remind you about packing, documents, check-in times, and what’s up next during your trip.",
+      // An actual reminder, not a description of one (sweep
+      // NEW-8): it names the trip and tells the traveller what
+      // to do now — pack, with the checklist one tap away.
+      body: `Time to pack for ${getTripDestinationLabel(trip) || "your trip"}: work through your packing list, lay out your travel documents, and check your check-in times. Your trip starts in two days.`,
       scheduled_for: start ? addDays(start, -2) : null
     },
     {
@@ -342,7 +345,30 @@ export function buildPreTripTimeline(trip: CompanionTrip, bookings: CompanionBoo
       scheduled_for: start ? addDays(start, -7) : null
     },
     ...crossBorderEvents
-  ].filter(Boolean) as Array<{ event_type: string; title: string; body: string; scheduled_for: string | null }>;
+  ].filter(Boolean) as Array<{ event_type: string; title: string; body: string; scheduled_for: string | null; dayIndex?: number }>;
+
+  // Travel-day coverage (live fix, 2026-11-06): the base timeline used
+  // to end at day 1's travel_day_started, so a trip in its window held
+  // no scheduled companion event for any later day — once the pre-trip
+  // batch had been consumed, nothing remained for the dispatcher to
+  // fire for the rest of the trip. One travel-day event per trip day
+  // keeps coverage for the whole window. Days 2+ share day 1's
+  // event_type (the widest the production event_type CHECK allows) and
+  // carry dayIndex as their dedupe dimension (stamped into metadata as
+  // travelDayIndex at insert time).
+  if (start && trip.end_date) {
+    const spanDays = Math.round((Date.parse(`${trip.end_date}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000);
+    const totalDays = Number.isFinite(spanDays) ? Math.min(366, Math.max(1, spanDays + 1)) : 1;
+    for (let day = 2; day <= totalDays; day += 1) {
+      events.push({
+        event_type: "travel_day_started",
+        dayIndex: day,
+        title: `Travel day ${day}`,
+        body: `Day ${day} of your trip. Roamly can show what is next, nearby, and already booked.`,
+        scheduled_for: addDays(start, day - 1)
+      });
+    }
+  }
 
   // Workstream A: booking labels derive from bookingTruth. A booking
   // whose CURRENT truth is cancelled/refunded/superseded/test produces
@@ -467,7 +493,7 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
   const timeline = buildPreTripTimeline(trip, bookings);
   const { data: existing } = await reader
     .from("roamly_trip_companion_events")
-    .select("id,event_type,booking_id,status,scheduled_for")
+    .select("id,event_type,booking_id,status,scheduled_for,metadata")
     .eq("trip_id", tripId);
   const currentBookingIds = new Set(bookings.map((booking) => booking.id));
   const staleEventIds = (existing || [])
@@ -486,20 +512,93 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
       return { ok: false, error: cancelled.error.message };
     }
   }
-  const existingKeys = new Set((existing || []).map((event) => `${event.event_type}:${event.booking_id || ""}`));
-  const rows = timeline
-    .filter((event) => !existingKeys.has(`${event.event_type}:${"booking_id" in event ? event.booking_id || "" : ""}`))
-    .map((event) => ({
+  // Reconciliation (live fix, 2026-11-06): creation used to be
+  // write-once — the dedupe below counted TERMINAL rows (skipped /
+  // cancelled) as "already exists", so any event the dispatcher
+  // consumed before its day (gate-skipped during a momentary
+  // unlock-flag-off window, or retired early) was gone for good, and
+  // with the batch ending at day 1 an in-window trip was left with
+  // zero future-scheduled events and no path to ever get one. This
+  // pass now reconciles the timeline against the trip's remaining
+  // window on every call (unlock, booking confirm, Live-page visit):
+  //   * live rows (scheduled / processing / shown / completed) always
+  //     dedupe — re-running never duplicates an event;
+  //   * terminal rows dedupe only the elapsed-day bookkeeping insert
+  //     below; they never block re-creating an event whose day is
+  //     today or still ahead, so a wrongly killed event heals on the
+  //     next reconcile instead of staying dead for the whole trip;
+  //   * a past-due event whose day is today (or whose trip has not
+  //     started yet) is inserted with its fire time clamped ~1 minute
+  //     out, so it fires through the normal dispatcher path as a real
+  //     delivery instead of being born as an already-expired row for
+  //     the dispatcher's terminal gates to consume unseen;
+  //   * an event whose whole day has elapsed is recorded directly as
+  //     skipped (metadata catchUp: "elapsed_day") — honest bookkeeping
+  //     that costs no dispatcher cycle and sends nothing.
+  // Day indices use the builder's UTC-day convention (09:00Z fire
+  // times), matching buildPreTripTimeline.
+  const now = new Date();
+  const nowMs = now.getTime();
+  const utcDayNumber = (value: string) => Math.floor(Date.parse(`${value.slice(0, 10)}T00:00:00Z`) / 86_400_000);
+  const startDayNumber = trip.start_date ? utcDayNumber(trip.start_date) : null;
+  const currentDayIndex = startDayNumber === null ? null : Math.floor(nowMs / 86_400_000) - startDayNumber + 1;
+  const dayIndexOf = (iso: string) => (startDayNumber === null ? null : utcDayNumber(iso) - startDayNumber + 1);
+  const keyOf = (eventType: string, bookingId: string | null | undefined, dayIndex: number | undefined) =>
+    `${eventType}:${bookingId || ""}${dayIndex ? `:day${dayIndex}` : ""}`;
+  const storedDayIndex = (event: { metadata?: unknown }) => {
+    const md = event.metadata && typeof event.metadata === "object" ? (event.metadata as Record<string, unknown>) : {};
+    return typeof md.travelDayIndex === "number" ? md.travelDayIndex : undefined;
+  };
+  const liveKeys = new Set<string>();
+  const terminalKeys = new Set<string>();
+  for (const event of existing || []) {
+    const key = keyOf(event.event_type, event.booking_id, storedDayIndex(event));
+    if (["scheduled", "processing", "shown", "completed"].includes(String(event.status))) liveKeys.add(key);
+    else terminalKeys.add(key);
+  }
+  const rows: Array<Record<string, unknown>> = [];
+  for (const event of timeline) {
+    const bookingId = "booking_id" in event ? event.booking_id || null : null;
+    const dayIndex = "dayIndex" in event ? event.dayIndex : undefined;
+    const key = keyOf(event.event_type, bookingId, dayIndex);
+    if (liveKeys.has(key)) continue;
+    const scheduledFor = event.scheduled_for;
+    const parsed = scheduledFor ? Date.parse(scheduledFor) : NaN;
+    let status = "scheduled";
+    let fireAt = scheduledFor;
+    let catchUp: string | null = null;
+    if (Number.isFinite(parsed) && parsed <= nowMs) {
+      const eventDayIndex = dayIndexOf(scheduledFor as string);
+      if (eventDayIndex !== null && currentDayIndex !== null && currentDayIndex >= 1 && eventDayIndex < currentDayIndex) {
+        if (terminalKeys.has(key)) continue;
+        status = "skipped";
+        catchUp = "elapsed_day";
+      } else {
+        fireAt = new Date(nowMs + 60_000).toISOString();
+        catchUp = "clamped";
+      }
+    }
+    rows.push({
       user_id: trip.user_id,
       trip_id: tripId,
-      booking_id: "booking_id" in event ? event.booking_id || null : null,
+      booking_id: bookingId,
       event_type: event.event_type,
       title: event.title,
       body: event.body,
-      scheduled_for: event.scheduled_for,
-      status: "scheduled",
-      metadata: { generatedBy: "roamly_companion" }
-    }));
+      scheduled_for: fireAt,
+      status,
+      ...(status === "skipped" ? { completed_at: now.toISOString() } : {}),
+      metadata: {
+        generatedBy: "roamly_companion",
+        ...(dayIndex ? { travelDayIndex: dayIndex } : {}),
+        ...(catchUp ? { catchUp } : {})
+      }
+    });
+    // A key written by this pass (live or bookkeeping) must not be
+    // written twice if the timeline itself repeats it.
+    liveKeys.add(key);
+    terminalKeys.add(key);
+  }
 
   if (rows.length) {
     const inserted = await reader.from("roamly_trip_companion_events").insert(rows);

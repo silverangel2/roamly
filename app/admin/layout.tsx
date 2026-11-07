@@ -18,7 +18,7 @@ export default async function AdminLayout({
     return (
       <main className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
             Admin setup
           </p>
 
@@ -59,7 +59,7 @@ export default async function AdminLayout({
       <div className="min-w-0">
         <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-cloud bg-white/90 px-4 py-3 shadow-soft sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
               Admin session
             </p>
 

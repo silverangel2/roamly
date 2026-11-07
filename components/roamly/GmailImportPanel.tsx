@@ -259,7 +259,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
   return (
     <section aria-labelledby="gmail-import-title" className="mx-auto w-full max-w-5xl px-4 sm:px-6">
       <div className="bui-enter mt-6 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card sm:p-6">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Email import</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Email import</p>
         <h2 id="gmail-import-title" className="mt-1 text-xl font-black tracking-tight text-ink">
           Bookings from your inbox
         </h2>

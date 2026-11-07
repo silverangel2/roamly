@@ -100,7 +100,7 @@ export default async function AdminEmailPage() {
       {/* Held companion-email claims — read-only visibility (no resolve/resend actions by design). */}
       <section className="mt-6">
         <Card className="p-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Held email claims (ambiguous SMTP)</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Held email claims (ambiguous SMTP)</p>
           <p className="mt-2 text-sm font-bold text-slate-600">
             {heldClaims.count} claim(s) held — outcome unknown; no resend, no stamp (see operator procedure).
           </p>

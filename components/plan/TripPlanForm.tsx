@@ -209,13 +209,13 @@ function classNames(...items: Array<string | false | null | undefined>) {
 }
 
 const primaryActionClass =
-  "bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.18)] transition hover:bg-[#167f8d] disabled:opacity-60";
+  "bg-cblue text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)] transition hover:bg-[#0A6FE0] disabled:opacity-60";
 const selectedPrimaryOptionClass =
-  "border-ocean bg-ocean text-white shadow-[0_8px_20px_rgba(27,154,170,0.16)]";
+  "border-cblue bg-cblue text-white shadow-[0_8px_20px_rgba(8,123,255,0.22)]";
 const selectedWarmOptionClass =
-  "border-amber-400 bg-[#fff1d8] text-[#7a4b11] shadow-[0_8px_20px_rgba(245,158,11,0.12)]";
+  "border-corange bg-[#FFF1E6] text-[#8F4512] shadow-[0_8px_20px_rgba(255,121,61,0.14)]";
 const unselectedOptionClass =
-  "border-cloud bg-[#fffdf8] text-slate-700 hover:border-ocean/50 hover:text-ocean";
+  "border-chair bg-white text-cink hover:border-cblue/50 hover:text-cblue";
 const GENERATION_ERROR_MESSAGE = "Roamly could not finish itinerary generation. Please try again in a moment.";
 const AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not configured yet.";
 const PLAN_RESUME_PATH = "/plan?resumePlan=1&continueGenerate=1";
@@ -354,6 +354,31 @@ function readDraftPlace(value: unknown): NormalizedPlace | null {
   };
 }
 
+const CARRIED_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatCarriedIsoDate(isoDate: string) {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) return "";
+  return `${CARRIED_MONTH_LABELS[month - 1]} ${day}`;
+}
+
+// Fix round D4: the quiet Step 1 line naming what a hero deep link carried
+// in, so the traveller can see their homepage answers survived. Built only
+// from values the hero branches actually applied; "" when nothing beyond
+// the destination was carried (the destination shows in its own field).
+// The hero sends dates and travellers only — origin is asked once, on
+// Step 1 itself, and is optional there (Fix 2 correction).
+function heroCarriedSummary(startDate: string, endDate: string, travelers: number | null) {
+  const parts: string[] = [];
+  if (startDate && endDate) {
+    const start = formatCarriedIsoDate(startDate);
+    const end = formatCarriedIsoDate(endDate);
+    if (start && end) parts.push(`${start} – ${end}`);
+  }
+  if (travelers) parts.push(`${travelers} ${travelers === 1 ? "traveller" : "travellers"}`);
+  return parts.length ? `From your search: ${parts.join(" · ")}` : "";
+}
+
 function readDraftStops(record: Record<string, unknown>) {
   const rawStopItems = Array.isArray(record.stopItems)
     ? record.stopItems
@@ -436,7 +461,7 @@ function tripDateValidationMessage(startDate: string, endDate: string, daysRaw: 
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-sm font-black text-ink">{children}</span>;
+  return <span className="text-sm font-black text-chead">{children}</span>;
 }
 
 function formatMoney(cents: number | null, currency: string) {
@@ -598,7 +623,7 @@ function Chip({
     >
       <span className="block">{translateText(label)}</span>
       {isDefault ? (
-        <span className={classNames("mt-0.5 block text-[0.68rem] font-semibold", selected ? "text-white/80" : "text-slate-500")}>
+        <span className={classNames("mt-0.5 block text-[0.68rem] font-semibold", selected ? "text-white/80" : "text-cgray")}>
           {translateText("Default")}
         </span>
       ) : null}
@@ -638,14 +663,14 @@ function ToggleButton({
       role="switch"
       aria-checked={enabled}
       onClick={onToggle}
-      className="bui-tap flex min-h-12 items-center justify-between gap-3 rounded-xl border border-cloud bg-[#fffdf8] px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:border-ocean/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20"
+      className="bui-tap flex min-h-12 items-center justify-between gap-3 rounded-xl border border-chair bg-white px-4 py-3 text-left text-sm font-semibold text-cink transition hover:border-cblue/40 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20"
     >
       <span>{translateText(label)}</span>
       <span
         aria-hidden="true"
         className={classNames(
           "relative h-6 w-11 shrink-0 rounded-full transition-colors motion-reduce:transition-none",
-          enabled ? "bg-[#0f6e66]" : "bg-slate-300"
+          enabled ? "bg-cblue" : "bg-cgray2"
         )}
       >
         <span
@@ -676,24 +701,24 @@ function StepperField({
   return (
     <div>
       <FieldLabel>{translateText(label)}</FieldLabel>
-      <div className="mt-2 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-cloud bg-[#fffdf8] px-1.5 py-1">
+      <div className="mt-2 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-chair bg-white px-1.5 py-1">
         <button
           type="button"
           aria-label={`Decrease ${label.toLowerCase()}`}
           disabled={count <= min}
           onClick={() => onChange(String(count - 1))}
-          className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-xl font-black text-slate-700 transition hover:bg-mist hover:text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20 disabled:opacity-40"
+          className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-xl font-black text-cink transition hover:bg-csoft hover:text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20 disabled:opacity-40"
         >
           <span aria-hidden="true">−</span>
         </button>
-        <span aria-live="polite" aria-label={label} className="min-w-8 text-center text-base font-bold text-ink">
+        <span aria-live="polite" aria-label={label} className="min-w-8 text-center text-base font-bold text-chead">
           {count}
         </span>
         <button
           type="button"
           aria-label={`Increase ${label.toLowerCase()}`}
           onClick={() => onChange(String(count + 1))}
-          className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-xl font-black text-slate-700 transition hover:bg-mist hover:text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/20"
+          className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-xl font-black text-cink transition hover:bg-csoft hover:text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20"
         >
           <span aria-hidden="true">+</span>
         </button>
@@ -851,6 +876,11 @@ function TripPlanFormSession({
   });
   const [originPlace, setOriginPlace] = useState<NormalizedPlace | null>(null);
   const [destinationPlace, setDestinationPlace] = useState<NormalizedPlace | null>(null);
+  // Fix round D4: snapshot of what a hero deep link carried in (dates,
+  // travellers), shown as one quiet line on Step 1. Cleared when the
+  // traveller resumes a previous draft, refills from a recent search, or
+  // starts over — the values on screen are no longer the hero's then.
+  const [carriedSummary, setCarriedSummary] = useState("");
   const [tripType, setTripType] = useState<TripType>("single_destination");
   const [stops, setStops] = useState<StopItem[]>(() => defaultStops());
   const [returnToOrigin, setReturnToOrigin] = useState(true);
@@ -1400,6 +1430,7 @@ function TripPlanFormSession({
 
   function resetPlanner() {
     clearCurrentPlanDraft();
+    setCarriedSummary("");
     skipNextDraftSave.current = true;
     trackedSelections.current.clear();
     generationInFlight.current = false;
@@ -1446,6 +1477,7 @@ function TripPlanFormSession({
               if (heroRange.ok && heroRange.days) setDaysCount(String(heroRange.days));
             }
             if (queryTravelersCount) setAdults(String(queryTravelersCount));
+            setCarriedSummary(heroCarriedSummary(fallbackStartDate, fallbackEndDate, queryTravelersCount));
             setRestoreNotice(false);
           } else {
             restorePlanDraft(record);
@@ -1499,6 +1531,7 @@ function TripPlanFormSession({
           if (heroRange.ok && heroRange.days) setDaysCount(String(heroRange.days));
         }
         if (queryTravelersCount) setAdults(String(queryTravelersCount));
+        setCarriedSummary(heroCarriedSummary(fallbackStartDate, fallbackEndDate, queryTravelersCount));
       }
     }
 
@@ -1518,7 +1551,10 @@ function TripPlanFormSession({
 
   function validateStep(stepToValidate: number) {
     if (stepToValidate === 0) {
-      if (!isValidPlaceValue(payload.origin)) return "Please choose or enter your origin before continuing.";
+      // Fix 2 correction (owner verdict 2026-11-06): origin is OPTIONAL.
+      // It is asked once, here on Step 1, and never gates Continue — a
+      // plan without one generates with the destination alone, and adding
+      // one only sharpens the flight and transport estimates.
       if (tripType === "multi_city" && validStops.length < 2) return "Please add at least two cities for a multi-city trip.";
       if (tripType === "single_destination" && !isValidPlaceValue(payload.destination)) {
         return "Please choose or enter a destination before continuing.";
@@ -1555,6 +1591,7 @@ function TripPlanFormSession({
     if (!previousDraft) return;
     holdDraftSave.current = false;
     restorePlanDraft(previousDraft);
+    setCarriedSummary("");
     setPreviousDraft(null);
     setRestoreNotice(true);
     setError("");
@@ -1945,6 +1982,7 @@ function TripPlanFormSession({
 
   function refillFromRecent(recent: PlanRecentSearch) {
     notePlanEdit();
+    setCarriedSummary("");
     if (recent.originLabel) setOriginPlace(readDraftPlace(recent.originLabel));
     const known = matchRecommendedPlace(normalizePlaceText(recent.destinationLabel));
     setDestinationPlace(known ?? readDraftPlace(recent.destinationLabel));
@@ -2091,6 +2129,12 @@ function TripPlanFormSession({
         />
       </div>
 
+      {/* Fix round D4: one quiet line on Step 1 naming what the homepage
+          search carried in, so the traveller can see their answers made it. */}
+      {step === 0 && carriedSummary ? (
+        <p className="mt-3 text-xs font-semibold leading-5 text-cgray">{carriedSummary}</p>
+      ) : null}
+
       {/* Folded steps: every completed, already-reached step that is not
           the open one collapses to ONE tappable summary line. */}
       {stepSummaries.some((item, index) => index !== step && index <= furthestStep && item.complete) ? (
@@ -2104,29 +2148,29 @@ function TripPlanFormSession({
       ) : null}
 
       {previousDraft ? (
-        <p className="mt-4 text-sm leading-6 text-slate-600">
+        <p className="mt-4 text-sm leading-6 text-cink">
           {translateText("A previous trip is saved.")}{" "}
           <button
             type="button"
             onClick={resumePreviousTrip}
-            className="font-semibold text-[#0f6e66] underline decoration-[#0f6e66]/30 underline-offset-2"
+            className="font-semibold text-cblue underline decoration-cblue/40 underline-offset-2"
           >
             {translateText("Resume previous trip")}
           </button>
         </p>
       ) : null}
       {signedIn && secondTimeGateNotice ? (
-        <p className="mt-4 text-sm leading-6 text-slate-600">
+        <p className="mt-4 text-sm leading-6 text-cink">
           {translateText("You've already had a trip with Roamly, so this one opens behind three quick setup steps — Gmail for Booking Recon, the app for Live Companion alerts, and location for the companion to go live. Or skip for now and see it with limited features.")}
         </p>
       ) : null}
       {restoreNotice && !previousDraft ? (
-        <p className="mt-4 text-sm leading-6 text-slate-600">
+        <p className="mt-4 text-sm leading-6 text-cink">
           {translateText("Your saved trip plan is here.")}{" "}
           <button
             type="button"
             onClick={resetPlanner}
-            className="font-semibold text-[#0f6e66] underline decoration-[#0f6e66]/30 underline-offset-2"
+            className="font-semibold text-cblue underline decoration-cblue/40 underline-offset-2"
           >
             {translateText("Start over")}
           </button>
@@ -2168,7 +2212,7 @@ function TripPlanFormSession({
               value={originPlace}
               onChange={setOrigin}
               placeholder="Search origin"
-              helper="Choose a known origin to improve flight and transport estimates. You can still type a custom origin if it is not listed."
+              helper="Optional — adding where you leave from improves flight and transport estimates."
               popularPlaces={popularOriginPlaces}
             />
 
@@ -2205,16 +2249,16 @@ function TripPlanFormSession({
                 popularPlaces={recommendedPlaces}
               />
             ) : (
-              <div className="border-l-2 border-ocean/40 bg-mist/45 py-3 pl-4 sm:pl-5">
-                <p className="text-sm font-black text-ink">{translateText("Multi-city trip")}</p>
-                <p className="mt-1 text-sm font-bold leading-6 text-slate-500">
+              <div className="border-l-2 border-cblue/40 bg-cbg py-3 pl-4 sm:pl-5">
+                <p className="text-sm font-black text-chead">{translateText("Multi-city trip")}</p>
+                <p className="mt-1 text-sm font-bold leading-6 text-cgray">
                   {translateText("Add each city in the order you want to visit. Roamly will build the route and budget around these stops.")}
                 </p>
                 <div className="mt-4 grid gap-3">
                   {stops.map((stop, index) => (
-                    <div key={stop.id} className="border-b border-cloud/80 py-3 first:pt-0 last:border-b-0">
+                    <div key={stop.id} className="border-b border-chair/80 py-3 first:pt-0 last:border-b-0">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
+                        <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">
                           {translateText("City")} {index + 1}
                         </p>
                         {index > 1 ? (
@@ -2242,7 +2286,7 @@ function TripPlanFormSession({
                 <button
                   type="button"
                   onClick={addCity}
-                  className="mt-3 min-h-11 rounded-xl border border-cloud bg-transparent px-4 py-3 text-sm font-bold text-slate-700 transition hover:border-ocean/50 hover:text-ocean"
+                  className="mt-3 min-h-11 rounded-xl border border-chair bg-transparent px-4 py-3 text-sm font-bold text-cink transition hover:border-cblue/50 hover:text-cblue"
                 >
                   {translateText("Add city")}
                 </button>
@@ -2260,9 +2304,9 @@ function TripPlanFormSession({
             )}
 
             {routePreview ? (
-              <div className="border-l-2 border-ocean bg-ocean/5 py-3 pl-4 sm:pl-5">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Route")}</p>
-                <p className="mt-2 text-base font-black leading-7 text-ink">{routePreview}</p>
+              <div className="border-l-2 border-cblue bg-cblue/5 py-3 pl-4 sm:pl-5">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Route")}</p>
+                <p className="mt-2 text-base font-black leading-7 text-chead">{routePreview}</p>
               </div>
             ) : null}
             <StepError error={translateText(error)} />
@@ -2349,7 +2393,7 @@ function TripPlanFormSession({
                 />
                 <FieldError id="plan-budget-error" message={budgetFieldError} />
                 {budgetAmount.trim() || budgetFieldError ? null : (
-                  <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-500">
+                  <p className="mt-1.5 text-xs font-semibold leading-5 text-cgray">
                     {translateText("A rough total is enough. Roamly will not fill this in for you.")}
                   </p>
                 )}
@@ -2359,12 +2403,12 @@ function TripPlanFormSession({
                 <SelectField value={budgetCurrency} onChange={(value) => setBudgetCurrency(value as typeof budgetCurrency)} options={currencyOptions} />
               </label>
             </div>
-            <details className="group border-y border-cloud/80 py-3">
-              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+            <details className="group border-y border-chair/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/15">
                 {translateText("How Roamly uses your budget")}
-                <span className="float-right text-slate-600 transition group-open:rotate-45">+</span>
+                <span className="float-right text-cink transition group-open:rotate-45">+</span>
               </summary>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-cink">
                 {translateText("Use your comfortable total. Roamly checks flights, stays, food, activities, local transportation, and buffer before generation.")}
               </p>
             </details>
@@ -2383,13 +2427,13 @@ function TripPlanFormSession({
 
         {step === 4 ? (
           <div className="grid gap-5">
-            <p className="text-sm leading-6 text-slate-600">
+            <p className="text-sm leading-6 text-cink">
               {translateText("Pace, walking, and transport start on a labeled default. Interests are optional — pick any that fit, or leave them empty and Roamly balances your days.")}
             </p>
             <div>
               <FieldLabel>
                 {translateText("Travel style")}
-                {travelStyle === PLAN_PREFERENCE_DEFAULTS.travelStyle ? <span className="ml-2 text-xs font-semibold text-slate-500">{translateText("Default")}</span> : null}
+                {travelStyle === PLAN_PREFERENCE_DEFAULTS.travelStyle ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
               </FieldLabel>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 {planningTravelStyles.map((style) => (
@@ -2408,7 +2452,7 @@ function TripPlanFormSession({
             </div>
             <div>
               <FieldLabel>{translateText("Interests")}</FieldLabel>
-              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+              <p className="mt-1 text-xs font-semibold leading-5 text-cgray">
                 {interests.length ? interests.join(", ") : translateText("No preference — Roamly balances it")}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -2421,14 +2465,14 @@ function TripPlanFormSession({
               <label className="block">
                 <FieldLabel>
                   {translateText("Pace")}
-                  {pace === PLAN_PREFERENCE_DEFAULTS.pace ? <span className="ml-2 text-xs font-semibold text-slate-500">{translateText("Default")}</span> : null}
+                  {pace === PLAN_PREFERENCE_DEFAULTS.pace ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
                 </FieldLabel>
                 <SelectField value={pace} onChange={(value) => { notePlanEdit(); setPace(value as typeof pace); }} options={planningPaces} defaultValue={PLAN_PREFERENCE_DEFAULTS.pace} />
               </label>
               <label className="block">
                 <FieldLabel>
                   {translateText("Walking tolerance")}
-                  {walkingTolerance === PLAN_PREFERENCE_DEFAULTS.walkingTolerance ? <span className="ml-2 text-xs font-semibold text-slate-500">{translateText("Default")}</span> : null}
+                  {walkingTolerance === PLAN_PREFERENCE_DEFAULTS.walkingTolerance ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
                 </FieldLabel>
                 <SelectField
                   value={walkingTolerance}
@@ -2440,7 +2484,7 @@ function TripPlanFormSession({
               <label className="block">
                 <FieldLabel>
                   {translateText("Transportation")}
-                  {transportationPreference === PLAN_PREFERENCE_DEFAULTS.transportation ? <span className="ml-2 text-xs font-semibold text-slate-500">{translateText("Default")}</span> : null}
+                  {transportationPreference === PLAN_PREFERENCE_DEFAULTS.transportation ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
                 </FieldLabel>
                 <SelectField
                   value={transportationPreference}
@@ -2450,16 +2494,16 @@ function TripPlanFormSession({
                 />
               </label>
             </div>
-            <details className="group border-y border-cloud/80 py-3">
-              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+            <details className="group border-y border-chair/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/15">
                 {translateText("More preferences")}
-                <span className="float-right text-slate-600 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
+                <span className="float-right text-cink transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
               <div className="mt-3 grid gap-4">
                 <label className="block">
                   <FieldLabel>
                     {translateText("Accommodation")}
-                    {accommodationPreference === PLAN_PREFERENCE_DEFAULTS.accommodation ? <span className="ml-2 text-xs font-semibold text-slate-500">{translateText("Default")}</span> : null}
+                    {accommodationPreference === PLAN_PREFERENCE_DEFAULTS.accommodation ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
                   </FieldLabel>
                   <SelectField
                     value={accommodationPreference}
@@ -2468,18 +2512,18 @@ function TripPlanFormSession({
                     defaultValue={PLAN_PREFERENCE_DEFAULTS.accommodation}
                   />
                 </label>
-                <div className="border-t border-cloud/70 pt-3">
-                  <p className="text-xs font-black text-ink">{translateText("Not plan inputs")}</p>
-                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+                <div className="border-t border-chair/70 pt-3">
+                  <p className="text-xs font-black text-chead">{translateText("Not plan inputs")}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-cgray">
                     {translateText("Roamly cannot apply these yet, so it does not ask for them — this list is information only, and nothing in it is collected or sent with your plan")}: {PLANNER_BACKEND_CAPABILITY_GAPS.join(" · ")}.
                   </p>
                 </div>
               </div>
             </details>
-            <details className="group border-y border-cloud/80 py-3">
-              <summary className="cursor-pointer list-none text-sm font-bold text-ocean focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/15">
+            <details className="group border-y border-chair/80 py-3">
+              <summary className="cursor-pointer list-none text-sm font-bold text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/15">
                 {translateText("Specific needs or notes")}
-                <span className="float-right text-slate-600 transition group-open:rotate-45 motion-reduce:transition-none">+</span>
+                <span className="float-right text-cink transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="block"><FieldLabel>{translateText("Accessibility needs")}</FieldLabel><TextInput value={accessibilityNeeds} onChange={setAccessibilityNeeds} ariaLabel="Accessibility needs" /></label>
@@ -2488,7 +2532,7 @@ function TripPlanFormSession({
               <label className="mt-3 block">
                 <FieldLabel>{translateText("Special notes")}</FieldLabel>
                 <textarea value={specialNotes} onChange={(event) => setSpecialNotes(event.target.value)} rows={4} aria-label="Special trip notes" className="bui-input mt-2 w-full rounded-xl border border-chair bg-white px-4 py-3 text-base font-semibold leading-7 text-cink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/15" />
-                <p className="mt-2 text-xs leading-5 text-slate-500">{translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}</p>
+                <p className="mt-2 text-xs leading-5 text-cgray">{translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}</p>
               </label>
             </details>
             {/* A12 (merge, 2026-11-05): interests are optional and
@@ -2500,30 +2544,30 @@ function TripPlanFormSession({
 
         {step === 5 ? (
           <div className="grid gap-4">
-              <div className="border-y border-ocean/20 bg-ocean/5 py-4 text-ink sm:py-5">
-              <p className="text-sm font-semibold text-[#0f6e66]">{translateText("Trip brief")}</p>
-              <h3 className="mt-2 whitespace-normal break-words text-xl font-black text-ink">{normalizedDestination || translateText("Destination pending")}</h3>
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">{translateText(entitlement.reviewLead)}</p>
-              <div className="mt-4 grid gap-2 text-sm font-bold text-slate-600">
+              <div className="border-y border-cblue/20 bg-cblue/5 py-4 text-chead sm:py-5">
+              <p className="text-sm font-semibold text-cblue">{translateText("Trip brief")}</p>
+              <h3 className="mt-2 whitespace-normal break-words text-xl font-black text-chead">{normalizedDestination || translateText("Destination pending")}</h3>
+              <p className="mt-3 text-sm font-semibold leading-6 text-cink">{translateText(entitlement.reviewLead)}</p>
+              <div className="mt-4 grid gap-2 text-sm font-bold text-cink">
                 {summaryRows.map(([label, value]) => (
                   <p key={label}>
-                    <span className="text-ink">{translateText(label)}:</span> {value}
+                    <span className="text-chead">{translateText(label)}:</span> {value}
                   </p>
                 ))}
               </div>
               {notePreview.constraints.length ? (
-                <div className="mt-4 grid gap-2 text-sm font-semibold leading-6 text-slate-700">
+                <div className="mt-4 grid gap-2 text-sm font-semibold leading-6 text-cink">
                   {notePreview.constraints.map((line) => <p key={line}>{line}</p>)}
-                  {notePreview.hotel ? <p className="text-sm leading-6 text-slate-700">{notePreview.hotel}</p> : null}
-                  {notePreview.flight ? <p className="text-sm leading-6 text-slate-700">{notePreview.flight}</p> : null}
-                  {notePreview.activity ? <p className="text-sm leading-6 text-slate-700">{notePreview.activity}</p> : null}
-                  {notePreview.gaps.length ? <p className="text-xs font-bold leading-5 text-slate-500">{notePreview.gaps.join(" ")}</p> : null}
+                  {notePreview.hotel ? <p className="text-sm leading-6 text-cink">{notePreview.hotel}</p> : null}
+                  {notePreview.flight ? <p className="text-sm leading-6 text-cink">{notePreview.flight}</p> : null}
+                  {notePreview.activity ? <p className="text-sm leading-6 text-cink">{notePreview.activity}</p> : null}
+                  {notePreview.gaps.length ? <p className="text-xs font-bold leading-5 text-cgray">{notePreview.gaps.join(" ")}</p> : null}
                 </div>
               ) : null}
             </div>
-            <div className="rounded-2xl border border-[#eadfc8] bg-[#fff8ec] px-4 py-4">
-              <p className="text-sm font-semibold leading-6 text-ink">{translateText(entitlement.nextStep)}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-700">
+            <div className="rounded-2xl border border-corange/30 bg-[#FFF6EE] px-4 py-4">
+              <p className="text-sm font-semibold leading-6 text-chead">{translateText(entitlement.nextStep)}</p>
+              <p className="mt-2 text-sm leading-6 text-cink">
                 {translateText("Review your trip details carefully. After generation, your saved itinerary will not be regenerated in place. Use your trip page to request supported changes.")}
               </p>
             </div>
@@ -2539,23 +2583,23 @@ function TripPlanFormSession({
       ) : null}
 
       {priceChecking ? (
-        <div className="mt-4 overflow-hidden rounded-2xl bg-mist p-4">
-          <div className="h-2 animate-pulse rounded-full bg-lagoon motion-reduce:animate-none" />
-          <p className="mt-3 text-sm font-black text-ink">
+        <div className="mt-4 overflow-hidden rounded-2xl bg-cbg p-4">
+          <div className="h-2 animate-pulse rounded-full bg-cblue motion-reduce:animate-none" />
+          <p className="mt-3 text-sm font-black text-chead">
             {translateText("Checking trip costs...")}
           </p>
         </div>
       ) : null}
 
       {step === steps.length - 1 && priceDiscovery ? (
-        <div className="mt-4 rounded-[1.5rem] border border-cloud bg-white p-4 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{translateText("Budget check")}</p>
-          <h3 className="mt-2 text-xl font-black text-ink">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</h3>
+        <div className="mt-4 rounded-[1.5rem] border border-chair bg-white p-4 shadow-bui-card">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Budget check")}</p>
+          <h3 className="mt-2 text-xl font-black text-chead">{translateText(budgetStatusCopy(priceDiscovery.budgetStatus))}</h3>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {priceDiscoveryRows.map(([label, value]) => (
-              <div key={label as string} className="rounded-2xl bg-mist p-3">
-                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-slate-600">{translateText(label as string)}</p>
-                <p className="mt-1 text-sm font-black text-ink">
+              <div key={label as string} className="rounded-2xl bg-cbg p-3">
+                <p className="text-[0.68rem] font-black uppercase tracking-[0.12em] text-cink">{translateText(label as string)}</p>
+                <p className="mt-1 text-sm font-black text-chead">
                   {value}
                 </p>
               </div>
@@ -2566,7 +2610,7 @@ function TripPlanFormSession({
               {["Cross-border trip", "Passport check", priceDiscovery.currencyChange ? "Currency change" : "", "Border time buffer", "Roaming reminder", "Customs reminder"]
                 .filter((label): label is string => Boolean(label))
                 .map((label) => (
-                  <span key={label} className="rounded-full border border-sun/30 bg-sun/10 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">
+                  <span key={label} className="rounded-full border border-corange/30 bg-corange/10 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-[#8F4512]">
                     {translateText(label)}
                   </span>
                 ))}
@@ -2575,16 +2619,16 @@ function TripPlanFormSession({
           {priceDiscovery.transportOptions?.length ? (
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {priceDiscovery.transportOptions.slice(0, 5).map((option) => (
-                <div key={`${option.mode}-${option.title}`} className="rounded-2xl border border-cloud bg-white p-3">
+                <div key={`${option.mode}-${option.title}`} className="rounded-2xl border border-chair bg-white p-3">
                   <div className="flex flex-wrap gap-2">
                     {transportBadges(option).map((badge) => (
-                      <span key={badge} className="rounded-full border border-ocean/15 bg-ocean/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-ocean">
+                      <span key={badge} className="rounded-full border border-cblue/15 bg-cblue/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-cblue">
                         {translateText(badge)}
                       </span>
                     ))}
                   </div>
-                  <p className="mt-2 text-sm font-black text-ink">{option.budget_fit === "best" ? translateText("Recommended") + ": " : ""}{option.title}</p>
-                  <p className="mt-1 text-xs font-bold leading-5 text-slate-500">
+                  <p className="mt-2 text-sm font-black text-chead">{option.budget_fit === "best" ? translateText("Recommended") + ": " : ""}{option.title}</p>
+                  <p className="mt-1 text-xs font-bold leading-5 text-cgray">
                     {formatTransportOption(option, priceDiscovery.budgetCurrency, locale)}
                   </p>
                 </div>
@@ -2592,9 +2636,9 @@ function TripPlanFormSession({
             </div>
           ) : null}
           {priceDiscovery.hotelEstimateNote ? (
-            <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{translateText(priceDiscovery.hotelEstimateNote)}</p>
+            <p className="mt-3 text-xs font-bold leading-5 text-cgray">{translateText(priceDiscovery.hotelEstimateNote)}</p>
           ) : null}
-          <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{translateText(priceDiscovery.coverageNote)}</p>
+          <p className="mt-3 text-xs font-bold leading-5 text-cgray">{translateText(priceDiscovery.coverageNote)}</p>
         </div>
       ) : null}
 
@@ -2632,7 +2676,7 @@ function TripPlanFormSession({
       ) : null}
 
       {step === steps.length - 1 ? (
-        <p className="mt-3 text-center text-xs font-bold leading-5 text-slate-500">
+        <p className="mt-3 text-center text-xs font-bold leading-5 text-cgray">
           {translateText(entitlement.footnote)}
         </p>
       ) : null}

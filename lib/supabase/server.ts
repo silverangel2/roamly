@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient, type User } from "@supabase/supabase-js";
+import { createBoundedFetch, SUPABASE_FETCH_TIMEOUT_MS } from "@/lib/boundedFetch";
 import { getSupabaseAnonKey, getSupabaseUrl, hasSupabaseConfig } from "@/lib/supabase/config";
 import { normalizeSupabaseCookieOptions } from "@/lib/supabase/cookies";
 
@@ -16,6 +17,12 @@ export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
   return createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    // Bounded fetch (wiring audit 2026-11-07): supabase-js has no
+    // timeout of its own; a stalled connection must surface as an
+    // error, never hang the request. See lib/boundedFetch.ts.
+    global: {
+      fetch: createBoundedFetch(SUPABASE_FETCH_TIMEOUT_MS)
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -52,7 +59,8 @@ export function createSupabaseBearerClient(accessToken: string) {
     global: {
       headers: {
         Authorization: `Bearer ${accessToken}`
-      }
+      },
+      fetch: createBoundedFetch(SUPABASE_FETCH_TIMEOUT_MS)
     }
   });
 }

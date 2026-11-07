@@ -1,5 +1,7 @@
 import { after } from "next/server";
 import { logGenerationDiagnostic, getPublicSupabaseHost } from "@/lib/roamly/generationDiagnostics";
+import { recordAppEvent } from "@/lib/roamly/events";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type ScheduleStagedGenerationAdvanceParams = {
   tripId: string;
@@ -14,6 +16,51 @@ type ScheduleStagedGenerationAdvanceParams = {
 // full day stage.
 const BACKGROUND_WORKER_SLICE_BUDGET_MS = 90_000;
 const BACKGROUND_WORKER_MAX_SLICES = 25;
+
+/**
+ * KF-2 M5 hardening (2026-11-02): when neither generation cron secret
+ * is configured, the after() wake used to be dropped with only a
+ * console diagnostic — while the cron route (correctly) 401s every
+ * secret-less call, so BOTH drivers died together invisibly. The drop
+ * is now also recorded as an app event in the EXISTING
+ * roamly_app_events store (the same store lib/roamly/cronHeartbeat.ts
+ * writes its cron_heartbeat rows to, which owner surfaces already
+ * read), under this named event type, so the failure is visible on an
+ * owner surface instead of only in function logs. A dedicated
+ * cron-heartbeat registry entry was NOT used: that registry models
+ * periodic crons with a staleness law (stale after 2x interval), and a
+ * wake drop is an event, not a periodic lane — registering it would
+ * make the heartbeat board report a permanently "stale" fake cron.
+ */
+export const GENERATION_WAKE_SECRET_MISSING_EVENT_TYPE = "generation_wake_secret_missing";
+export const GENERATION_CRON_SECRET_MISSING_ERROR_CODE = "GENERATION_CRON_SECRET_MISSING";
+
+/**
+ * Best-effort owner-surface record of a secret-missing wake drop.
+ * Never throws and never blocks the (already dropped) wake path
+ * beyond this one insert; returns whether the row was recorded.
+ */
+async function recordGenerationWakeSecretMissing(params: ScheduleStagedGenerationAdvanceParams): Promise<boolean> {
+  try {
+    const admin = createSupabaseAdminClient();
+    if (!admin) return false;
+    const result = await recordAppEvent(admin, {
+      eventType: GENERATION_WAKE_SECRET_MISSING_EVENT_TYPE,
+      path: "/api/cron/roamly-itinerary-generation",
+      metadata: {
+        tripId: params.tripId,
+        reason: params.reason,
+        requestId: params.requestId || null,
+        errorCode: GENERATION_CRON_SECRET_MISSING_ERROR_CODE,
+        severity: "critical",
+        impact: "background wake dropped and secret-less cron calls return 401 — no automatic generation driver is running"
+      }
+    });
+    return !result.error;
+  } catch {
+    return false;
+  }
+}
 
 export function getGenerationWorkerSecret() {
   return getGenerationWorkerSecrets()[0] || "";
@@ -234,6 +281,39 @@ export function scheduleStagedGenerationAdvance(params: ScheduleStagedGeneration
         supabaseHost: getPublicSupabaseHost(),
         reason: params.reason,
         errorCode: "GENERATION_CRON_SECRET_MISSING"
+      });
+      // KF-2 M5 hardening: LOUD + owner-visible. With no secret the
+      // cron route also 401s, so this drop kills the last automatic
+      // driver for the trip — it must not rest on a console line.
+      // Emit a critical structured diagnostic (plus a console.error in
+      // the file's wake-failure pattern) and record the app event
+      // named by GENERATION_WAKE_SECRET_MISSING_EVENT_TYPE. The
+      // stranded-generation recovery sweep remains the backstop for
+      // the trip itself once any driver (e.g. a user advance) runs:
+      // its state exists, and class C adopts state-with-no-active-job.
+      const appEventRecorded = await recordGenerationWakeSecretMissing(params);
+      console.error("[Roamly generation trace]", {
+        event: "staged_generation_background_wake_dropped_secret_missing",
+        severity: "critical",
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        errorCode: GENERATION_CRON_SECRET_MISSING_ERROR_CODE,
+        appEventType: GENERATION_WAKE_SECRET_MISSING_EVENT_TYPE,
+        appEventRecorded
+      });
+      logGenerationDiagnostic("staged_generation_background_wake_dropped_secret_missing", {
+        requestId: params.requestId,
+        tripId: params.tripId,
+        route: "stagedGenerationBackground",
+        supabaseHost: getPublicSupabaseHost(),
+        reason: params.reason,
+        severity: "critical",
+        errorCode: GENERATION_CRON_SECRET_MISSING_ERROR_CODE,
+        appEventType: GENERATION_WAKE_SECRET_MISSING_EVENT_TYPE,
+        appEventRecorded
       });
       return;
     }

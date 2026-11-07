@@ -19,8 +19,13 @@
  *   IANA zone (the live helper's UTC fallback is deliberately NOT
  *   reused — UTC is not the destination's zone); Currency shows only
  *   for the four countries the codebase already maps; Weather is
- *   unavailable (see the type doc) because no weather feed is
- *   configured and no UI shape for the adapter result exists.
+ *   REAL Open-Meteo data via lib/roamly/tripWeather.ts (Fix Round
+ *   Item 4, 2026-11-06): a caller that fetched it hands the state in
+ *   and the model carries it as "data"; otherwise the model carries
+ *   the fetch request (the trip's own planning-metadata coordinates
+ *   + dates) for the client panel to resolve once on mount. A trip
+ *   with no stored coordinates gets the honest unavailable message —
+ *   coordinates are never guessed from the destination's name.
  * - Travel notes come from buildCountryInfo (builder B's route rule):
  *   domestic → applicable guidance only, no passport/embassy/roaming;
  *   international → the applicable set; unknown route → generally
@@ -44,8 +49,13 @@ import {
 import type {
   CountryInfoGridCell,
   CountryInfoPanelModel,
-  CountryInfoPhoto
+  CountryInfoPhoto,
+  CountryInfoWeather
 } from "@/lib/roamly/countryInfoPanelTypes";
+import type {
+  TripWeatherRequest,
+  TripWeatherState
+} from "@/components/roamly/TripWeatherCard";
 import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
 
 export { COUNTRY_INFO_TABS } from "@/lib/roamly/countryInfoPanelTypes";
@@ -207,7 +217,8 @@ export function currencyDisplayForCountry(country: string | null): string | null
 
 export function buildCountryInfoPanelModel(
   trip: CountryInfoPanelTripInput,
-  photo: CountryInfoPhoto
+  photo: CountryInfoPhoto,
+  weather?: TripWeatherState | null
 ): CountryInfoPanelModel {
   const planning = getTripPlanningMetadata(trip.metadata);
   const destinationLabel = getTripDestinationLabel(trip) || "your trip";
@@ -316,6 +327,44 @@ export function buildCountryInfoPanelModel(
   const preference =
     clean(trip.transportation_preference) || clean(planning.transportationPreference);
 
+  // Weather (Fix Round Item 4, 2026-11-06): the request is built
+  // from the trip's OWN planning-metadata coordinates + dates —
+  // coordinates are never derived from the destination's name. A
+  // caller that already fetched the weather server-side hands the
+  // state in and the model carries it as "data"; otherwise the
+  // model carries the request and the client panel resolves it once
+  // on mount through the weather module.
+  const destinationLatitude =
+    typeof planning.destinationLatitude === "number" &&
+    Number.isFinite(planning.destinationLatitude)
+      ? planning.destinationLatitude
+      : null;
+  const destinationLongitude =
+    typeof planning.destinationLongitude === "number" &&
+    Number.isFinite(planning.destinationLongitude)
+      ? planning.destinationLongitude
+      : null;
+  const weatherRequest: TripWeatherRequest | null =
+    destinationLatitude != null &&
+    destinationLongitude != null &&
+    trip.start_date &&
+    trip.end_date
+      ? {
+          latitude: destinationLatitude,
+          longitude: destinationLongitude,
+          startDate: trip.start_date,
+          endDate: trip.end_date
+        }
+      : null;
+  const weatherModel: CountryInfoWeather = weather
+    ? { status: "data", data: weather, avgLabel, request: weatherRequest }
+    : {
+        status: "unavailable",
+        message: "Weather is not available.",
+        avgLabel,
+        request: weatherRequest
+      };
+
   return {
     tripId: trip.id,
     destinationLabel,
@@ -325,11 +374,7 @@ export function buildCountryInfoPanelModel(
     routeLine,
     routeSummary: info.summary,
     grid,
-    weather: {
-      status: "unavailable",
-      message: "Weather is not available for this trip yet.",
-      avgLabel
-    },
+    weather: weatherModel,
     photo,
     notesTitle: "Travel notes for this trip",
     notes: info.reminders,

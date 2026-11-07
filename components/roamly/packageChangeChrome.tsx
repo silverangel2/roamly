@@ -40,6 +40,6 @@ export function PackageChangeForm({ children, onCancel }: { children: ReactNode;
 }
 
 export const packageLabelClass = "text-[0.8125rem] font-medium text-slate-500";
-export const packageFieldClass = "mt-1.5 min-h-11 w-full rounded-xl border border-[#e6dece] bg-white px-3 text-base font-medium text-ink outline-none focus:border-ocean/40";
-export const packagePrimaryClass = "inline-flex min-h-11 items-center justify-center rounded-full bg-ocean px-4 text-sm font-semibold text-white disabled:opacity-60";
+export const packageFieldClass = "mt-1.5 min-h-11 w-full rounded-xl border border-[#e6dece] bg-white px-3 text-base font-medium text-ink outline-none focus:border-cblue/40";
+export const packagePrimaryClass = "inline-flex min-h-11 items-center justify-center rounded-full bg-cblue px-4 text-sm font-semibold text-white disabled:opacity-60";
 export const packageQuietClass = "inline-flex min-h-11 items-center justify-center px-2 text-sm font-medium text-slate-500 disabled:opacity-60";

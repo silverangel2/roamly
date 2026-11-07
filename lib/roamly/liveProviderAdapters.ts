@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchWithTimeout } from "@/lib/boundedFetch";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
+/** Live provider endpoints answer in well under a second when
+ *  healthy; the bound converts a stall into a surfaced error
+ *  instead of a hang (wiring audit 2026-11-07). */
+const LIVE_PROVIDER_TIMEOUT_MS = 10_000;
 
 export type LiveProviderKind =
   | "live_flight_status"
@@ -498,12 +504,18 @@ async function fetchConfiguredEndpoint<T>(config: LiveAdapterConfig, query: Reco
   if (!endpoint || !endpoint.startsWith("https://")) return unavailable<T>(config, "LIVE_PROVIDER_ENDPOINT_MISSING");
   const url = new URL(endpoint);
   Object.entries(query).forEach(([key, value]) => value && url.searchParams.set(key, value));
-  const response = await fetch(url, {
-    headers: {
-      authorization: `Bearer ${clean(process.env[config.requiredEnv[0]])}`,
-      accept: "application/json"
-    }
-  });
+  // Bounded fetch (wiring audit 2026-11-07): a stalled provider
+  // connection must surface as an error, never hang the caller.
+  const response = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        authorization: `Bearer ${clean(process.env[config.requiredEnv[0]])}`,
+        accept: "application/json"
+      }
+    },
+    LIVE_PROVIDER_TIMEOUT_MS
+  );
   const data = (await response.json().catch(() => null)) as unknown;
   if (!response.ok) return degraded<T>(config, "LIVE_PROVIDER_REQUEST_FAILED", response.status >= 500 || response.status === 429);
   return {

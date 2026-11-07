@@ -75,7 +75,7 @@ export function TravelPartnerPlacement({
           <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex rounded-full border border-ocean/15 bg-white/90 px-3 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.14em] text-ocean shadow-[0_8px_22px_rgba(16,32,51,0.06)]">
+                <span className="inline-flex rounded-full border border-cblue/15 bg-white/90 px-3 py-1.5 text-[0.68rem] font-black uppercase tracking-[0.14em] text-cblue shadow-[0_8px_22px_rgba(16,32,51,0.06)]">
                   {displayLabel}
                 </span>
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
@@ -97,7 +97,7 @@ export function TravelPartnerPlacement({
                     key={category}
                     className="rounded-[1.15rem] border border-cloud/90 bg-white/82 p-4 shadow-[0_12px_30px_rgba(16,32,51,0.07)]"
                   >
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">
                       {category}
                     </p>
                     <p className="mt-2 text-sm font-black leading-5 text-ink">
@@ -108,7 +108,7 @@ export function TravelPartnerPlacement({
               </div>
             ) : (
               <div className="rounded-[1.15rem] border border-cloud/90 bg-white/78 p-4 shadow-[0_12px_30px_rgba(16,32,51,0.07)] lg:w-72">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">
                   Stays, tours, transport
                 </p>
                 <p className="mt-2 text-sm font-bold leading-6 text-slate-600">

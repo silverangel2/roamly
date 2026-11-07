@@ -15,12 +15,14 @@ import {
 export const metadata: Metadata = {
   title: "Roamly Philippines — Plan a trip home, or around the Philippines",
   description:
-    "Roamly's Philippines door: Manila, Boracay, Palawan, Cebu + Bohol, Siargao, Baguio, and Davao + Samal — every stop a real, map-verified place, priced in pesos.",
+    "Roamly's Philippines door: Manila, Boracay, Palawan, Cebu + Bohol, Siargao, Baguio, and Davao + Samal — every stop a real place with checked map coordinates, priced in pesos.",
+  alternates: { canonical: "https://roamlyhq.com/ph" },
   openGraph: {
     title: "Roamly Philippines — plan the trip home",
     description:
-      "Day-by-day Philippines itineraries built from verified places, with peso estimates and a Live Companion that knows where everything is.",
+      "Day-by-day Philippines itineraries built from real places with checked coordinates, with peso estimates and travel-day messages from the Live Companion.",
     url: "https://roamlyhq.com/ph",
+    type: "website",
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };
@@ -37,7 +39,7 @@ function ActivityRow({ activity }: { activity: PhActivitySeed }) {
     <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[#e7eee4] py-2.5 last:border-b-0">
       <div className="min-w-0">
         <p className="text-sm font-bold text-ink">
-          <span className="mr-2 text-xs font-extrabold text-[#0f6e66]">{activity.time_label}</span>
+          <span className="mr-2 text-xs font-extrabold text-[#087BFF]">{activity.time_label}</span>
           {activity.title}
         </p>
         <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">
@@ -48,7 +50,7 @@ function ActivityRow({ activity }: { activity: PhActivitySeed }) {
             href={createMapLink(activity.map_query)}
             target="_blank"
             rel="noreferrer"
-            className="font-bold text-[#0f6e66] underline decoration-[#b8d6ca] underline-offset-2 hover:text-[#0e605a]"
+            className="font-bold text-[#087BFF] underline decoration-[#b8d6ca] underline-offset-2 hover:text-[#0e605a]"
           >
             Map
           </a>
@@ -70,18 +72,19 @@ export default function PhilippinesPage() {
   );
 
   return (
-    <div className="safe-bottom bg-[#f7f7ee] text-ink">
+    <div className="safe-bottom bg-cbg text-ink">
       <section className="relative isolate mx-auto w-full max-w-5xl px-4 pb-4 pt-10 sm:px-8 sm:pt-14">
         <PhSkyScene />
         <div className="relative z-10">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f6e66]">Roamly · Philippines</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#087BFF]">Roamly · Philippines</p>
         <h1 className="mt-3 max-w-2xl text-4xl font-black leading-[1.02] tracking-tight sm:text-5xl">
-          Plan the Philippines, place by verified place.
+          Plan the Philippines, place by place.
         </h1>
         <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">
           Coming home, or seeing your own country properly for the first time? Roamly now plans the Philippines the way it
-          plans everywhere — day by day, around your budget — with one difference: every stop below is a real place we
-          verified on the map, priced in pesos, so the Live Companion can actually walk with you.
+          plans everywhere — day by day, around your budget — with one difference: every stop below is a real place whose
+          coordinates we checked against map records, priced in pesos — and on travel days, the Live Companion
+          sends timely messages and points out what is near when you open Roamly.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Button href={philippinesPlanHref("Cebu City, Philippines")}>Plan a trip home</Button>
@@ -94,17 +97,17 @@ export default function PhilippinesPage() {
         </div>
         <p className="mt-4 text-xs font-semibold leading-5 text-slate-500">
           Prices shown are per-person planning estimates in Philippine pesos (₱) — always verify before you book. Place
-          data verified {PH_PACK_VERIFIED_AT} through Google Places.
+          coordinates checked {PH_PACK_VERIFIED_AT} against Google Places listings.
         </p>
         </div>
       </section>
 
       {PHILIPPINES_AREAS.map((area) => (
         <section key={area.key} id={area.key} className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
-          <div className="rounded-[1.5rem] border border-[#dfe9dc] bg-white/90 p-5 shadow-[0_14px_40px_rgba(39,88,80,0.06)] sm:p-7">
+          <div className="rounded-[1.5rem] border border-[#D9E2EE] bg-white/90 p-5 shadow-[0_14px_40px_rgba(34,51,84,0.06)] sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-xl">
-                <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-[#0f6e66]">{area.region}</p>
+                <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-[#087BFF]">{area.region}</p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight">{area.displayName}</h2>
                 <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{area.tagline}</p>
               </div>
@@ -200,7 +203,7 @@ export default function PhilippinesPage() {
           Flights and hotels for these trips book through Roamly&apos;s usual partner links inside the planner — flights via
           Travelpayouts (Aviasales), stays via Stay22, activities via Klook where a partner link exists. Roamly has no
           direct Agoda program yet, so Agoda links here would earn nothing — we don&apos;t show any until they do.{" "}
-          <Link href="/plan" className="font-bold text-[#0f6e66] underline decoration-[#b8d6ca] underline-offset-2">
+          <Link href="/plan" className="font-bold text-[#087BFF] underline decoration-[#b8d6ca] underline-offset-2">
             Open the planner
           </Link>
         </p>

@@ -7,6 +7,7 @@ import {
   syncGmailConnection,
   syncOutlookConnection
 } from "@/lib/roamly/emailConnections";
+import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -48,12 +49,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "SUPABASE_NOT_CONFIGURED" }, { status: 503 });
   }
 
+  // EGRESS DIET (F2): the 20-minute recent-sync skip used to be
+  // applied in code AFTER reading up to 500 connection rows; the
+  // same predicate now runs in the query, so a run with nothing due
+  // transfers zero rows and the run cap applies directly.
+  const dueCutoff = new Date(Date.now() - RECENT_SYNC_SKIP_MS).toISOString();
   const { data: connections, error: connectionsError } = await supabase
     .from("email_connections")
     .select("user_id,provider,last_synced_at")
     .neq("connection_status", "disconnected")
+    .or(`last_synced_at.is.null,last_synced_at.lt.${dueCutoff}`)
     .order("last_synced_at", { ascending: true, nullsFirst: true })
-    .limit(500);
+    .limit(MAX_CONNECTIONS_PER_RUN);
 
   if (connectionsError) {
     return NextResponse.json({ ok: false, error: "CONNECTION_LOOKUP_FAILED" }, { status: 500 });
@@ -106,6 +113,12 @@ export async function GET(request: NextRequest) {
       });
     }
   }
+
+  // Per-lane measurement (EGRESS DIET): heartbeat row per run;
+  // gated = the due-filtered query returned no candidates.
+  await recordCronHeartbeat(supabase, "roamly-email-sync", true, {
+    gated: candidates.length === 0
+  });
 
   return NextResponse.json({
     ok: true,

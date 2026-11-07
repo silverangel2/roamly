@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { ChevronLeft, ChevronRight, CircleQuestionMark, CircleUserRound, CreditCard, Crown, Download, LayoutPanelLeft, Mail, MapPin, Settings, User, Users, Wallet } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, CircleQuestionMark, CircleUserRound, CreditCard, Crown, Download, Home, LayoutPanelLeft, Mail, MapPin, Search, Settings, User, Users, Wallet } from "lucide-react";
 import { SetupCascade } from "@/components/roamly/SetupCascade";
 import { AccountSetupHashRedirect } from "@/components/account/AccountSetupHashRedirect";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
@@ -61,6 +62,8 @@ type AccountPageProps = {
  *   platform-correct install guidance already implemented in
  *   SetupCascade / CompanionInstallStep lives; no second guidance
  *   implementation is written here).
+ * - Roamly homepage -> / (the marketing homepage; signed-in chrome
+ *   offers no other path to it — Fix round item 3, audit D5).
  * - Help Center -> /help; Contact Support -> /contact (real routes).
  * - Upgrade -> /pricing (existing route; no plan invented).
  * - Sign out -> POST to the EXISTING /auth/logout route.
@@ -429,6 +432,36 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           <span className="min-w-0 flex-1">
             <span className="block text-[16px] font-semibold leading-snug text-chead">Install Roamly</span>
             <span className="block text-[13.5px] font-normal leading-snug text-cgray">Add Roamly to your Home Screen</span>
+          </span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
+        </a>
+
+        {/* Roamly homepage: signed-in chrome deliberately offers no
+            other path to "/" (audit D5) — this row is that path.
+            Rendered with next/link: the build's no-html-link-for-pages
+            lint rule forbids a raw <a> to "/" specifically. */}
+        <Link href="/" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <Home aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-semibold leading-snug text-chead">Roamly homepage</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Visit the Roamly home page</span>
+          </span>
+          <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
+        </Link>
+
+        {/* Deals (Finds): the second exit the owner found missing
+            from Account (2026-11-06) — the same row shape as the
+            homepage row above, to the same destination the tab bar
+            and nav call "Deals" (/finds). */}
+        <a href="/finds" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
+          <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
+            <Search aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-semibold leading-snug text-chead">Deals</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Stays, flights and things to do, hand-picked for your trips</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>

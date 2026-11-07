@@ -1,10 +1,17 @@
 /*
- * Country Info panel — model types ONLY (no imports, no runtime code).
+ * Country Info panel — model types ONLY (no runtime code).
  * The client component imports this file as a type so that no server
  * module (tripCompanion, Supabase, photo fetch) ever ships to the
  * browser. The model itself is built server-side by
  * lib/roamly/countryInfoPanel.ts from the trip's own record.
+ * The one import below is type-only (erased at compile time): the
+ * weather view types live with the weather card component.
  */
+
+import type {
+  TripWeatherRequest,
+  TripWeatherState
+} from "@/components/roamly/TripWeatherCard";
 
 export type CountryInfoTabId = "overview" | "entry-travel" | "transport" | "safety";
 
@@ -43,27 +50,39 @@ export type CountryInfoGridCell = {
 };
 
 /**
- * Weather is unavailable by construction: the tree has a
- * configured-provider adapter (lib/roamly/liveProviderAdapters.ts)
- * that requires ROAMLY_WEATHER_API_KEY + ROAMLY_WEATHER_API_URL and
- * returns "unavailable" when unconfigured, and no UI shape exists for
- * its result — so no temperature, condition, or range is ever rendered
- * from the composite's sample values (12°C / 8–14°C are mock values,
- * never live data). A future configured feed would extend this union
- * with a real, sourced reading; it must not fill it with mock data.
+ * Weather (Fix Round Item 4, 2026-11-06 — audit defect D1). The
+ * panel's weather is REAL data from lib/roamly/tripWeather.ts
+ * (Open-Meteo), in one of two model shapes:
+ *
+ * - "data": a caller fetched the weather server-side and handed the
+ *   module's state to the builder; the panel renders it as-is.
+ * - "unavailable": no fetched state was handed in. The shape still
+ *   carries `request` — the trip's own destination coordinates (from
+ *   its planning metadata) + dates — and the client panel resolves it
+ *   once on mount through the weather module's server action, then
+ *   renders the same states. `request` is null when the trip record
+ *   holds no coordinates or dates; only then does the honest
+ *   `message` render. (The builder is synchronous by battery-pinned
+ *   contract, so the fetch cannot happen inside it; the request is
+ *   the bridge.)
+ *
+ * `avgLabel` is the picture's "Oct 26 – 30 avg." line, derived from
+ * the trip's own dates only (a date-range label, never a weather
+ * value); null when the trip has no usable start/end dates.
  */
-export type CountryInfoWeather = {
-  status: "unavailable";
-  message: string;
-  /**
-   * The picture's "Oct 26 – 30 avg." line, derived from the trip's
-   * own dates only (a date-range label, never a weather value).
-   * Null when the trip has no usable start/end dates. The
-   * temperature, condition, and range lines of the picture's card
-   * have no source and are never filled.
-   */
-  avgLabel: string | null;
-};
+export type CountryInfoWeather =
+  | {
+      status: "unavailable";
+      message: string;
+      avgLabel: string | null;
+      request: TripWeatherRequest | null;
+    }
+  | {
+      status: "data";
+      data: TripWeatherState;
+      avgLabel: string | null;
+      request: TripWeatherRequest | null;
+    };
 
 export type CountryInfoPhoto = {
   imageUrl: string;

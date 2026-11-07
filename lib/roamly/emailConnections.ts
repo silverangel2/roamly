@@ -576,7 +576,18 @@ async function recordGmailTravelMessage(params: {
         bodyText: await fetchGmailTravelBodyText({
           accessToken: params.accessToken,
           messageId: message.id || params.messageId
-        }).catch(() => "")
+        }).catch(() => ""),
+        // KDE first-pass (consolidation 2026-11-06): the raw MIME
+        // rides along for messages that will be processed — same
+        // gmail.readonly scope, one format=raw call. The KDE lane
+        // needs the unflattened message (HTML part + PDF/pkpass
+        // attachments the text pipeline throws away). A failed
+        // raw fetch degrades to null and the existing lanes run
+        // exactly as before.
+        rawMime: await fetchGmailRawMime({
+          accessToken: params.accessToken,
+          messageId: message.id || params.messageId
+        }).catch(() => null)
       }
     : metadata;
   const saved = await recordTravelEmailFilterResult({
@@ -606,6 +617,23 @@ async function recordGmailTravelMessage(params: {
     return { ...saved, retryable: Boolean(extraction?.error) };
   }
   return { ...saved, retryable: saved.filter.shouldProcess && !saved.saved };
+}
+
+async function fetchGmailRawMime(params: {
+  accessToken: string;
+  messageId: string;
+}): Promise<string | null> {
+  const url = new URL(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(params.messageId)}`);
+  url.searchParams.set("format", "raw");
+  const { response, data } = await providerFetchJson<{ raw?: string }>(url, {
+    headers: { authorization: `Bearer ${params.accessToken}` }
+  });
+  if (!response.ok || !data?.raw) return null;
+  try {
+    return Buffer.from(data.raw, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
 }
 
 async function fetchGmailTravelBodyText(params: {
@@ -1487,6 +1515,24 @@ export async function syncGmailConnection(params: {
   supabase: SupabaseClient;
   userId: string;
 }) {
+  // SYNC_ALREADY_RUNNING lie fixed (consolidation 2026-11-06,
+  // Block H): claimEmailSync returns null for THREE different
+  // states — no connection row, a disconnected row, and a lease
+  // genuinely held — and this wrapper used to report all three as
+  // "already running", telling travellers with no Gmail connected
+  // at all that a sync was in progress. The connection check now
+  // runs BEFORE the lease claim (the unlocked sync re-reads the
+  // row itself; this pre-check only decides which truth to tell).
+  const existing = await params.supabase
+    .from("email_connections")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("provider", GMAIL_PROVIDER)
+    .neq("connection_status", "disconnected")
+    .maybeSingle();
+  if (!existing.error && !existing.data) {
+    return { ok: false as const, error: "GMAIL_NOT_CONNECTED", processed: 0 };
+  }
   const lease = await claimEmailSync({ ...params, provider: GMAIL_PROVIDER });
   if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
   let outcome: Awaited<ReturnType<typeof syncGmailConnectionUnlocked>> | null = null;
@@ -1565,6 +1611,18 @@ export async function syncOutlookConnection(params: {
   supabase: SupabaseClient;
   userId: string;
 }) {
+  // Same SYNC_ALREADY_RUNNING lie as Gmail (see syncGmailConnection):
+  // connection check before the lease claim.
+  const existing = await params.supabase
+    .from("email_connections")
+    .select("id")
+    .eq("user_id", params.userId)
+    .eq("provider", OUTLOOK_PROVIDER)
+    .neq("connection_status", "disconnected")
+    .maybeSingle();
+  if (!existing.error && !existing.data) {
+    return { ok: false as const, error: "OUTLOOK_NOT_CONNECTED", processed: 0 };
+  }
   const lease = await claimEmailSync({ ...params, provider: OUTLOOK_PROVIDER });
   if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
   let outcome: Awaited<ReturnType<typeof syncOutlookConnectionUnlocked>> | null = null;

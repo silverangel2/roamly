@@ -1,6 +1,7 @@
 import {
   DINNER_START,
   haversineKm,
+  matrixMinutes,
   mealNameFor,
   normText,
   parseHoursForDay,
@@ -77,7 +78,10 @@ export const DURATIONS: Record<string, number> = {
   park: 45, market: 60, venue: 60, falls: 90, lighthouse: 60, ferry: 75,
   food: 60
 };
-const RANK: Record<string, number> = {
+/** The solver's kind ranking (lower wins in pick()). Exported so
+ *  the pack leg matrix can top up its point selection in the same
+ *  order the solver itself prefers (packs/legMatrix.ts). */
+export const RANK: Record<string, number> = {
   museum: 1, market: 2, attraction: 3, gallery: 4, park: 5, historic: 6,
   venue: 7, viewpoint: 8
 };
@@ -605,8 +609,13 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
       mode: string
     ): { km: number; minutes: number } => {
       const km = haversineKm(pos, destPos);
-      const minutes = travelMin(km, mode);
-      legs.push({ fromKey: posKey, toKey: destKey, fromName: posName, toName: destName, mode, km, minutes, depart: t, arrive: t + minutes });
+      // Routed time first (consolidation 2026-11-06): the pack's
+      // OSRM matrix is the primary leg-time source; the haversine
+      // estimate is the labelled fallback for pairs/profiles the
+      // matrix doesn't cover.
+      const routed = matrixMinutes(pack.legMatrix, posKey, destKey, mode);
+      const minutes = routed ?? travelMin(km, mode);
+      legs.push({ fromKey: posKey, toKey: destKey, fromName: posName, toName: destName, mode, km, minutes, minutesSource: routed != null ? "osrm-routed" : "haversine-estimate", depart: t, arrive: t + minutes });
       if (mode === "walk") walkKmToday += km;
       t += minutes;
       pos = destPos;
@@ -1350,7 +1359,7 @@ export function solveEveningRemainder(pack: EnginePack, spec: EveningSpec): Even
       const km = haversineKm(pos, destPos);
       const mode = km > 1.2 ? "drive" : "walk";
       const minutes = travelMin(km, mode);
-      legs.push({ fromKey: posKey, toKey: destKey, fromName: posName, toName: destName, mode, km, minutes, depart: t, arrive: t + minutes });
+      legs.push({ fromKey: posKey, toKey: destKey, fromName: posName, toName: destName, mode, km, minutes, minutesSource: "haversine-estimate", depart: t, arrive: t + minutes });
       return { km, mode, minutes };
     };
     for (const keep of order) {

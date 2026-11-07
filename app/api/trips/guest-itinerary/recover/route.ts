@@ -13,6 +13,8 @@ import {
 } from "@/lib/roamly/guestDelivery";
 import { guestFreeItineraryEntitlement } from "@/lib/roamly/guestItineraryView";
 import { sendRoamlyEmail } from "@/lib/roamly/email";
+import { consumeRecoveryEmailQuota, emailSendActorHash } from "@/lib/roamly/emailSendQuota";
+import { trustedContactClientIp } from "@/lib/roamly/contactRequestSecurity";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -25,6 +27,10 @@ export const maxDuration = 60;
  * POST { email } — always answers the same generic line, whether or not
  * the email holds a trip, so one email address cannot be probed for
  * trips. When a guest trip is found, a signed 30-day link goes out.
+ * Sends are cooled down per address and per caller IP (security pass
+ * 2026-11-06, Check 5): at most one recovery email per address per hour,
+ * enforced in the database; a cooled-down request gets the same generic
+ * line and sends nothing.
  * GET ?token= — verifies the link, restores the 7-day cookie, and sends
  * the traveler to their itinerary. The link never reveals anything to a
  * third party beyond the itinerary itself (no payment data, no account).
@@ -69,6 +75,36 @@ export async function POST(request: NextRequest) {
 
   const trip = await findGuestTripByEmail(admin, email);
   if (!trip) {
+    return NextResponse.json({ ok: true, message: GENERIC_REPLY });
+  }
+
+  // Cooldown (security pass 2026-11-06, Check 5): one recovery email per
+  // address per hour (5/day backstop), and the same per caller IP,
+  // recorded in the database (migration 20261106000200). Quota is consumed
+  // only when a send is about to happen; a denied or unavailable quota
+  // returns the SAME generic reply and sends nothing, so the cooldown
+  // can never reveal whether an address holds a trip.
+  const quotaSecret = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const emailActorHash = emailSendActorHash("recovery-email", email, quotaSecret);
+  const clientIp = trustedContactClientIp(request.headers.get("x-forwarded-for"));
+  const ipActorHash = clientIp ? emailSendActorHash("recovery-ip", clientIp, quotaSecret) : null;
+  let sendAllowed = Boolean(emailActorHash);
+  let quotaError = !emailActorHash;
+  if (sendAllowed) {
+    for (const actorHash of [emailActorHash, ipActorHash]) {
+      if (!actorHash) continue;
+      const quota = await consumeRecoveryEmailQuota(admin, actorHash);
+      if (!quota.ok) quotaError = true;
+      if (!quota.ok || !quota.allowed) {
+        sendAllowed = false;
+        break;
+      }
+    }
+  }
+  if (!sendAllowed) {
+    if (quotaError) {
+      console.error("[Roamly guest recovery] Recovery quota unavailable; email not sent.");
+    }
     return NextResponse.json({ ok: true, message: GENERIC_REPLY });
   }
 

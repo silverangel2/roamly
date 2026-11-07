@@ -89,7 +89,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
             onChange={(event) => setName(event.target.value)}
             autoComplete="name"
             required
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-cblue"
           />
         </label>
         <label className="block">
@@ -100,7 +100,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
             type="email"
             autoComplete="email"
             required
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-cblue"
           />
         </label>
       </div>
@@ -111,7 +111,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
           <select
             value={category}
             onChange={(event) => setCategory(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-cblue"
           >
             {categories.map(([value]) => (
               <option key={value} value={value}>
@@ -126,7 +126,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
             value={tripId}
             onChange={(event) => setTripId(event.target.value)}
             placeholder={t("ui.booking.optional")}
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-cblue"
           />
         </label>
       </div>
@@ -138,7 +138,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
           onChange={(event) => setSubject(event.target.value)}
           required
           maxLength={180}
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-ocean"
+          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold outline-none focus:border-cblue"
         />
       </label>
 
@@ -149,7 +149,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
           onChange={(event) => setMessage(event.target.value)}
           required
           rows={8}
-          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-6 outline-none focus:border-ocean"
+          className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-6 outline-none focus:border-cblue"
         />
       </label>
 
@@ -165,7 +165,7 @@ export function ContactForm({ supportEmail, initialName = "", initialEmail = "" 
         </BuiMorphButton>
       </div>
 
-      {notice ? <p className="rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+      {notice ? <p className="rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
       {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
     </form>
   );

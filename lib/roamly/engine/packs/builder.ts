@@ -14,6 +14,7 @@ import type {
   ServingPackResult,
   StoredCandidate,
   StoredEnrichment,
+  StoredLegMatrix,
   WeatherSnapshotKind,
   WeatherSnapshotRecord
 } from "@/lib/roamly/engine/packs/types";
@@ -28,6 +29,7 @@ import {
 import { PACK_SCHEMA_VERSION } from "@/lib/roamly/engine/types";
 import {
   collectPoiCandidates,
+  fetchGuideSights,
   fetchWeatherDays,
   liveBuildProvenance,
   systemFetcher,
@@ -35,6 +37,8 @@ import {
   type Fetcher,
   type PoiCollection
 } from "@/lib/roamly/engine/packs/collectors";
+import { buildLegMatrix } from "@/lib/roamly/engine/packs/legMatrix";
+import { solveTrip } from "@/lib/roamly/engine/solver";
 import { DEFAULT_FETCH_POLICY } from "@/lib/roamly/engine/packs/collectors";
 import {
   collectPoiCandidatesFromOpenPlaces,
@@ -147,7 +151,12 @@ export function candidateRowToDTO(row: StoredCandidate, builtAt: UtcInstant | nu
       source,
       sourceRef: row.candidateKey,
       recordedAt: builtAt,
-      label: source === "overture" ? "Overture place (via Open Places API)" : "OpenStreetMap element"
+      label:
+        source === "overture"
+          ? "Overture place (via Open Places API)"
+          : source === "guide"
+            ? "Open-guide sight (Wikipedia/Wikivoyage geosearch — thin-destination enrichment)"
+            : "OpenStreetMap element"
     }
   };
 }
@@ -251,6 +260,10 @@ export function normalizeRecordedPack(recorded: RecordedPack): {
 export interface CollectedBuild {
   candidates: StoredCandidate[];
   provenance: ProvenanceDTO;
+  /** OSRM leg matrix built with the candidates (consolidation
+   *  2026-11-06), or null when routing was unreachable — the
+   *  solver then falls back to labelled haversine estimates. */
+  legMatrix?: StoredLegMatrix | null;
 }
 
 export type PackCollector = (destination: DestinationDTO) => Promise<CollectedBuild>;
@@ -337,7 +350,8 @@ export async function runBuildJob(
       lease.leaseId,
       collected.candidates,
       collected.provenance,
-      classifierVersionRestamp
+      classifierVersionRestamp,
+      collected.legMatrix ?? null
     );
   };
   const recordFailure = async (err: unknown): Promise<never> => {
@@ -436,6 +450,152 @@ export async function drainQueuedBuilds(
   return published;
 }
 
+/** Sight-stock bar under which a destination counts as THIN and
+ *  the fallback sequence (widen → enrich → label) engages. A
+ *  multi-day trip wants several distinct sights per day; under
+ *  this count the registry box alone cannot honestly fill days. */
+export const THIN_PACK_SIGHTS = 12;
+
+/** Merge two candidate sets: existing rows win; an incoming row
+ *  is dropped when its candidateKey already exists or it is the
+ *  same named place at the same spot (the collectors' dedupe
+ *  grain). */
+function mergeCandidates(base: StoredCandidate[], extra: StoredCandidate[]): StoredCandidate[] {
+  const keys = new Set(base.map((c) => c.candidateKey));
+  const spots = new Set(
+    base.map((c) => `${c.name.toLowerCase()}|${c.kind}|${c.pos ? `${c.pos.lat.toFixed(3)},${c.pos.lon.toFixed(3)}` : "nopos"}`)
+  );
+  const out = [...base];
+  for (const c of extra) {
+    if (keys.has(c.candidateKey)) continue;
+    const spot = `${c.name.toLowerCase()}|${c.kind}|${c.pos ? `${c.pos.lat.toFixed(3)},${c.pos.lon.toFixed(3)}` : "nopos"}`;
+    if (spots.has(spot)) continue;
+    keys.add(c.candidateKey);
+    spots.add(spot);
+    out.push(c);
+  }
+  return out;
+}
+
+/** Re-run the OSM collection against a ~15 km box around the
+ *  centre. A widening failure is swallowed (the base collection
+ *  stands); a widening success returns its full candidate set
+ *  for merging. */
+async function widenCollection(
+  fetcher: Fetcher,
+  destination: DestinationDTO,
+  policy: FetchPolicy
+): Promise<StoredCandidate[]> {
+  try {
+    const dLat = 0.135; // ~15 km
+    const dLon = 0.135 / Math.max(0.2, Math.cos((destination.centre.lat * Math.PI) / 180));
+    const widened: DestinationDTO = {
+      ...destination,
+      bbox: {
+        minLat: destination.centre.lat - dLat,
+        minLon: destination.centre.lon - dLon,
+        maxLat: destination.centre.lat + dLat,
+        maxLon: destination.centre.lon + dLon
+      },
+      coverageBoxes: []
+    };
+    const collection = await collectPoiCandidates(fetcher, widened, policy);
+    return collection.candidates;
+  } catch {
+    return [];
+  }
+}
+
+/** Solver shortlist for the leg matrix (fix round 2026-11-07).
+ *  The pack is built before any trip exists, so the matrix cannot
+ *  know a real trip's stops — but it can know the stops the solver
+ *  itself picks for canonical trips over THIS pack. Run the real
+ *  solver at the destination centre for the common trip lengths
+ *  (3/5/7 days from a Monday and a Friday anchor; empty
+ *  must-sees, default earliest start and profile —
+ *  runEnginePlan's shape for an unadorned payload) and
+ *  collect every leg endpoint and stop key in solve order,
+ *  shortest trips first. buildLegMatrix fills its capped point
+ *  set with these keys before topping up, so the matrix covers
+ *  the candidates the solver can actually choose instead of an
+ *  editorial kind order (step-4 verification: the old fill left
+ *  Quebec City's solver stops uncovered — 0/18 legs routed).
+ *  Pure CPU over the collected candidates; a failed canonical
+ *  solve degrades to the keys collected so far, never a build
+ *  failure. */
+export function solverShortlistKeys(
+  destination: DestinationDTO,
+  candidates: readonly StoredCandidate[],
+  now: Date
+): string[] {
+  const engine: EngineCandidate[] = [];
+  for (const row of candidates) {
+    const c = storedCandidateToEngine(row);
+    if (c) engine.push(c);
+  }
+  if (engine.length < 2) return [];
+  const by = (kinds: readonly string[]): EngineCandidate[] => engine.filter((c) => kinds.includes(c.kind));
+  const pack: EnginePack = {
+    destination: destination.displayName,
+    country: destination.country,
+    center: destination.centre,
+    legMatrix: null,
+    counts: packCounts(candidates),
+    stays: by(["stay"]),
+    sights: by(SIGHT_KINDS),
+    excursions: by(EXCURSION_KINDS),
+    foods: by(["food"]),
+    transport: by(TRANSPORT_KINDS),
+    weather: []
+  };
+  // Canonical date anchors at build time: a Monday-anchored strip
+  // of eleven dates, solved from day 0 (weekday trips) and day 4
+  // (Friday — weekend trips). Opening-hours checks are weekday-
+  // sensitive, so a single anchor week systematically misses
+  // places a Fri–Sun trip can use (fix-round evidence: Prayagraj
+  // day-3 parks). Deterministic for a given build week.
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  const strip: string[] = Array.from({ length: 11 }, (_, i) =>
+    new Date(monday.getTime() + i * 86_400_000).toISOString().slice(0, 10)
+  );
+  const keys: string[] = [];
+  const seen = new Set<string>();
+  const push = (key: string | null | undefined): void => {
+    if (key && key !== "base" && !seen.has(key)) {
+      seen.add(key);
+      keys.push(key);
+    }
+  };
+  for (const startOffset of [0, 4]) {
+    for (const days of [3, 5, 7]) {
+      try {
+        const plan = solveTrip(pack, {
+          days,
+          startIso: strip[startOffset],
+          dates: strip.slice(startOffset, startOffset + days),
+          earliestMin: 9 * 60,
+          restSpec: null,
+          mustSees: [],
+          basePos: destination.centre,
+          baseName: destination.displayName
+        });
+        for (const day of plan.days) {
+          for (const leg of day.legs) {
+            push(leg.fromKey);
+            push(leg.toKey);
+          }
+          for (const item of day.items) push(item.key);
+        }
+      } catch {
+        // A canonical solve is matrix advice, not a build gate:
+        // keep whatever earlier solves collected.
+      }
+    }
+  }
+  return keys;
+}
+
 export interface LiveCollectorOptions {
   /** Open Places fallback API key. Undefined (the default) reads
    *  process.env.OPEN_PLACES_API_KEY; an explicit null disables the
@@ -475,10 +635,53 @@ export function liveCollector(
       osmError = err instanceof Error ? err : new Error(String(err));
     }
     if (collection && collection.candidates.length > 0) {
-      return {
-        candidates: collection.candidates,
-        provenance: liveBuildProvenance(collection, collection.evidence.fetchedAt)
-      };
+      let candidates = collection.candidates;
+      let thinNote = "";
+      // Thin-destination fallback (consolidation 2026-11-06):
+      // when the registry box's sight stock is thin, WIDEN the
+      // collection to ~15 km, then ENRICH with open-guide sights
+      // (Wikipedia/Wikivoyage geosearch), then LABEL the pack
+      // honestly in its provenance. Generation still ships — a
+      // sparse day, labelled sparse — instead of failing for
+      // thinness (the KF-1 lesson: the failure was never the
+      // data, and a traveller is owed a trip, not an error).
+      if (packCounts(candidates).sights < THIN_PACK_SIGHTS) {
+        const widened = await widenCollection(fetcher, destination, policy);
+        if (widened.length) {
+          candidates = mergeCandidates(candidates, widened);
+          thinNote += "; thin destination — collection widened to ~15 km";
+        }
+        if (packCounts(candidates).sights < THIN_PACK_SIGHTS) {
+          const guide = await fetchGuideSights(fetcher, destination.centre, policy);
+          if (guide.length) {
+            candidates = mergeCandidates(candidates, guide);
+            thinNote += `; enriched with ${guide.length} open-guide sights (Wikipedia/Wikivoyage geosearch, labelled per row)`;
+          }
+        }
+        if (packCounts(candidates).sights < THIN_PACK_SIGHTS) {
+          thinNote += "; SPARSE destination — expect a lighter day plan; sparsity is stated, never padded with invented places";
+        }
+      }
+      const provenance = liveBuildProvenance(collection, collection.evidence.fetchedAt);
+      if (thinNote) provenance.label += thinNote;
+      // OSRM leg matrix — ONE /table call per profile at build
+      // time, cached in the version; zero per-trip routing calls.
+      // Unreachable routing is not a build failure: the version
+      // publishes without a matrix and the solver labels its
+      // haversine fallback per leg. The point set leads with the
+      // solver's own shortlist for this pack (solverShortlistKeys)
+      // so the capped matrix covers the stops solves actually
+      // pick (fix round 2026-11-07).
+      const shortlistKeys = solverShortlistKeys(destination, candidates, new Date());
+      const legMatrix = await buildLegMatrix(
+        fetcher,
+        destination.centre,
+        candidates,
+        () => new Date(),
+        20_000,
+        shortlistKeys
+      );
+      return { candidates, provenance, legMatrix };
     }
     if (!openPlacesApiKey) {
       if (osmError) throw osmError;
@@ -700,6 +903,7 @@ export function assembleEnginePack(
     destination: destination.displayName,
     country: destination.country,
     center: destination.centre,
+    legMatrix: version.legMatrix ?? null,
     startIso: weatherDays.length > 0 ? weatherDays[0].date : undefined,
     endIso: weatherDays.length > 0 ? weatherDays[weatherDays.length - 1].date : undefined,
     counts: packCounts(candidates),

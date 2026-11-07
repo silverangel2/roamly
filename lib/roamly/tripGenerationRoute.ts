@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import {
+  getStagedGenerationState,
   prepareStagedGenerationContext,
   publicStagedGenerationProgress,
   StagedGenerationError,
@@ -498,6 +499,63 @@ async function ensureDurableGenerationQueue(params: {
   return result;
 }
 
+/**
+ * KF-2 (M6b) companion to the creation-order fix in finalizeItinerary:
+ * the staged state is now persisted BEFORE the queue job is created,
+ * so any failure after that persistence (queue unavailable, or a
+ * throw after start persisted the state) must not leave a
+ * NON-TERMINAL generation state behind on a trip this route resets
+ * to draft — that is the job-without-driver / state-without-job
+ * orphan shape in reverse. Best-effort: re-read the trip, and if a
+ * non-terminal staged state is present, persist it back as a
+ * terminal failure (same metadata merge shape persistState uses in
+ * stagedItineraryGeneration: the full current metadata with only the
+ * `generation` document replaced). Terminal states are left alone.
+ */
+async function failPersistedGenerationState(params: {
+  supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+  userId: string;
+  tripId: string;
+  errorCode: string;
+  errorMessage: string;
+}) {
+  try {
+    const { data: trip } = await params.supabase
+      .from("roamly_trips")
+      .select("metadata")
+      .eq("id", params.tripId)
+      .eq("user_id", params.userId)
+      .maybeSingle();
+    const metadata = getRecord(trip?.metadata);
+    if (!metadata) return;
+    const existing = getStagedGenerationState(metadata, params.tripId);
+    if (!existing) return;
+    if (existing.status === "complete" || existing.status === "failed" || existing.status === "partially_failed") return;
+    const now = new Date().toISOString();
+    await params.supabase
+      .from("roamly_trips")
+      .update({
+        metadata: {
+          ...metadata,
+          generation: {
+            ...existing,
+            status: "failed",
+            currentStage: "failed",
+            lastError: params.errorMessage,
+            lastErrorCode: params.errorCode,
+            completedAt: now,
+            updatedAt: now,
+            worker: null
+          }
+        }
+      })
+      .eq("id", params.tripId)
+      .eq("user_id", params.userId);
+  } catch {
+    // Best effort only — the caller's own error response stands.
+  }
+}
+
 async function finalizeItinerary(params: {
   supabase: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
   userId: string;
@@ -682,44 +740,17 @@ async function finalizeItinerary(params: {
     });
   }
 
-  const queueResult = await ensureDurableGenerationQueue({
-    supabase: params.supabase,
-    userId: params.userId,
-    tripId: params.tripId,
-    payload,
-    requestId: params.requestId,
-    priority: priority.priority,
-    userPlan: priority.userPlan,
-    paidPriority: priority.paidPriority,
-    queuePriorityReason: priority.queuePriorityReason,
-    duplicateRequestKey,
-    generationVersion: useZeroEngine ? ZERO_ENGINE_GENERATION_VERSION : undefined
-  });
-  if (!queueResult.ok) {
-    await params.supabase
-      .from("roamly_trips")
-      .update({ status: "draft", itinerary_status: "draft" })
-      .eq("id", params.tripId)
-      .eq("user_id", params.userId);
-    logGenerationDiagnostic("generation_queue_unavailable", {
-      requestId: params.requestId,
-      route: "/api/trips/generate",
-      tripId: params.tripId,
-      supabaseHost: getPublicSupabaseHost(),
-      status: queueTableMissing(queueResult.error) ? 503 : 500,
-      errorCode: queueResult.error
-    });
-    return NextResponse.json(
-      {
-        ok: false,
-        error: queueResult.error,
-        code: "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
-        message: "Roamly could not safely queue this itinerary. Please try again in a moment."
-      },
-      { status: queueTableMissing(queueResult.error) ? 503 : 500 }
-    );
-  }
-
+  // KF-2 (M6b) CREATION ORDER: the staged generation state is
+  // persisted FIRST (the try block below), and the durable queue job
+  // is created only after it exists. The old order (job, then state)
+  // meant a crash between the two left a queued job with no staged
+  // state — unrecoverable, because the worker cannot invent the
+  // state (GENERATION_JOB_NOT_FOUND loop). A crash in the new order
+  // leaves state-without-job, which the stranded-generation recovery
+  // sweep adopts and drives (class C, no_active_job). Job creation
+  // reads only the payload (createOrResumeGenerationJob /
+  // currentStagedLayerType), never the state, so the reorder changes
+  // no creation semantics; every response below is unchanged.
   let state: Awaited<ReturnType<typeof startStagedItineraryGeneration>>;
   try {
     if (useZeroEngine && engineDeps) {
@@ -775,6 +806,16 @@ async function finalizeItinerary(params: {
       .update({ status: "draft", itinerary_status: "draft" })
       .eq("id", params.tripId)
       .eq("user_id", params.userId);
+    // KF-2 (M6b): start may have persisted the staged state before
+    // throwing; this route just reset the trip, so the just-persisted
+    // state must be failed too — never left non-terminal behind.
+    await failPersistedGenerationState({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      errorCode: generationError.code,
+      errorMessage: generationError.message
+    });
     await recordTripEvent(params.supabase, {
       userId: params.userId,
       tripId: params.tripId,
@@ -802,6 +843,57 @@ async function finalizeItinerary(params: {
         message: generationError.message
       },
       { status: generationError.status }
+    );
+  }
+
+  // KF-2 (M6b): the queue job is created only now that the staged
+  // state exists (see the creation-order note above the try block).
+  // If the queue is unavailable, the route fails the whole request
+  // exactly as before — and, because the state now exists, fails the
+  // just-persisted state alongside the trip reset so nothing
+  // non-terminal is left behind.
+  const queueResult = await ensureDurableGenerationQueue({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId,
+    payload,
+    requestId: params.requestId,
+    priority: priority.priority,
+    userPlan: priority.userPlan,
+    paidPriority: priority.paidPriority,
+    queuePriorityReason: priority.queuePriorityReason,
+    duplicateRequestKey,
+    generationVersion: useZeroEngine ? ZERO_ENGINE_GENERATION_VERSION : undefined
+  });
+  if (!queueResult.ok) {
+    await params.supabase
+      .from("roamly_trips")
+      .update({ status: "draft", itinerary_status: "draft" })
+      .eq("id", params.tripId)
+      .eq("user_id", params.userId);
+    await failPersistedGenerationState({
+      supabase: params.supabase,
+      userId: params.userId,
+      tripId: params.tripId,
+      errorCode: "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
+      errorMessage: queueResult.error
+    });
+    logGenerationDiagnostic("generation_queue_unavailable", {
+      requestId: params.requestId,
+      route: "/api/trips/generate",
+      tripId: params.tripId,
+      supabaseHost: getPublicSupabaseHost(),
+      status: queueTableMissing(queueResult.error) ? 503 : 500,
+      errorCode: queueResult.error
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: queueResult.error,
+        code: "ROAMLY_GENERATION_QUEUE_UNAVAILABLE",
+        message: "Roamly could not safely queue this itinerary. Please try again in a moment."
+      },
+      { status: queueTableMissing(queueResult.error) ? 503 : 500 }
     );
   }
 

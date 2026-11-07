@@ -105,7 +105,7 @@ function BookingIcon({ type }: { type: TripBookingType }) {
   else if (type === "restaurant") glyph = <Utensils {...p} />;
   else glyph = <ClipboardList {...p} />;
   return (
-    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-ocean/20 bg-ocean/10 text-ocean" aria-hidden="true">
+    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-cblue/20 bg-cblue/10 text-cblue" aria-hidden="true">
       {glyph}
     </span>
   );
@@ -208,7 +208,7 @@ function nextBooking(bookings: TripBookingRecord[]) {
 }
 
 function navLinkClass(active = false) {
-  return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-ocean text-white" : "border border-slate-200 bg-white text-slate-700"}`;
+  return `rounded-2xl px-3 py-3 text-center text-sm font-black ${active ? "bg-cblue text-white" : "border border-slate-200 bg-white text-slate-700"}`;
 }
 
 export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = false, locale, focus = null, loadError = false, referrals = [], referralDetails = [] }: BookingWalletTimelineProps) {
@@ -235,12 +235,12 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
-      <section className="bg-[#fbf8ef]">
+      <section className="bg-[#F2F6FC]">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-[1.65rem] font-semibold tracking-[-0.03em] text-ink">Bookings</h1>
           </div>
-          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
+          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">
             Add booking
           </Link>
         </div>
@@ -264,7 +264,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         <section className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-800">Bookings could not be loaded</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">Roamly could not read your bookings just now. This does not mean you have no bookings.</p>
-          <Link href={`/trip/${tripId}/bookings`} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">
+          <Link href={`/trip/${tripId}/bookings`} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">
             Try loading bookings again
           </Link>
         </section>
@@ -298,11 +298,11 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
         </section>
       ) : null}
 
-      {focus ? <p className="mt-5 border-l-2 border-ocean bg-ocean/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Information from your bookings remains authoritative; anything unresolved is still marked below.</p> : null}
+      {focus ? <p className="mt-5 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Information from your bookings remains authoritative; anything unresolved is still marked below.</p> : null}
 
       {visibleReferrals.length ? (
         <section className="mt-5 border-y border-[#e8dfd0] py-4" aria-labelledby="booking-referrals-title">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">External booking activity</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">External booking activity</p>
           <h2 id="booking-referrals-title" className="mt-1 text-lg font-black text-ink">Options you viewed</h2>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Roamly has not marked these as booked unless confirmation evidence exists.</p>
           <div className="mt-3 grid gap-2">
@@ -319,7 +319,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                   {outcome.state === "REFERRED" ? (
                     <Link
                       href={`/trip/${tripId}/bookings/add?affiliateClickId=${encodeURIComponent(referral.id)}&recommendationId=${encodeURIComponent(referral.recommendation_id || "")}`}
-                      className="rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white"
+                      className="rounded-xl bg-cblue px-3 py-2 text-xs font-black text-white"
                     >
                       I booked this
                     </Link>
@@ -336,7 +336,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
 
       {next ? (
         <section className="mt-5 border-b border-[#e8dfd0] pb-5">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Next booking</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Next booking</p>
           <div className="mt-3 flex items-start gap-3">
             <BookingIcon type={next.booking_type} />
             <div className="min-w-0">
@@ -389,7 +389,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                         </div>
                         {rows.length ? (
                           <details className="mt-3">
-                            <summary className="min-h-11 cursor-pointer text-sm font-black text-ocean">More details</summary>
+                            <summary className="min-h-11 cursor-pointer text-sm font-black text-cblue">More details</summary>
                             <div className="mt-2 grid gap-1 text-sm font-bold text-slate-600 sm:grid-cols-2">
                               {rows.filter(([label]) => label !== "Confirmation" && label !== "Flight").map(([label, value]) => <p key={label}>{label}: {value}</p>)}
                             </div>
@@ -407,7 +407,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
           <div className="border-y border-dashed border-[#e8dfd0] py-6">
             <h2 className="text-xl font-black text-ink">Nothing booked yet</h2>
             <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-600">When you book a flight, stay, ticket, or reservation, add it here so the important details are ready when you travel.</p>
-            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-ocean px-4 py-2 text-sm font-black text-white">Add booking</Link>
+            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">Add booking</Link>
           </div>
         )}
       </section>

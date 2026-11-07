@@ -111,7 +111,7 @@ export function GenerateLockedItineraryButton({
       {confirming ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="generate-itinerary-title">
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-ocean">Final step</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Final step</p>
             <h2 id="generate-itinerary-title" className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
               Once generated, this saved itinerary will not be regenerated in place. You can request supported changes
@@ -122,7 +122,7 @@ export function GenerateLockedItineraryButton({
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={busy}
-                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-ocean/30 disabled:opacity-60"
+                className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-cblue/30 disabled:opacity-60"
               >
                 Go back and edit
               </button>

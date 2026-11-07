@@ -82,14 +82,14 @@ export function TripCommentForm({ tripId }: { tripId: string }) {
         maxLength={PLAN_COMMENT_BODY_MAX}
         rows={3}
         placeholder="e.g. No early mornings, more seafood, wheelchair access for mom…"
-        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base leading-6 text-ink placeholder:text-slate-400 focus:border-ocean focus:outline-none"
+        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base leading-6 text-ink placeholder:text-slate-400 focus:border-cblue focus:outline-none"
       />
       {error ? <p className="mt-2 text-sm font-medium text-coral">{error}</p> : null}
       <button
         type="button"
         onClick={submit}
         disabled={sending}
-        className="mt-3 inline-flex min-h-11 items-center rounded-full bg-ocean px-5 text-sm font-bold text-white transition disabled:opacity-50"
+        className="mt-3 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-bold text-white transition disabled:opacity-50"
       >
         {sending ? "Saving…" : "Save note"}
       </button>

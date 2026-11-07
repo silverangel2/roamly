@@ -323,11 +323,21 @@ assert.ok(generateRoute.includes("generationPriorityForEntitlement"), "generatio
 assert.ok(generateRoute.includes("duplicateGenerationRequestKey"), "generation route must prevent duplicate generation requests");
 assert.ok(generateRoute.includes("queue: queueState"), "generation route must return durable queue state");
 assert.ok(generateRoute.includes("status: \"queued\""), "generation route must return a queued staged job");
-const durableQueueCreatedIndex = generateRoute.indexOf("const queueResult = await ensureDurableGenerationQueue");
-const stagedStartIndex = generateRoute.indexOf("state = await startStagedItineraryGeneration", durableQueueCreatedIndex);
-const queuedResponseIndex = generateRoute.indexOf("status: \"queued\"", stagedStartIndex);
+// RE-PINNED 2026-11-02 (KF-2 proof-harness pass): the M6b fix in
+// tripGenerationRoute deliberately REVERSED the creation order — the
+// staged generation state is now persisted FIRST and the durable
+// queue job is created only after it exists (a crash between the two
+// then leaves state-without-job, which the stranded-generation
+// recovery sweep can adopt, instead of job-without-state, which was
+// unrecoverable). The guarded PROPERTY is unchanged: staged
+// generation metadata is initialized before the queued response
+// returns. This assertion now pins the new order: state-persist call
+// -> ensureDurableGenerationQueue -> queued response.
+const stagedStartIndex = generateRoute.indexOf("state = await startStagedItineraryGeneration");
+const durableQueueCreatedIndex = generateRoute.indexOf("const queueResult = await ensureDurableGenerationQueue", stagedStartIndex);
+const queuedResponseIndex = generateRoute.indexOf("status: \"queued\"", durableQueueCreatedIndex);
 assert.ok(
-  durableQueueCreatedIndex >= 0 && stagedStartIndex > durableQueueCreatedIndex && queuedResponseIndex > stagedStartIndex,
+  stagedStartIndex >= 0 && durableQueueCreatedIndex > stagedStartIndex && queuedResponseIndex > durableQueueCreatedIndex,
   "durable queue responses must initialize staged generation metadata before returning queued"
 );
 assert.ok(!generateRoute.includes("generation_queued_returning_202"), "generation route must not return queued before staged metadata is initialized");

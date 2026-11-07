@@ -60,7 +60,7 @@ export function LocationTrackingSettings() {
   return (
     <div className="space-y-4">
       <div className="rounded-2xl bg-mist p-4">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Live trip sensing</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Live trip sensing</p>
         <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
           Roamly uses your location only to activate trip mode, show nearby activities, and help with your travel timeline.
           Turn trip sensing off anytime to stop updates and clear the last saved location.
@@ -99,7 +99,7 @@ export function LocationTrackingSettings() {
           Last permission: {settings.last_permission_state}
         </p>
       ) : null}
-      {notice ? <p className="rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+      {notice ? <p className="rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
       {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
     </div>
   );

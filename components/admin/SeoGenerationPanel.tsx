@@ -35,14 +35,14 @@ export function SeoGenerationPanel({ contentTypes }: { contentTypes: string[] })
 
   return (
     <section className="rounded-2xl border border-cloud bg-white/92 p-4 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">One-click SEO generation</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">One-click SEO generation</p>
       <div className="mt-4 grid gap-4 md:grid-cols-[0.7fr_1fr]">
         <label className="block">
           <span className="text-sm font-black text-ink">Page type</span>
           <select
             value={contentType}
             onChange={(event) => setContentType(event.target.value)}
-            className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
           >
             {contentTypes.map((item) => (
               <option key={item} value={item}>
@@ -57,7 +57,7 @@ export function SeoGenerationPanel({ contentTypes }: { contentTypes: string[] })
             value={topic}
             onChange={(event) => setTopic(event.target.value)}
             placeholder="Optional, for example: Lisbon weekend guide"
-            className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+            className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
           />
         </label>
       </div>
@@ -73,7 +73,7 @@ export function SeoGenerationPanel({ contentTypes }: { contentTypes: string[] })
       >
         {busy ? "Generating..." : "Generate SEO page"}
       </button>
-      {notice ? <p className="mt-4 rounded-xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+      {notice ? <p className="mt-4 rounded-xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
       {error ? <p className="mt-4 rounded-xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
     </section>
   );

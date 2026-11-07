@@ -39,7 +39,7 @@ export function GuardedHotelActionButton({ tripId, label }: { tripId: string; la
         type="button"
         disabled={busy}
         onClick={() => void continueToHotel()}
-        className="roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-ocean/20 bg-ocean px-5 py-2.5 text-sm font-black text-white transition hover:bg-ocean/90 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+        className="roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-cblue/20 bg-cblue px-5 py-2.5 text-sm font-black text-white transition hover:bg-cblue/90 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
       >
         {busy ? "Checking latest hotel details…" : label}
       </button>

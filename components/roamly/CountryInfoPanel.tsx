@@ -35,10 +35,16 @@
  * bare form — never a broken image).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Clock, Cloud, Flag, MapPin, MessageCircle, Plug } from "lucide-react";
 import { COUNTRY_INFO_TABS } from "@/lib/roamly/countryInfoPanelTypes";
 import type { CountryInfoPanelModel, CountryInfoTabId } from "@/lib/roamly/countryInfoPanelTypes";
+import {
+  TripWeatherCard,
+  TripWeatherConditionIcon,
+  type TripWeatherState
+} from "@/components/roamly/TripWeatherCard";
+import { getTripWeather } from "@/lib/roamly/tripWeather";
 
 function isTabId(value: unknown): value is CountryInfoTabId {
   return (
@@ -152,6 +158,69 @@ export function CountryInfoPanel({
 
   const showPhoto = model.photo && photoState !== "failed";
 
+  // Weather (Fix Round Item 4, 2026-11-06): the model either carries
+  // weather a caller already fetched ("data") or a request — the
+  // trip's own coordinates + dates. The request resolves ONCE per
+  // mount through the weather module's server action (the model
+  // builder is synchronous, so the fetch cannot happen inside it).
+  // A null request means the trip record holds no coordinates: the
+  // model's honest message is the final state, no fetch is tried.
+  // While a request is in flight, no weather block renders — a
+  // placeholder never flashes.
+  const weatherRequest = model.weather.request;
+  const [liveWeather, setLiveWeather] = useState<TripWeatherState | null>(
+    model.weather.status === "data" ? model.weather.data : null
+  );
+  const weatherFetchedRef = useRef(false);
+  useEffect(() => {
+    if (model.weather.status === "data" || !weatherRequest || weatherFetchedRef.current) {
+      return;
+    }
+    weatherFetchedRef.current = true;
+    let cancelled = false;
+    getTripWeather(weatherRequest)
+      .then((result) => {
+        if (!cancelled) setLiveWeather(result);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveWeather({ kind: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [model.weather.status, weatherRequest]);
+
+  // The photo overlay's weather lines, from the resolved state: the
+  // headline temperature + condition when a forecast exists, the
+  // honest window / load messages when it cannot, nothing for a
+  // finished trip or while the request is in flight.
+  const overlay: { icon: ReactNode; primary: string } | null = (() => {
+    if (liveWeather) {
+      if (liveWeather.kind === "ready") {
+        return {
+          icon: (
+            <TripWeatherConditionIcon name={liveWeather.headline.icon} size={20} className="text-white" />
+          ),
+          primary: `${Math.round(liveWeather.headline.tMaxC)}° · ${liveWeather.headline.conditionLabel}`
+        };
+      }
+      if (liveWeather.kind === "too-early") {
+        return {
+          icon: <Cloud size={20} strokeWidth={2} />,
+          primary: "Forecast appears about two weeks before your trip"
+        };
+      }
+      if (liveWeather.kind === "error") {
+        return { icon: <Cloud size={20} strokeWidth={2} />, primary: "Weather couldn't load" };
+      }
+      return null;
+    }
+    if (model.weather.status === "unavailable" && !weatherRequest) {
+      return { icon: <Cloud size={20} strokeWidth={2} />, primary: model.weather.message };
+    }
+    return null;
+  })();
+
   return (
     <div>
       {/* Header, in the picture's order: back chevron left; eyebrow,
@@ -209,11 +278,12 @@ export function CountryInfoPanel({
       {activeTab === "overview" ? (
         <div role="tabpanel" data-panel-id="overview" className="bui-enter pt-5">
           {/* Photo hero + weather overlay card, in the picture's
-              position (top-right of the photo). The card keeps the
-              picture's shape — cloud icon + date "avg." label — but
-              its weather lines are the honest unavailable state, never
-              the picture's sample temperatures. No photo → bare
-              header: no photo figure and no standalone weather block. */}
+              position (top-right of the photo). The overlay shows
+              the trip's REAL weather headline (Fix Round Item 4,
+              2026-11-06): the resolved forecast's temperature +
+              condition, or the honest window / load messages — never
+              sample temperatures. No photo → no figure and no
+              overlay; the full forecast card below stands alone. */}
           {showPhoto ? (
             <figure className="relative mb-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -229,37 +299,36 @@ export function CountryInfoPanel({
                 }`}
               />
               {/* Weather display rules at card scale (owner set,
-                  2026-11-04, applied in the BoardUI branch): the
-                  text block shares ONE left edge; gaps come from
-                  three sizes only (4/8/12); one plain text style,
-                  nothing shouting; base text (white) + ONE accent
-                  (the csoft icon); the secondary line stays at
-                  white/90 on a deepened scrim for readable
-                  contrast; the emoji glyph becomes a stroke icon
-                  at one fixed size (20px), the Lucide cloud. The
-                  weather model carries a message + a period label
-                  only — no temperature value and no hourly/daily
-                  series — so the huge-temperature, grouping and
-                  range-bar rules have no honest data on this
-                  surface and are NOT staged (APPLY-ALL-REPORT.md,
-                  section E). */}
-              <span
-                data-weather-overlay
-                className="absolute right-3 top-3 flex max-w-[62%] gap-2 rounded-bui-card bg-cnavy/80 px-3 py-2.5 text-white"
-              >
-                <span aria-hidden className="mt-0.5 shrink-0">
-                  <Cloud size={20} strokeWidth={2} />
-                </span>
+                  2026-11-04): the text block shares ONE left edge;
+                  gaps come from three sizes only (4/8/12); one plain
+                  text style, nothing shouting; base text (white) +
+                  ONE accent; the secondary line stays at white/90 on
+                  a deepened scrim for readable contrast; the
+                  condition glyph is a stroke icon at one fixed size
+                  (20px), a Lucide icon. Since Fix Round Item 4 the
+                  overlay carries the real headline (temperature +
+                  condition) from lib/roamly/tripWeather.ts; the
+                  huge-temperature, grouping and range-bar rules live
+                  in the full TripWeatherCard below the photo. */}
+              {overlay ? (
+                <span
+                  data-weather-overlay
+                  className="absolute right-3 top-3 flex max-w-[62%] gap-2 rounded-bui-card bg-cnavy/80 px-3 py-2.5 text-white"
+                >
+                  <span aria-hidden className="mt-0.5 shrink-0">
+                    {overlay.icon}
+                  </span>
 
-                <span>
-                  <span className="block text-[14px] font-semibold leading-5">{model.weather.message}</span>
-                  {model.weather.avgLabel ? (
-                    <span className="mt-1 block text-[13px] font-normal leading-5 text-white/90">
-                      {model.weather.avgLabel}
-                    </span>
-                  ) : null}
+                  <span>
+                    <span className="block text-[14px] font-semibold leading-5">{overlay.primary}</span>
+                    {model.weather.avgLabel ? (
+                      <span className="mt-1 block text-[13px] font-normal leading-5 text-white/90">
+                        {model.weather.avgLabel}
+                      </span>
+                    ) : null}
+                  </span>
                 </span>
-              </span>
+              ) : null}
               {photoState === "loaded" && model.photo!.credit ? (
                 <figcaption className="mt-1.5 text-right text-[11px] leading-4 text-cgray2">
                   Photo:{" "}
@@ -278,6 +347,15 @@ export function CountryInfoPanel({
                 </figcaption>
               ) : null}
             </figure>
+          ) : null}
+
+          {/* Trip weather card (Fix Round Item 4): the trip's full
+              forecast — the same resolved state as the photo
+              overlay, rendered by the one shared component. A
+              finished trip renders nothing; with no photo the card
+              stands alone in the same slot. */}
+          {liveWeather && liveWeather.kind !== "past" ? (
+            <TripWeatherCard weather={liveWeather} className="mb-5" />
           ) : null}
 
           {/* Key information grid, in the picture's order, with the

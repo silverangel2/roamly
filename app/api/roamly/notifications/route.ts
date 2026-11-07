@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uuidParam } from "@/lib/roamly/tripIdParam";
 import { requireUser } from "@/lib/roamly/auth";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
   // counts that trip's rows only — the same trip the Alerts list shows
   // when an active trip exists. Without tripId the route keeps its old
   // all-trips behavior (see AppShellClient for why that fallback stays).
-  const tripId = request.nextUrl.searchParams.get("tripId")?.trim() || "";
+  const tripId = uuidParam(request.nextUrl.searchParams.get("tripId")) || "";
   let query = auth.supabase
     .from("roamly_notifications")
     .select("*")

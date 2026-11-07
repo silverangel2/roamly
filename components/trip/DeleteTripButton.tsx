@@ -190,7 +190,7 @@ export function DeleteTripButton({ tripId, tripTitle }: DeleteTripButtonProps) {
               <button
                 type="button"
                 onClick={() => setDialogOpen(false)}
-                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-ocean hover:text-ocean"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-cloud bg-white px-5 py-3 text-sm font-black text-ink transition hover:border-cblue hover:text-cblue"
               >
                 {t("ui.actions.cancel", "Cancel")}
               </button>

@@ -6,6 +6,8 @@ import {
   createLifecycleDeps,
   runLifecycleSweep
 } from "@/lib/roamly/tripLifecycle";
+import { anyWorkPresent, countWorkRows } from "@/lib/roamly/workGate";
+import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
 
 /**
  * Hourly lifecycle sweep (DESIGN-PRODUCTION.md Phase 11): advance
@@ -46,11 +48,38 @@ export async function GET(request: NextRequest) {
       { status: 503 }
     );
 
+  // EGRESS DIET (F2): work gate — the sweep only ever examines
+  // lifecycle records in its four non-terminal states, so when none
+  // exist there is nothing to end, close, archive or purge. One
+  // head/count on the sweep's own state set decides. Fail-open.
+  // CLOSED records only carry work when the purge flag is on (purge
+  // is the only action left for them), so they join the predicate
+  // only then — otherwise the first closed trip would hold the gate
+  // open forever.
+  const purgeEnabled = build2LifecycleEnabled();
+  const gateStates = purgeEnabled
+    ? ["ACTIVE", "TRIP_ENDED", "POST_TRIP_PENDING", "CLOSED"]
+    : ["ACTIVE", "TRIP_ENDED", "POST_TRIP_PENDING"];
+  const openRecords = await countWorkRows(
+    admin,
+    "roamly_trip_lifecycle",
+    (query) => query.in("state", gateStates),
+    "trip_id"
+  );
+  if (!anyWorkPresent([openRecords])) {
+    await recordCronHeartbeat(admin, "roamly-lifecycle", true, { gated: true });
+    return NextResponse.json(
+      { ok: true, gated: true, reason: "no_open_lifecycle_records", examined: 0, ended: 0, closed: 0, purged: 0, refusals: [], errors: [] },
+      { status: 200 }
+    );
+  }
+
   const deps = createLifecycleDeps(admin);
   const summary = await runLifecycleSweep(deps, new Date().toISOString(), {
     purgeEnabled: build2LifecycleEnabled(),
     actor: "lifecycle-sweep"
   });
+  await recordCronHeartbeat(admin, "roamly-lifecycle", summary.errors.length === 0);
   return NextResponse.json(
     { ok: summary.errors.length === 0, ...summary },
     { status: summary.errors.length === 0 ? 200 : 207 }

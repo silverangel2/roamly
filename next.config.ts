@@ -76,8 +76,26 @@ nextConfig.redirects = async () => [
     permanent: false
   },
   {
-    source: "/trips/:path*",
+    // Every other /trips/* path still lands on /dashboard, EXCEPT the bare
+    // /trips/share segment: app/trips/share is a real page (Itinerary Library
+    // share form) that the old "/trips/:path*" wildcard shadowed. The regex
+    // refuses to match the exact "share" segment, so the page serves;
+    // /trips/share/* subpaths keep redirecting, exactly as before.
+    source: "/trips/:path((?!share$).*)",
     destination: "/dashboard",
+    permanent: false
+  },
+  {
+    // "Finds" was renamed "Deals" in the UI but no /deals route was ever
+    // created, so the address 404'd. Land it on the real page, same pattern
+    // as /alerts below.
+    source: "/deals",
+    destination: "/finds",
+    permanent: false
+  },
+  {
+    source: "/deals/:path*",
+    destination: "/finds",
     permanent: false
   },
   {

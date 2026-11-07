@@ -28,7 +28,7 @@ export function MetaVisibilityDiagnostic({ endpoint, brand = "roamly" }: Props) 
 
   return (
     <section className="rounded-2xl border border-cloud bg-white/92 p-4 shadow-soft">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{brandLabel} Meta visibility diagnosis</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{brandLabel} Meta visibility diagnosis</p>
       <p className="mt-2 text-sm font-bold leading-6 text-slate-600">Read-only Page, token, Reel, and restriction evidence. No Facebook write is possible from this control.</p>
       <button type="button" onClick={run} disabled={busy} className="mt-4 rounded-xl bg-ink px-4 py-3 text-sm font-black text-white disabled:bg-slate-300">
         {busy ? "Running…" : `Run ${brandLabel} visibility diagnosis`}

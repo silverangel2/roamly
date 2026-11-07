@@ -77,14 +77,14 @@ export function DailyTestProvisionPanel({
         type="button"
         onClick={provision}
         disabled={busy || !provisioningEnabled}
-        className="mt-4 rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:opacity-60"
+        className="mt-4 rounded-2xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-cblue disabled:opacity-60"
       >
         {busy ? "Provisioning..." : "Provision daily test account"}
       </button>
 
       {result ? (
-        <div className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3">
-          <p className="text-sm font-black text-ocean">
+        <div className="mt-4 rounded-2xl bg-cblue/10 px-4 py-3">
+          <p className="text-sm font-black text-cblue">
             {result.created ? "Account created." : "Account rotated."} Claim code — hand it to
             the automation within 15 minutes; it can be used exactly once:
           </p>

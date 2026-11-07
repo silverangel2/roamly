@@ -41,7 +41,7 @@ export default async function AdminSocialAutomationPage() {
         <Card className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
                 Roamly Facebook connection
               </p>
 
@@ -77,7 +77,7 @@ export default async function AdminSocialAutomationPage() {
                 <>
                   <a
                     href="/api/auth/facebook/start"
-                    className="rounded-xl bg-ocean px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink"
+                    className="rounded-xl bg-cblue px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink"
                   >
                     Reconnect Facebook
                   </a>
@@ -97,7 +97,7 @@ export default async function AdminSocialAutomationPage() {
               ) : (
                 <a
                   href="/api/auth/facebook/start"
-                  className="rounded-xl bg-ocean px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink"
+                  className="rounded-xl bg-cblue px-5 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ink"
                 >
                   Connect Facebook
                 </a>
@@ -119,7 +119,7 @@ export default async function AdminSocialAutomationPage() {
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card className="p-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Roamly status</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Roamly status</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {[
               ["Page", summary.env.pageName || summary.env.facebookStatusLabel],
@@ -144,7 +144,7 @@ export default async function AdminSocialAutomationPage() {
 
       <section className="mt-6 grid gap-4 lg:grid-cols-2">
         <Card>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Roamly latest cron summary</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Roamly latest cron summary</p>
           <pre className="mt-4 max-h-96 overflow-auto rounded-xl bg-ink p-4 text-xs font-bold leading-6 text-white">
             {JSON.stringify(summary.lastCron?.summary || { status: "No cron run yet" }, null, 2)}
           </pre>

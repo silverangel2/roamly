@@ -14,7 +14,7 @@
     },
     {
       "path": "/api/cron/roamly-social-autopost",
-      "schedule": "*/30 * * * *"
+      "schedule": "17 13 * * *"
     },
     {
       "path": "/api/cron/roamly-itinerary-generation",
@@ -70,7 +70,7 @@
     },
     {
       "path": "/api/cron/roamly-ops-worker",
-      "schedule": "*/15 * * * *"
+      "schedule": "37 * * * *"
     },
     {
       "path": "/api/cron/roamly-post-trip-ask",

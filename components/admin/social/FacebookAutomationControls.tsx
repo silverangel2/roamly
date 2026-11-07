@@ -173,7 +173,7 @@ export function FacebookAutomationControls({
   return (
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="rounded-2xl border border-cloud bg-white/92 p-4 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{title || `${label} controls`}</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{title || `${label} controls`}</p>
         <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
           {summary.env.pageName || summary.env.pageId || `${label} Facebook Page`} · {summary.counts.queueSize} future Reels
         </p>
@@ -184,7 +184,7 @@ export function FacebookAutomationControls({
               type="button"
               onClick={() => runAction(item.action, item.confirm)}
               disabled={Boolean(busy) || item.disabled || !summary.tableReady}
-              className="rounded-xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-ocean disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-xl bg-ink px-4 py-3 text-sm font-black text-white shadow-soft transition hover:bg-cblue disabled:cursor-not-allowed disabled:bg-slate-300"
               title={!summary.tableReady ? "Run the database migration first." : undefined}
             >
               {busy === item.action ? "Working..." : item.label}
@@ -196,12 +196,12 @@ export function FacebookAutomationControls({
             {summary.env.blockingIssues[0]}
           </div>
         ) : null}
-        {notice ? <p className="mt-4 rounded-xl bg-ocean/10 px-4 py-3 text-sm font-black text-ocean">{notice}</p> : null}
+        {notice ? <p className="mt-4 rounded-xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
         {error ? <p className="mt-4 rounded-xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
       </section>
 
       <section className="rounded-2xl border border-cloud bg-white/92 p-4 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">{label} automation settings</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{label} automation settings</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {[
             ["Posts per day", "postsPerDay", 0, 12],
@@ -219,7 +219,7 @@ export function FacebookAutomationControls({
                 max={Number(max)}
                 value={settings[key as keyof Settings] as number}
                 onChange={(event) => updateNumber(key as keyof Settings, event.target.value)}
-                className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+                className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
               />
             </label>
           ))}
@@ -228,7 +228,7 @@ export function FacebookAutomationControls({
             <input
               value={settings.preferredPostingHours.join(", ")}
               onChange={(event) => updateHours(event.target.value)}
-              className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
             />
           </label>
           <label className="block">
@@ -236,7 +236,7 @@ export function FacebookAutomationControls({
             <input
               value={settings.timeZone}
               onChange={(event) => setSettings((current) => ({ ...current, timeZone: event.target.value }))}
-              className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-ocean"
+              className="mt-2 w-full rounded-xl border border-cloud bg-white px-4 py-3 text-sm font-bold text-ink outline-none focus:border-cblue"
             />
           </label>
         </div>
@@ -266,7 +266,7 @@ export function FacebookAutomationControls({
           type="button"
           onClick={saveSettings}
           disabled={Boolean(busy) || !summary.tableReady}
-          className="mt-5 rounded-xl bg-ocean px-5 py-3 text-sm font-black text-white shadow-soft disabled:bg-slate-300"
+          className="mt-5 rounded-xl bg-cblue px-5 py-3 text-sm font-black text-white shadow-soft disabled:bg-slate-300"
         >
           {busy === "save_settings" ? "Saving..." : "Save settings"}
         </button>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uuidParam } from "@/lib/roamly/tripIdParam";
 import { requireUser } from "@/lib/roamly/auth";
 import {
   isStalePreTripInfoNotification,
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const tripId = request.nextUrl.searchParams.get("tripId")?.trim() || "";
+  const tripId = uuidParam(request.nextUrl.searchParams.get("tripId")) || "";
   if (!tripId) {
     return NextResponse.json({ ok: false, error: "tripId is required." }, { status: 400 });
   }

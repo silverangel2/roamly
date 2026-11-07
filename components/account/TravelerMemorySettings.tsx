@@ -213,23 +213,23 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
   return (
     <div className="space-y-5">
       {returnTo ? (
-        <div className="rounded-2xl border border-ocean/20 bg-ocean/5 px-4 py-3">
+        <div className="rounded-2xl border border-cblue/20 bg-cblue/5 px-4 py-3">
           <p className="text-sm font-black text-ink">Updating entry requirements for this trip</p>
-          <a href={returnTo} className="mt-1 inline-flex min-h-11 items-center text-sm font-black text-ocean underline underline-offset-2">
+          <a href={returnTo} className="mt-1 inline-flex min-h-11 items-center text-sm font-black text-cblue underline underline-offset-2">
             Return to trip requirements
           </a>
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-mist p-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Here is what Roamly remembers</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Here is what Roamly remembers</p>
           <p className="mt-1 text-sm font-bold text-slate-600">{personalization ? "Personalization is on." : "Personalization is off."}</p>
         </div>
         <button
           type="button"
           disabled={busy}
           onClick={() => setPersonalization(!personalization)}
-          className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink shadow-soft ring-1 ring-cloud transition hover:ring-ocean/30 disabled:opacity-60"
+          className="rounded-2xl bg-white px-4 py-3 text-sm font-black text-ink shadow-soft ring-1 ring-cloud transition hover:ring-cblue/30 disabled:opacity-60"
         >
           {personalization ? "Turn off" : "Turn on"}
         </button>
@@ -241,7 +241,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
           <select
             value={form.passport_issuing_country || ""}
             onChange={(event) => setForm((current) => ({ ...current, passport_issuing_country: event.target.value }))}
-            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+            className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
           >
             <option value="">Not provided</option>
             {countryOptions.map((country) => <option key={country.code} value={country.code}>{country.name}</option>)}
@@ -256,7 +256,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
             <input
               value={form[field] || ""}
               onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
             />
           </label>
         ))}
@@ -281,7 +281,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
             <input
               value={form[field] || ""}
               onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))}
-              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-ocean focus:ring-4 focus:ring-ocean/10"
+              className="mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
             />
           </label>
         ))}
@@ -297,7 +297,7 @@ export function TravelerMemorySettings({ countryOptions, returnTo }: { countryOp
               </p>
               {event.reason ? <p className="mt-1 text-xs font-bold text-slate-500">{event.reason}</p> : null}
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" disabled={busy} onClick={() => updateEvent(event.id, "accepted")} className="rounded-xl bg-ocean px-3 py-2 text-xs font-black text-white">
+                <button type="button" disabled={busy} onClick={() => updateEvent(event.id, "accepted")} className="rounded-xl bg-cblue px-3 py-2 text-xs font-black text-white">
                   Accept
                 </button>
                 <button type="button" disabled={busy} onClick={() => updateEvent(event.id, "rejected")} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-ink ring-1 ring-cloud">

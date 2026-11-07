@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uuidParam } from "@/lib/roamly/tripIdParam";
 import { requireUserOrFieldTest } from "@/lib/roamly/fieldTestAccess";
 import { isValidPushKey, normalizePushEndpoint } from "@/lib/roamly/pushEndpoint";
 
@@ -8,7 +9,7 @@ export async function POST(request: NextRequest) {
     endpoint?: string;
     keys?: { p256dh?: string; auth?: string };
   };
-  const tripId = typeof body.tripId === "string" && body.tripId.trim() ? body.tripId.trim() : undefined;
+  const tripId = uuidParam(typeof body.tripId === "string" ? body.tripId : null) || undefined;
   const auth = await requireUserOrFieldTest(tripId);
   if (!auth.ok) return auth.response;
   const endpoint = normalizePushEndpoint(body.endpoint);

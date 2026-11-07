@@ -465,6 +465,23 @@ export async function createOrResumeGenerationJob(params: {
   return { ok: true as const, job, resumed };
 }
 
+// EGRESS TRIM (2026-11-02): explicit projections for the queue
+// snapshot helpers below, replacing select("*"). Consumer trace:
+// every in-tree caller of getGenerationQueueForTrip /
+// getGenerationQueueForTripAdmin (advance route, status route type,
+// tripGenerationRoute) feeds the result to publicQueueProgress only.
+// The job list is exactly publicQueueProgress's picks plus user_id
+// (used for its synthetic-layer fallback); the layer list is exactly
+// the fields publicQueueProgress reads, plus the row identity
+// (job_id/user_id). The fat layer payloads — input_json, output_json,
+// evidence_json, dependency_versions_json — are read by NO consumer
+// of these helpers (write paths build them in ensureGenerationLayers
+// without reading them back here), so they are excluded.
+const QUEUE_SNAPSHOT_JOB_COLUMNS =
+  "id,trip_id,user_id,status,priority,current_stage,generation_version,model_version,retry_count,next_attempt_at,lease_expires_at,last_error_code,last_error_message,created_at,started_at,completed_at,updated_at";
+const QUEUE_SNAPSHOT_LAYER_COLUMNS =
+  "id,trip_id,job_id,user_id,layer_type,layer_sequence,status,retry_count,error_code,completed_at,updated_at";
+
 export async function getGenerationQueueForTrip(params: {
   supabase: SupabaseClient;
   tripId: string;
@@ -472,7 +489,7 @@ export async function getGenerationQueueForTrip(params: {
 }) {
   const jobResult = await params.supabase
     .from("roamly_trip_generation_jobs")
-    .select("*")
+    .select(QUEUE_SNAPSHOT_JOB_COLUMNS)
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
     .order("created_at", { ascending: false })
@@ -489,7 +506,7 @@ export async function getGenerationQueueForTrip(params: {
 
   const layersResult = await params.supabase
     .from("roamly_trip_generation_layers")
-    .select("*")
+    .select(QUEUE_SNAPSHOT_LAYER_COLUMNS)
     .eq("job_id", jobResult.data.id)
     .eq("user_id", params.userId)
     .order("layer_sequence", { ascending: true });
@@ -510,7 +527,7 @@ export async function getGenerationQueueForTripAdmin(params: {
 
   let query = supabase
     .from("roamly_trip_generation_jobs")
-    .select("*")
+    .select(QUEUE_SNAPSHOT_JOB_COLUMNS)
     .eq("trip_id", params.tripId)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -522,7 +539,7 @@ export async function getGenerationQueueForTripAdmin(params: {
 
   const layersResult = await supabase
     .from("roamly_trip_generation_layers")
-    .select("*")
+    .select(QUEUE_SNAPSHOT_LAYER_COLUMNS)
     .eq("job_id", jobResult.data.id)
     .order("layer_sequence", { ascending: true });
 
@@ -538,9 +555,15 @@ async function latestJobForTrip(params: {
   tripId: string;
   userId: string;
 }) {
+  // EGRESS TRIM (2026-11-02): projected to the fields its only
+  // consumer path uses — reconcileGenerationLayersFromStagedState
+  // reads job identity + generation_version (ensureGenerationLayers)
+  // + status + user/trip, and returns the job opaquely to callers
+  // (generationWorker / markQueueFromLegacyState) that read no
+  // further fields from it.
   const { data, error } = await params.supabase
     .from("roamly_trip_generation_jobs")
-    .select("*")
+    .select("id,trip_id,user_id,status,generation_version")
     .eq("trip_id", params.tripId)
     .eq("user_id", params.userId)
     .order("created_at", { ascending: false })
@@ -575,9 +598,18 @@ export async function reconcileGenerationLayersFromStagedState(params: {
   });
   if (!ensured.ok) return ensured;
 
+  // EGRESS TRIM (2026-11-02): the reconcile logic below reads only
+  // status/completed_at/error_code/next_attempt_at/id/layer_type/
+  // layer_sequence from each layer row (plus row identity), and its
+  // external callers (generationWorker, markQueueFromLegacyState)
+  // read nothing from the returned layers — so both this select and
+  // the update's returning select use exactly those columns, not
+  // "*". The fat payload columns are never read here.
+  const RECONCILE_LAYER_COLUMNS =
+    "id,trip_id,job_id,user_id,layer_type,layer_sequence,status,completed_at,error_code,next_attempt_at,updated_at";
   const layersResult = await supabase
     .from("roamly_trip_generation_layers")
-    .select("*")
+    .select(RECONCILE_LAYER_COLUMNS)
     .eq("job_id", job.id)
     .eq("user_id", params.userId)
     .order("layer_sequence", { ascending: true });
@@ -617,7 +649,7 @@ export async function reconcileGenerationLayersFromStagedState(params: {
         next_attempt_at: row.next_attempt_at || now
       })
       .eq("id", row.id)
-      .select("*")
+      .select(RECONCILE_LAYER_COLUMNS)
       .maybeSingle();
     if (error) throw new Error(error.message);
     return (data || row) as RoamlyGenerationLayer;

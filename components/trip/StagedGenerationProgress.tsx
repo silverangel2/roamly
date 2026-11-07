@@ -721,9 +721,25 @@ export function StagedGenerationProgress({
   useEffect(() => {
     if (stopped) return;
 
+    // EGRESS DIET (2026-11-02, F1): unchanged-progress backoff. The
+    // base cadence is unchanged (1.8s before the first day lands, 5s
+    // after), but consecutive polls that report NO movement stretch
+    // the interval x2 per unchanged poll, capped at 30s. Any real
+    // movement resets the count in trackPollMovement, so an actively
+    // progressing generation is polled exactly as fast as before; the
+    // stretch only ever applies while nothing is changing — the case
+    // that used to burn megabytes re-reading a stranded run. Worst
+    // case, a completion after a long stall is noticed up to 30s
+    // late; the stale-progress UI already frames 90s without movement
+    // as "taking longer", so the generating UX is unaffected.
+    const baseDelay = progress.completedDayCount > 0 ? 5000 : 1800;
+    const unchanged = unchangedPollCount.current;
+    const delay =
+      unchanged >= 2 ? Math.min(30_000, baseDelay * 2 ** (unchanged - 1)) : baseDelay;
+
     const timer = window.setTimeout(() => {
       void pollProgress();
-    }, progress.completedDayCount > 0 ? 5000 : 1800);
+    }, delay);
 
     return () => window.clearTimeout(timer);
   }, [pollProgress, progress.completedDayCount, progress.currentStage, progress.status, pollRetryNonce, stopped]);
@@ -786,8 +802,8 @@ export function StagedGenerationProgress({
                   : viewState.tone === "stale"
                     ? "bg-amber-100 text-amber-800"
                     : viewState.tone === "ready"
-                      ? "bg-ocean/10 text-ocean"
-                      : "bg-ocean/10 text-ocean"
+                      ? "bg-cblue/10 text-cblue"
+                      : "bg-cblue/10 text-cblue"
               }`}
             >
               {viewState.spinning ? (
@@ -801,7 +817,7 @@ export function StagedGenerationProgress({
               )}
             </div>
             <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
               {viewState.tone === "failed"
                 ? "Itinerary generation failed"
                 : viewState.tone === "ready"
@@ -845,7 +861,7 @@ export function StagedGenerationProgress({
             ) : null}
 
             {canEmail && viewState.tone === "running" ? (
-              <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-ocean">
+              <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-cblue">
                 Email me when ready · On
               </p>
             ) : null}
@@ -870,11 +886,11 @@ export function StagedGenerationProgress({
             />
             <div aria-hidden="true" className="relative flex items-center justify-between gap-2 px-1">
               <div className="h-px flex-1 bg-sky-200" />
-              <span className="h-2 w-2 rounded-full bg-ocean/70" />
+              <span className="h-2 w-2 rounded-full bg-cblue/70" />
               <div className="h-px flex-1 bg-sky-200" />
-              <span className="h-2 w-2 rounded-full bg-ocean/45" />
+              <span className="h-2 w-2 rounded-full bg-cblue/45" />
               <div className="h-px flex-1 bg-sky-200" />
-              <span className="h-2 w-2 rounded-full bg-ocean/25" />
+              <span className="h-2 w-2 rounded-full bg-cblue/25" />
               <div className="h-px flex-1 bg-sky-200" />
             </div>
             <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.16em] text-sky-700">
@@ -891,7 +907,7 @@ export function StagedGenerationProgress({
 
         <div className="rounded-2xl border border-cloud/80 bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">What&rsquo;s happening</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">What&rsquo;s happening</p>
             <p className="text-xs font-black text-slate-500">
               Elapsed {formatElapsedClock(elapsedSeconds)} · usually {formatEstimateRange(estimateRange)} for a{" "}
               {progress.totalDayCount}-day trip
@@ -908,9 +924,9 @@ export function StagedGenerationProgress({
                   aria-hidden="true"
                   className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black ${
                     step.state === "done"
-                      ? "bg-ocean text-white"
+                      ? "bg-cblue text-white"
                       : step.state === "active"
-                        ? "bg-ocean/10 text-ocean"
+                        ? "bg-cblue/10 text-cblue"
                         : "bg-slate-100 text-slate-400"
                   }`}
                 >
@@ -930,7 +946,7 @@ export function StagedGenerationProgress({
                 </span>
                 <span
                   className={`ml-auto shrink-0 text-xs font-black ${
-                    step.state === "done" ? "text-ocean" : step.state === "active" ? "text-sky-700" : "text-slate-400"
+                    step.state === "done" ? "text-cblue" : step.state === "active" ? "text-sky-700" : "text-slate-400"
                   }`}
                 >
                   {step.state === "done" ? "Done" : step.state === "active" ? "Working now" : "Up next"}
@@ -950,10 +966,10 @@ export function StagedGenerationProgress({
         </div>
 
         {progress.days.length ? (
-          <div className="rounded-2xl border border-cloud/80 bg-[#fbf8ef] p-4">
+          <div className="rounded-2xl border border-cloud/80 bg-[#F2F6FC] p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Your trip outline</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Your trip outline</p>
                 <p className="mt-1 text-sm font-bold text-slate-600">Roamly is building the days in order and saving each completed day.</p>
               </div>
               <p className="text-xs font-black text-slate-500">{progress.completedDayCount} of {progress.totalDayCount} days ready</p>
@@ -961,7 +977,7 @@ export function StagedGenerationProgress({
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {progress.days.slice(0, 8).map((day) => {
                 const dayLabel = day.status === "complete" ? "Ready" : day.status === "failed" ? "Needs attention" : day.status === "generating" || day.status === "validating" ? "Building now" : "Queued";
-                const dayTone = day.status === "complete" ? "border-ocean/20 bg-ocean/10 text-ocean" : day.status === "failed" ? "border-coral/20 bg-coral/10 text-coral" : day.status === "generating" || day.status === "validating" ? "border-sky-200 bg-white text-sky-800" : "border-cloud bg-white text-slate-500";
+                const dayTone = day.status === "complete" ? "border-cblue/20 bg-cblue/10 text-cblue" : day.status === "failed" ? "border-coral/20 bg-coral/10 text-coral" : day.status === "generating" || day.status === "validating" ? "border-sky-200 bg-white text-sky-800" : "border-cloud bg-white text-slate-500";
                 return (
                   <div key={day.dayNumber} className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${dayTone}`}>
                     <span className="truncate font-bold">Day {day.dayNumber}{day.date ? ` · ${day.date}` : ""}</span>
@@ -978,7 +994,7 @@ export function StagedGenerationProgress({
           {progress.status === "complete" ? (
             <Link
               href={`/trip/${tripId}`}
-              className="inline-flex min-h-11 justify-center rounded-full bg-ocean px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25"
+              className="inline-flex min-h-11 justify-center rounded-full bg-cblue px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
             >
               View itinerary
             </Link>
@@ -997,7 +1013,7 @@ export function StagedGenerationProgress({
 
           <Link
             href="/dashboard"
-            className="inline-flex min-h-11 justify-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-bold text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-ocean/25"
+            className="inline-flex min-h-11 justify-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-bold text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
           >
             Back to trips
           </Link>

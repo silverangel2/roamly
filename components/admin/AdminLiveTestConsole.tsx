@@ -101,7 +101,7 @@ function companionStatus(trip: Trip) {
 function ResultPill({ label, value }: { label: string; value: unknown }) {
   const positive = value === true || value === "sent" || (typeof value === "number" && value > 0);
   return (
-    <div className={`rounded-2xl px-4 py-3 ${positive ? "bg-ocean/10 text-ocean" : "bg-mist text-slate-600"}`}>
+    <div className={`rounded-2xl px-4 py-3 ${positive ? "bg-cblue/10 text-cblue" : "bg-mist text-slate-600"}`}>
       <p className="text-xs font-black uppercase tracking-[0.14em] opacity-70">{label}</p>
       <p className="mt-1 text-sm font-black">{String(value ?? "None")}</p>
     </div>
@@ -239,17 +239,17 @@ export function AdminLiveTestConsole({
   return (
     <div className="grid gap-5">
       <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Section A <span className="sr-only">A. Prepare test</span></p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Section A <span className="sr-only">A. Prepare test</span></p>
         <h2 className="mt-2 text-xl font-black uppercase text-ink">PREPARE SAINT JOHN TEST</h2>
         <label className="block">
-          <span className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Select recent trip</span>
+          <span className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Select recent trip</span>
           <select
             value={tripId}
             onChange={(event) => {
               setTripId(event.target.value);
               setPreparedMobileLink(null);
             }}
-            className="mt-3 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink outline-none focus:border-ocean"
+            className="mt-3 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-sm font-black text-ink outline-none focus:border-cblue"
           >
             {trips.map((trip) => (
               <option key={trip.id} value={trip.id}>
@@ -264,7 +264,7 @@ export function AdminLiveTestConsole({
             type="button"
             onClick={createSaintJohnFieldTest}
             disabled={Boolean(busy)}
-            className="rounded-2xl bg-ocean px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
+            className="rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
           >
             {busy === "seed_field_test"
               ? "Preparing Saint John field test..."
@@ -289,10 +289,10 @@ export function AdminLiveTestConsole({
           </div>
         ) : null}
         {selectedTrip?.metadata?.field_test === true ? (
-          <div className="mt-5 rounded-2xl border-2 border-ocean/25 bg-ocean/5 p-4">
+          <div className="mt-5 rounded-2xl border-2 border-cblue/25 bg-cblue/5 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-ocean">Phone push</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Phone push</p>
                 <p className="mt-1 text-lg font-black text-slate-900">
                   {activePushSubscriptions.length ? "Ready" : "Not registered"}
                 </p>
@@ -301,7 +301,7 @@ export function AdminLiveTestConsole({
                 type="button"
                 onClick={() => run("send_test_push_notification")}
                 disabled={Boolean(busy) || !activePushSubscriptions.length}
-                className="min-h-11 rounded-2xl bg-ocean px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
+                className="min-h-11 rounded-2xl bg-cblue px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:opacity-60"
               >
                 {busy === "send_test_push_notification" ? "Sending..." : "Send test notification"}
               </button>
@@ -320,12 +320,12 @@ export function AdminLiveTestConsole({
 
       <section>
         {(selectedTrip?.metadata?.field_test === true || preparedMobileLink) ? (
-          <section className="mb-5 rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Section B <span className="sr-only">B. Test on phone</span></p>
-            <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-ocean">TEST ON YOUR PHONE</p>
+          <section className="mb-5 rounded-[1.75rem] border-2 border-cblue/30 bg-white p-5 shadow-soft">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Section B <span className="sr-only">B. Test on phone</span></p>
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-cblue">TEST ON YOUR PHONE</p>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
                   Real Saint John Field Test
                 </p>
                 <h3 className="mt-1 text-xl font-black text-slate-900">
@@ -336,13 +336,13 @@ export function AdminLiveTestConsole({
                 </p>
               </div>
 
-              <span className="rounded-full bg-ocean/10 px-3 py-2 text-xs font-black text-ocean">
+              <span className="rounded-full bg-cblue/10 px-3 py-2 text-xs font-black text-cblue">
                 America/Moncton
               </span>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-ocean/20 bg-ocean/5 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean">
+            <div className="mt-5 rounded-2xl border border-cblue/20 bg-cblue/5 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue">
                 Phone field test
               </p>
 
@@ -355,7 +355,7 @@ export function AdminLiveTestConsole({
                 <li>5. Walk or drive normally.</li>
                 <li>6. Roamly should automatically detect and progress through the Saint John test activities.</li>
               </ol>
-              <p className="mt-4 rounded-2xl bg-ocean/10 px-4 py-3 text-sm font-black leading-6 text-ocean">
+              <p className="mt-4 rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black leading-6 text-cblue">
                 Field mode uses your PHONE&apos;S REAL LOCATION. No simulated GPS is used. Desktop Admin prepares and observes the test only; Desktop Admin is NOT the Live Companion runtime.
               </p>
 
@@ -387,7 +387,7 @@ export function AdminLiveTestConsole({
                   >
                     {mobileLinkCopied ? "Phone test link copied" : "Copy phone test link"}
                   </button>
-                  <p className="mt-3 rounded-2xl bg-ocean/10 px-4 py-3 text-center text-sm font-black text-ocean">Ready for phone test</p>
+                  <p className="mt-3 rounded-2xl bg-cblue/10 px-4 py-3 text-center text-sm font-black text-cblue">Ready for phone test</p>
                 </>
               ) : (
                 <div className="mt-4 rounded-2xl bg-sun/15 px-4 py-3 text-sm font-black leading-6 text-amber-900">
@@ -415,7 +415,7 @@ export function AdminLiveTestConsole({
                     className="rounded-2xl border border-slate-200 bg-mist/40 p-4"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ocean text-sm font-black text-white">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cblue text-sm font-black text-white">
                         {index + 1}
                       </div>
 
@@ -450,7 +450,7 @@ export function AdminLiveTestConsole({
             </div>
 
             <div className="mt-5 rounded-2xl border border-cloud bg-mist/50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-ocean">Field-test status</p>
+              <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue">Field-test status</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {[
                   ["Test trip ready", selectedTrip?.tracking_unlocked === true && selectedTrip?.itinerary_status === "locked" ? "Ready" : "Waiting / Not detected"],
@@ -483,8 +483,8 @@ export function AdminLiveTestConsole({
         </p>
       </section>
 
-      <section className="rounded-[1.75rem] border-2 border-ocean/30 bg-white p-5 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+      <section className="rounded-[1.75rem] border-2 border-cblue/30 bg-white p-5 shadow-soft">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
           Production acceptance test
         </p>
         <h2 className="mt-2 text-xl font-black text-ink">
@@ -524,7 +524,7 @@ export function AdminLiveTestConsole({
             type="button"
             onClick={() => run(action)}
             disabled={!tripId || Boolean(busy)}
-            className="rounded-[1.25rem] border border-cloud bg-white/90 px-4 py-3 text-left text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-ocean/40 disabled:opacity-60"
+            className="rounded-[1.25rem] border border-cloud bg-white/90 px-4 py-3 text-left text-sm font-black text-ink shadow-soft transition hover:-translate-y-0.5 hover:border-cblue/40 disabled:opacity-60"
           >
             {busy === action ? "Running..." : label}
           </button>
@@ -537,7 +537,7 @@ export function AdminLiveTestConsole({
       {result ? (
         <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
           {result.test === "push_diagnostic" ? (
-            <div className={`rounded-2xl px-4 py-3 text-sm font-black ${result.ok === true ? "bg-ocean/10 text-ocean" : "bg-coral/10 text-coral"}`}>
+            <div className={`rounded-2xl px-4 py-3 text-sm font-black ${result.ok === true ? "bg-cblue/10 text-cblue" : "bg-coral/10 text-coral"}`}>
               {String(result.message || result.error || "Push test failed.")}
             </div>
           ) : null}
@@ -546,7 +546,7 @@ export function AdminLiveTestConsole({
               <div
                 className={`rounded-[1.5rem] border-2 p-5 ${
                   result.passed === true
-                    ? "border-ocean/40 bg-ocean/10"
+                    ? "border-cblue/40 bg-cblue/10"
                     : "border-coral/40 bg-coral/10"
                 }`}
               >
@@ -594,7 +594,7 @@ export function AdminLiveTestConsole({
 
           {result.test !== "push_diagnostic" ? (
             <>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Latest result</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Latest result</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <ResultPill label="Trip activated" value={result.tripActivated} />
                 <ResultPill label="Nearby detected" value={Array.isArray(result.nearbyActivities) ? result.nearbyActivities.length : 0} />
@@ -618,7 +618,7 @@ export function AdminLiveTestConsole({
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Activities</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Activities</p>
           <div className="mt-4 grid gap-2">
             {tripActivities.map((activity) => (
               <div key={activity.id} className="rounded-2xl bg-mist px-4 py-3">
@@ -634,7 +634,7 @@ export function AdminLiveTestConsole({
           </div>
         </div>
         <div className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">Bookings</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Bookings</p>
           <div className="mt-4 grid gap-2">
             {tripBookings.map((booking) => (
               <div key={booking.id} className="rounded-2xl bg-mist px-4 py-3">

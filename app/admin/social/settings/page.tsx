@@ -6,7 +6,7 @@ import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
 import { getFacebookAutomationSummary } from "@/lib/roamly/socialAutomation";
 
 function statusTone(ok: boolean) {
-  return ok ? "bg-ocean/10 text-ocean" : "bg-sun/20 text-amber-800";
+  return ok ? "bg-cblue/10 text-cblue" : "bg-sun/20 text-amber-800";
 }
 
 export default async function AdminSocialSettingsPage() {

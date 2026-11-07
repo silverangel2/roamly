@@ -15,7 +15,7 @@ type CuratedAmazonFind = {
 };
 
 const curatedFinds: readonly CuratedAmazonFind[] = [
-  { id: "travel-adapter", title: "Universal travel adapter", searchQuery: "universal travel adapter", reason: "A useful starting point for international trips.", action: "Shop adapters", icon: "↯", illustration: "/images/finds/travel-adapter.webp", illustrationAlt: "Illustrative universal travel adapter" },
+  { id: "travel-adapter", title: "Universal travel adapter", searchQuery: "universal travel adapter", reason: "One adapter that covers the plug types in most destinations, so you are not buying a new one per trip.", action: "Shop adapters", icon: "↯", illustration: "/images/finds/travel-adapter.webp", illustrationAlt: "Illustrative universal travel adapter" },
   { id: "packing-cubes", title: "Packing cubes", searchQuery: "packing cubes travel organizer", reason: "Make room for the things you actually want to bring.", action: "Find packing cubes", icon: "▦", illustration: "/images/finds/packing-cubes.webp", illustrationAlt: "Illustrative pair of fabric packing cubes" },
   { id: "portable-charger", title: "Portable charger", searchQuery: "portable charger travel power bank", reason: "Keep maps, tickets, and messages within reach.", action: "Browse chargers", icon: "⚡", illustration: "/images/finds/portable-charger.webp", illustrationAlt: "Illustrative portable charger and cable" },
   { id: "travel-pillow", title: "Travel pillow", searchQuery: "travel pillow", reason: "A little more comfort for the long way there.", action: "Explore travel pillows", icon: "◒", illustration: "/images/finds/travel-pillow.webp", illustrationAlt: "Illustrative teal travel neck pillow" },

@@ -52,7 +52,7 @@ export function MediaAssetActions({ id }: { id: string }) {
           </button>
         ))}
       </div>
-      {notice ? <p className="mt-3 rounded-xl bg-ocean/10 px-4 py-2 text-sm font-black text-ocean">{notice}</p> : null}
+      {notice ? <p className="mt-3 rounded-xl bg-cblue/10 px-4 py-2 text-sm font-black text-cblue">{notice}</p> : null}
       {error ? <p className="mt-3 rounded-xl bg-coral/10 px-4 py-2 text-sm font-black text-coral">{error}</p> : null}
     </div>
   );

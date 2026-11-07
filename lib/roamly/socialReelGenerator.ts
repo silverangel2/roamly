@@ -169,7 +169,7 @@ function brandTheme(brand: SocialReelBrand) {
     return {
       label: "REVIEWINTEL",
       bg: "#06111f",
-      bg2: "#0f766e",
+      bg2: "#087BFF",
       accent: "#22d3ee",
       accent2: "#fbbf24",
       panel: "#f8fafc",

@@ -3,6 +3,8 @@ import { isCronRequestAuthorized } from "@/lib/roamly/cronAuth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { SupabasePackStore } from "@/lib/roamly/engine/packs/supabaseStore";
 import { drainQueuedBuilds, liveCollector } from "@/lib/roamly/engine/packs/builder";
+import { anyWorkPresent, countWorkRows } from "@/lib/roamly/workGate";
+import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
 
 /**
  * Pack-refresh drain (DESIGN-PRODUCTION.md §2.2 attach point;
@@ -46,11 +48,25 @@ export async function GET(request: NextRequest) {
       { status: 503 }
     );
 
+  // EGRESS DIET (F2): work gate. Builds are enqueued by the
+  // generation seam on cold reads (the event); this hourly drain is
+  // the sweeper. drainQueuedBuilds only ever processes rows with
+  // status "queued", so one head/count on exactly that predicate
+  // decides the run. Fail-open on a count error.
+  const queuedBuilds = await countWorkRows(admin, "roamly_destination_pack_builds", (query) =>
+    query.eq("status", "queued")
+  );
+  if (!anyWorkPresent([queuedBuilds])) {
+    await recordCronHeartbeat(admin, "roamly-pack-refresh", true, { gated: true });
+    return NextResponse.json({ ok: true, gated: true, reason: "no_queued_pack_builds", published: [] });
+  }
+
   const store = new SupabasePackStore(admin);
   try {
     const published = await drainQueuedBuilds(store, () => liveCollector(), {
       workerId: "pack-refresh-cron"
     });
+    await recordCronHeartbeat(admin, "roamly-pack-refresh", true);
     return NextResponse.json({
       ok: true,
       published: published.map((version) => ({

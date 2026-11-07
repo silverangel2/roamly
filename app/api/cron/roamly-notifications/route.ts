@@ -8,6 +8,7 @@ import { recordNotificationSchedulerSuccess } from "@/lib/roamly/communicationHe
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
+import { anyWorkPresent, countWorkRows } from "@/lib/roamly/workGate";
 
 export async function GET(request: NextRequest) {
   const secret = (process.env.CRON_SECRET || "").trim();
@@ -36,6 +37,57 @@ export async function GET(request: NextRequest) {
   // time-sensitive deliveries without re-running the daily work
   // (pre-trip reminders, paid-activation detector).
   const queueOnly = new URL(request.url).searchParams.get("mode") === "queue";
+
+  // EGRESS DIET (F2): work gate for queue mode. Deliveries are
+  // created by writes (companion lifecycle queues them, the event
+  // scheduler inserts them); this */15 run is the sweeper. Its work
+  // rows are exactly the ones its two processors scan:
+  //   - companion events due (status scheduled, scheduled_for <= now)
+  //   - companion events holding an interrupted email claim
+  //     (metadata emailDeliveryState claimed/in_flight/ambiguous —
+  //     the reconciliation pass inside sendScheduledTripNotifications)
+  //   - notification deliveries due (queued/retrying and due) or
+  //     holding a stale "sending" claim (>15 min, the recovery pass)
+  // Zero across all three → record the heartbeat (silence is the
+  // stale signal; a gated run is still a run) and exit. The daily
+  // full mode is NOT gated: it also creates pre-trip reminders,
+  // whose work is the calendar itself. Fail-open on any count error.
+  if (queueOnly) {
+    const gateAdmin = createSupabaseAdminClient();
+    if (gateAdmin) {
+      const nowIso = new Date().toISOString();
+      const staleSendingAt = new Date(Date.now() - 15 * 60_000).toISOString();
+      const counts = await Promise.all([
+        countWorkRows(gateAdmin, "roamly_trip_companion_events", (query) =>
+          query.eq("status", "scheduled").lte("scheduled_for", nowIso)
+        ),
+        countWorkRows(gateAdmin, "roamly_trip_companion_events", (query) =>
+          query.or(
+            "metadata->>emailDeliveryState.eq.claimed,metadata->>emailDeliveryState.eq.in_flight,metadata->>emailDeliveryState.eq.ambiguous"
+          )
+        ),
+        countWorkRows(gateAdmin, "roamly_companion_notification_deliveries", (query) =>
+          query.or(
+            `and(status.in.(queued,retrying),scheduled_for.lte.${nowIso},next_attempt_at.lte.${nowIso}),and(status.eq.sending,updated_at.lt.${staleSendingAt})`
+          )
+        )
+      ]);
+      if (!anyWorkPresent(counts)) {
+        const heartbeatRecorded = await recordCronHeartbeat(gateAdmin, "roamly-notifications-queue", true);
+        return NextResponse.json(
+          {
+            ok: true,
+            gated: true,
+            reason: "no_due_notification_work",
+            notificationHealthRecorded: false,
+            heartbeatRecorded,
+            processedAt: new Date().toISOString()
+          },
+          { status: 200 }
+        );
+      }
+    }
+  }
 
   const briefingResult = queueOnly
     ? { ok: true as const, scheduled: 0, skipped: true, reason: "Queue-only mode." }

@@ -185,7 +185,7 @@ export default function CompanionDemoConsole() {
   return (
     <div className="grid gap-6">
       <section className="rounded-[2rem] border border-cloud bg-white/90 p-6 shadow-soft">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
           Companion Demo Mode
         </p>
 
@@ -329,7 +329,7 @@ export default function CompanionDemoConsole() {
 
       {result ? (
         <section className="rounded-[1.75rem] border border-cloud bg-white/90 p-5 shadow-soft">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-ocean">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
             Test result
           </p>
 
