@@ -285,7 +285,7 @@ export function buildMoveDay(args: BuildMoveDayArgs): EngineDay {
     if (start + dur > 17 * 60 + 30) continue; // the day must still end gently
     legs.push({
       fromKey: "base", toKey: c.key, fromName: arrivalBaseName, toName: c.name,
-      mode: "walk", km, minutes: walk, depart: stopNotBefore, arrive: start
+      mode: "walk", km, minutes: walk, minutesSource: "haversine-estimate", depart: stopNotBefore, arrive: start
     });
     items.push({
       type: "stop", key: c.key, name: c.name, kind: c.kind, role: "arrival",
@@ -294,7 +294,7 @@ export function buildMoveDay(args: BuildMoveDayArgs): EngineDay {
     });
     legs.push({
       fromKey: c.key, toKey: "base", fromName: c.name, toName: arrivalBaseName,
-      mode: "walk", km, minutes: walk, depart: start + dur, arrive: start + dur + walk
+      mode: "walk", km, minutes: walk, minutesSource: "haversine-estimate", depart: start + dur, arrive: start + dur + walk
     });
     break; // at most one
   }

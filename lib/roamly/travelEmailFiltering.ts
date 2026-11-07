@@ -10,6 +10,11 @@ export type TravelEmailMetadata = {
   receivedAt?: string | null;
   snippet?: string | null;
   bodyText?: string | null;
+  /** The message's raw MIME (Gmail format=raw, decoded), carried
+   *  only for messages the filter will process — the KDE
+   *  first-pass extractor (lib/roamly/kdeExtraction.ts) needs the
+   *  unflattened message: HTML part, attachments, barcodes. */
+  rawMime?: string | null;
 };
 
 export type TravelEmailFilterResult = {

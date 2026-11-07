@@ -270,6 +270,88 @@ export async function getTripBundle(
   };
 }
 
+/*
+ * GAP-E (Wave 3b, EGRESS-DIET-REPORT §3C chain follow-up) — slim bundle
+ * for the companion repair VERIFY stage. The verify callers
+ * (verifyAppliedVerifiedCompanionRepair in companionRepairEngine.ts,
+ * verifyAppliedShiftTimingRepair in companionShiftTiming.ts) consume
+ * ONLY:
+ *   - itinerary.full_json (the canonical post-apply document), and
+ *   - (V1 verify only) the trip fields payloadFromTrip reads plus
+ *     trip.start_date / end_date / itinerary_status for readiness.
+ * They never read days, activities, or checklist, and never read the
+ * itinerary's preview_json / ai_summary. The full getTripBundle pays
+ * five star-select reads for that (trips + itineraries + days +
+ * activities + checklists); this variant pays two projected reads and
+ * returns the same TripBundle shape with empty days/activities/
+ * checklist, so verify decisions — which derive only from the fields
+ * above — are unchanged. The metadata fallback itinerary is preserved
+ * (trip.metadata is in the projection) and a missing preview_json is
+ * re-derived exactly as the metadata path derives it. Verify MUST
+ * re-read fresh post-apply state, so this is a projection slim, not a
+ * threaded snapshot: the pre-apply document is never reused here.
+ */
+export const TRIP_BUNDLE_SLIM_TRIP_COLUMNS =
+  "id,user_id,title,destination,destination_name,destination_country,destination_region,destination_city,origin,start_date,end_date,days_count,travelers_count,budget_amount,budget_currency,budget_includes_flights,budget_includes_hotel,travel_style,interests,accommodation_preference,transportation_preference,special_notes,status,itinerary_status,created_at,updated_at,metadata";
+export const TRIP_BUNDLE_SLIM_ITINERARY_COLUMNS = "id,trip_id,user_id,full_json,created_at,updated_at";
+
+export async function getTripBundleSlim(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string
+): Promise<{ data: TripBundle | null; error?: string }> {
+  const { data: trip, error: tripError } = await supabase
+    .from("roamly_trips")
+    .select(TRIP_BUNDLE_SLIM_TRIP_COLUMNS)
+    .eq("id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (tripError) return { data: null, error: tripError.message };
+  if (!trip) return { data: null, error: "Trip not found." };
+  const tripRecord = trip as unknown as RoamlyTripRecord;
+  const metadataItinerary = itineraryFromTripMetadata(tripRecord);
+
+  const itineraryResult = await supabase
+    .from("roamly_itineraries")
+    .select(TRIP_BUNDLE_SLIM_ITINERARY_COLUMNS)
+    .eq("trip_id", tripId)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (
+    itineraryResult.error &&
+    !itineraryResult.error.message.includes("0 rows") &&
+    !isMissingTableError(itineraryResult.error.message)
+  ) {
+    return { data: null, error: itineraryResult.error.message };
+  }
+
+  const rawItinerary =
+    ((itineraryResult.data as unknown as ItineraryRecord | null) ?? metadataItinerary) || null;
+  const itinerary = rawItinerary
+    ? {
+        ...rawItinerary,
+        ai_summary: rawItinerary.ai_summary ?? null,
+        preview_json:
+          rawItinerary.preview_json ?? buildPreviewFromItinerary(rawItinerary.full_json),
+        full_json: sanitizeStoredItinerary(rawItinerary.full_json) || rawItinerary.full_json
+      }
+    : null;
+
+  return {
+    data: {
+      trip: tripRecord,
+      itinerary,
+      days: [],
+      activities: [],
+      checklist: []
+    }
+  };
+}
+
 export async function syncGeneratedItinerary(
   supabase: SupabaseClient,
   params: {

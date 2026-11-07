@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { contentId } from "@/lib/roamly/engine/ids";
 import type { DestinationDTO } from "@/lib/roamly/engine/types";
@@ -12,6 +14,7 @@ import type {
   PackVersionRecord,
   StoredCandidate,
   StoredEnrichment,
+  StoredLegMatrix,
   WeatherSnapshotRecord
 } from "@/lib/roamly/engine/packs/types";
 import { PackStoreError, systemPackClock, toInstant, type PackClock } from "@/lib/roamly/engine/packs/types";
@@ -77,6 +80,105 @@ const SETTINGS_TABLE = "roamly_admin_settings";
 const CANDIDATE_INSERT_CHUNK = 200;
 const CAS_ATTEMPTS = 6;
 
+/**
+ * EGRESS DIET (2026-11-02, F3) — candidate cache keyed by the pack
+ * version's stored content_hash. A published version's candidate set
+ * is immutable (I1: the only mutation a published version ever sees
+ * is its status flip), yet every worker wake used to re-pull the
+ * whole set — 1.42 MB for the Montreal pack — through
+ * getVersionCandidates/readPinned. The cache is module-level on
+ * purpose: generation wakes build a fresh store instance per run,
+ * so an instance cache would miss exactly the wakes it exists for;
+ * the module cache serves every wake inside one warm process.
+ *
+ * Validation law: a cache hit is served only after a LIGHT identity
+ * read (id + content_hash, ~200 bytes) confirms the stored hash is
+ * unchanged. A changed hash forces a fresh pull. The one writer
+ * that can move candidate bytes without moving the version hash —
+ * putCandidateEnrichment — deletes the entry, and a 30-minute TTL
+ * bounds any cross-process enrichment drift the hash cannot see.
+ * Cached arrays are never handed out by reference: every return is
+ * a structured clone, preserving the store's fresh-copies contract.
+ */
+const CANDIDATE_CACHE_TTL_MS = 30 * 60_000;
+const candidateCache = new Map<
+  string,
+  { contentHash: string | null; fetchedAtMs: number; candidates: StoredCandidate[] }
+>();
+
+/**
+ * GAP-CLOSURE 5b-1 (2026-11-02) — DURABLE disk tier behind the
+ * memory cache above, for hosts where a cache directory survives
+ * across processes (a stranded generation's wakes landing in cold
+ * processes otherwise re-pay the ~1.42 MB pull per wake; see
+ * EGRESS-DIET-REPORT §8). Gated on the ROAMLY_PACK_CACHE_DIR env
+ * var: UNSET = disabled, exactly the pre-5b behaviour — production
+ * serverless is unaffected unless the owner sets it.
+ *
+ * Law, identical to the memory tier: an entry is served only after
+ * the SAME light identity read (id + content_hash) confirms the
+ * stored hash still matches the version's current hash, and only
+ * inside the same 30-minute TTL counted from the ORIGINAL heavy
+ * pull (fetchedAtMs is preserved when a disk hit populates memory,
+ * so the TTL cannot be extended by tier-hopping). Writes are
+ * best-effort (every error swallowed — a broken cache dir degrades
+ * to the memory tier, never to a failed generation), and
+ * putCandidateEnrichment invalidates BOTH tiers.
+ */
+type CandidateDiskEntry = {
+  contentHash: string | null;
+  fetchedAtMs: number;
+  candidates: StoredCandidate[];
+};
+
+function packCacheDir(): string | null {
+  const env = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env;
+  const dir = env?.ROAMLY_PACK_CACHE_DIR;
+  return typeof dir === "string" && dir.trim() ? dir.trim() : null;
+}
+
+function packCacheFile(dir: string, packVersionId: string): string {
+  return join(dir, `${packVersionId.replace(/[^a-zA-Z0-9._-]/g, "_")}.json`);
+}
+
+function readPackDiskEntry(dir: string, packVersionId: string): CandidateDiskEntry | null {
+  try {
+    const parsed = JSON.parse(readFileSync(packCacheFile(dir, packVersionId), "utf8")) as
+      | Partial<CandidateDiskEntry>
+      | null;
+    if (!parsed || !Array.isArray(parsed.candidates) || typeof parsed.fetchedAtMs !== "number") {
+      return null;
+    }
+    return {
+      contentHash: parsed.contentHash ?? null,
+      fetchedAtMs: parsed.fetchedAtMs,
+      candidates: parsed.candidates as StoredCandidate[]
+    };
+  } catch {
+    return null; // missing/corrupt entry = a miss, never an error
+  }
+}
+
+function writePackDiskEntry(dir: string, packVersionId: string, entry: CandidateDiskEntry): void {
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(packCacheFile(dir, packVersionId), JSON.stringify(entry));
+  } catch {
+    // Best-effort by law: the memory tier already holds the entry.
+  }
+}
+
+function deletePackDiskEntry(dir: string | null, packVersionId: string): void {
+  if (!dir) return;
+  try {
+    unlinkSync(packCacheFile(dir, packVersionId));
+  } catch {
+    // Already gone or unremovable — the hash+TTL validation on the
+    // read side bounds any stale entry this leaves behind.
+  }
+}
+
 interface BuildRow {
   job_id: string;
   destination_id: string;
@@ -110,6 +212,9 @@ interface PackRow {
   supersedes_pack_version_id: string | null;
   build_job_id: string | null;
   provenance: PackVersionRecord["dto"]["provenance"];
+  /** OSRM leg matrix (migration 20261106000300). Absent on rows
+   *  read before that migration applies — mapped as null. */
+  leg_matrix?: StoredLegMatrix | null;
 }
 
 interface CandidateRow {
@@ -288,7 +393,8 @@ export class SupabasePackStore implements PackStore {
       version: row.version,
       supersedesPackVersionId: row.supersedes_pack_version_id,
       contentHash: row.content_hash,
-      buildJobId: row.build_job_id
+      buildJobId: row.build_job_id,
+      legMatrix: row.leg_matrix ?? null
     };
   }
 
@@ -335,6 +441,21 @@ export class SupabasePackStore implements PackStore {
       .maybeSingle();
     if (error) throw dbFailure("read pack version", error);
     return (data as PackRow | null) ?? null;
+  }
+
+  /** EGRESS DIET (F3): the projected identity read used to validate
+   *  a candidate-cache entry — id + content_hash only, never the
+   *  full version row. */
+  private async rawVersionIdentity(
+    packVersionId: string
+  ): Promise<{ id: string; content_hash: string | null } | null> {
+    const { data, error } = await this.client
+      .from(PACKS_TABLE)
+      .select("id,content_hash")
+      .eq("pack_version_id", packVersionId)
+      .maybeSingle();
+    if (error) throw dbFailure("read pack version identity", error);
+    return (data as { id: string; content_hash: string | null } | null) ?? null;
   }
 
   /* ------------------------------ queue ------------------------------ */
@@ -613,7 +734,8 @@ export class SupabasePackStore implements PackStore {
     leaseId: string,
     candidates: StoredCandidate[],
     provenance: PackVersionRecord["dto"]["provenance"],
-    classifierVersionRestamp?: string
+    classifierVersionRestamp?: string,
+    legMatrix?: StoredLegMatrix | null
   ): Promise<PackVersionRecord> {
     // The fencing check comes FIRST: a stolen lease refuses the
     // publish no matter what state the version row is in (I3).
@@ -677,6 +799,7 @@ export class SupabasePackStore implements PackStore {
         content_hash: candidateContentHash(stored),
         supersedes_pack_version_id: previousReady ? previousReady.pack_version_id : null,
         provenance,
+        leg_matrix: legMatrix ?? null,
         ...(classifierVersionRestamp ? { classifier_version: classifierVersionRestamp } : {})
       })
       .eq("pack_version_id", packVersionId)
@@ -751,6 +874,38 @@ export class SupabasePackStore implements PackStore {
   }
 
   async getVersionCandidates(packVersionId: string): Promise<StoredCandidate[]> {
+    // EGRESS DIET (F3): serve the cached candidate set when the
+    // stored content_hash still matches — one light identity read
+    // instead of the full candidate pull.
+    const cached = candidateCache.get(packVersionId);
+    if (cached && this.now().getTime() - cached.fetchedAtMs < CANDIDATE_CACHE_TTL_MS) {
+      const identity = await this.rawVersionIdentity(packVersionId);
+      if (!identity) throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
+      if (identity.content_hash === cached.contentHash) return clone(cached.candidates);
+    }
+    // GAP-CLOSURE 5b-1: durable disk tier — consulted only on a
+    // memory miss/stale/hash-move, only when ROAMLY_PACK_CACHE_DIR
+    // is set, and validated by the same light identity read + TTL
+    // law as the memory tier. A hit populates memory (preserving
+    // the original pull time) and returns a structured clone.
+    const diskDir = packCacheDir();
+    if (diskDir) {
+      const identity = await this.rawVersionIdentity(packVersionId);
+      if (!identity) throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
+      const disk = readPackDiskEntry(diskDir, packVersionId);
+      if (
+        disk &&
+        disk.contentHash === identity.content_hash &&
+        this.now().getTime() - disk.fetchedAtMs < CANDIDATE_CACHE_TTL_MS
+      ) {
+        candidateCache.set(packVersionId, {
+          contentHash: disk.contentHash,
+          fetchedAtMs: disk.fetchedAtMs,
+          candidates: clone(disk.candidates)
+        });
+        return clone(disk.candidates);
+      }
+    }
     const record = await this.rawVersion(packVersionId);
     if (!record) throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
     const { data, error } = await this.client
@@ -759,7 +914,20 @@ export class SupabasePackStore implements PackStore {
       .eq("pack_id", record.id)
       .order("candidate_key", { ascending: true });
     if (error) throw dbFailure("read pack candidates", error);
-    return ((data as CandidateRow[] | null) ?? []).map((row) => this.mapCandidate(row));
+    const candidates = ((data as CandidateRow[] | null) ?? []).map((row) => this.mapCandidate(row));
+    candidateCache.set(packVersionId, {
+      contentHash: record.content_hash,
+      fetchedAtMs: this.now().getTime(),
+      candidates: clone(candidates)
+    });
+    if (diskDir) {
+      writePackDiskEntry(diskDir, packVersionId, {
+        contentHash: record.content_hash,
+        fetchedAtMs: this.now().getTime(),
+        candidates: clone(candidates)
+      });
+    }
+    return candidates;
   }
 
   async getReadyVersion(destinationId: string): Promise<PackVersionRecord | null> {
@@ -851,6 +1019,13 @@ export class SupabasePackStore implements PackStore {
       .eq("candidate_key", candidateKey)
       .select("*");
     if (updateError) throw dbFailure("write candidate enrichment", updateError);
+    // EGRESS DIET (F3): enrichment moves candidate bytes without
+    // moving the version's content_hash — drop the cache entry so
+    // the next read in this process pulls fresh.
+    // GAP-CLOSURE 5b-1: the disk tier is invalidated with it —
+    // enrichment must not resurrect from disk in the next process.
+    candidateCache.delete(packVersionId);
+    deletePackDiskEntry(packCacheDir(), packVersionId);
     const updatedRow = ((updated as CandidateRow[] | null) ?? [])[0];
     return this.mapCandidate(updatedRow ?? { ...row, enrichment });
   }

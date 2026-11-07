@@ -3,6 +3,12 @@ import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createTripBooking, type TripBookingInput } from "@/lib/roamly/bookingWallet";
+// KDE first-pass (Block B) is loaded DYNAMICALLY at its call site
+// below, never statically: the junk-gmail guard suite transpiles
+// this module in isolation with a strict import allowlist, and a
+// static import of the worker-runner module would break that
+// isolation (and pull node:child_process into any client-adjacent
+// bundle graph that touches this file).
 import { reconcileTripBookings } from "@/lib/roamly/brain/bookingReconciliation";
 import { build2ReconciliationLaneActive } from "@/lib/roamly/reconciliationLane";
 import type { EmailConnectionRecord } from "@/lib/roamly/emailConnections";
@@ -22,7 +28,7 @@ function extractionLooksLikeTestBooking(extraction: StructuredBookingExtraction)
 export type ExtractedBookingField<T = string> = {
   value: T | null;
   confidence: number;
-  source_type: "sender" | "subject" | "filter_facts" | "ai_structured";
+  source_type: "sender" | "subject" | "filter_facts" | "ai_structured" | "kde_provider";
   evidence_location: string;
   verified: boolean;
 };
@@ -973,7 +979,24 @@ export async function extractAndMatchTravelEmailBooking(params: {
     !inBuild2Lane && deterministic.overallConfidence < 0.45
       ? await extractBookingWithAiStructuredOutput(params.metadata).catch(() => null)
       : null;
-  const extraction = aiExtraction && aiExtraction.overallConfidence > deterministic.overallConfidence ? aiExtraction : deterministic;
+  let extraction = aiExtraction && aiExtraction.overallConfidence > deterministic.overallConfidence ? aiExtraction : deterministic;
+  // KDE first-pass (consolidation 2026-11-06): when the raw MIME
+  // rode along, KItinerary reads the message first-hand — markup
+  // the provider declared, provider scripts, PDF barcodes. It is
+  // a deterministic lane (not AI), so it competes in BOTH lanes;
+  // its silence (null) leaves the outcome above untouched, and on
+  // a confidence tie its evidence beats a heuristic/AI reading.
+  // The auto-apply gate downstream is unchanged.
+  if (params.metadata.rawMime) {
+    const { kdeExtractionFromRawMime } = await import("@/lib/roamly/kdeExtraction");
+    const kde = await kdeExtractionFromRawMime({
+      rawMime: params.metadata.rawMime,
+      receivedAt: params.metadata.receivedAt
+    }).catch(() => null);
+    if (kde && kde.overallConfidence >= extraction.overallConfidence) {
+      extraction = kde;
+    }
+  }
   const match = await bestTripMatch(writer, params.connection.user_id, extraction);
   if (!match) {
     await persistExtraction({

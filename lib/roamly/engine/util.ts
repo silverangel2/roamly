@@ -1,5 +1,5 @@
 import type { GeoPointDTO } from "@/lib/roamly/engine/types";
-import type { LocalDate, PlanMinutes } from "@/lib/roamly/engine/time";
+import type { LocalDate, PlanMinutes, UtcInstant } from "@/lib/roamly/engine/time";
 import {
   addCalendarDays,
   minutesToClock,
@@ -65,10 +65,28 @@ export interface EngineWeatherDay {
   precipProb: number | null;
 }
 
+/** Routed leg-time matrix cached in a pack version at build time
+ *  (consolidation 2026-11-06): OSRM /table durations between the
+ *  day base ("base") and the pack's core candidates. Cells are
+ *  seconds; null = no routed value for that pair/profile, and the
+ *  solver falls back to the haversine estimate — labelled as an
+ *  estimate on the leg, never presented as routed. */
+export interface EngineLegMatrix {
+  provider: string;
+  builtAt: UtcInstant;
+  keys: string[];
+  driveSeconds: (number | null)[][];
+  walkSeconds: (number | null)[][];
+}
+
 export interface EnginePack {
   destination: string;
   country: string;
   center: EnginePos;
+  /** OSRM leg matrix built with the pack, or null/absent when
+   *  routing was unreachable at build time (haversine fallback,
+   *  labelled per leg). */
+  legMatrix?: EngineLegMatrix | null;
   startIso?: LocalDate;
   endIso?: LocalDate;
   counts: {
@@ -143,6 +161,11 @@ export interface EngineLeg {
   mode: string;
   km: number;
   minutes: number;
+  /** Truth in labelling (consolidation 2026-11-06): "osrm-routed"
+   *  when the minutes came from the pack's OSRM matrix,
+   *  "haversine-estimate" when they are the straight-line
+   *  fallback estimate. */
+  minutesSource?: "osrm-routed" | "haversine-estimate";
   depart: number;
   arrive: number;
   departTime?: string;
@@ -242,6 +265,28 @@ export const walkMin = (km: number): number => Math.max(2, Math.ceil((km / WALK_
 export const roadMin = (km: number): number => Math.max(3, Math.ceil((km / ROAD_KMH) * 60));
 export const travelMin = (km: number, mode: string): number =>
   mode === "drive" ? roadMin(km) : walkMin(km);
+
+/** Routed minutes between two solver keys from a pack leg matrix,
+ *  or null when the matrix (or the pair, or the profile) has no
+ *  routed value — the caller then uses travelMin and labels the
+ *  leg an estimate. Floors mirror the estimate floors (walk 2,
+ *  drive 3) so a routed leg never reads shorter than the engine
+ *  has ever allowed. */
+export function matrixMinutes(
+  matrix: EngineLegMatrix | null | undefined,
+  fromKey: string,
+  toKey: string,
+  mode: string
+): number | null {
+  if (!matrix) return null;
+  const i = matrix.keys.indexOf(fromKey);
+  const j = matrix.keys.indexOf(toKey);
+  if (i < 0 || j < 0) return null;
+  const table = mode === "drive" ? matrix.driveSeconds : matrix.walkSeconds;
+  const seconds = table[i]?.[j];
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return null;
+  return Math.max(mode === "drive" ? 3 : 2, Math.ceil(seconds / 60));
+}
 
 /* ------------------------------------------------------------------ */
 /* Clock + civil dates (via the Phase 1 time adapter)                  */

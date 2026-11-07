@@ -1,4 +1,10 @@
+import { fetchWithTimeout } from "@/lib/boundedFetch";
 import { mapsUrlForActivity, type LiveCompanionActivity, type LiveCoordinates, type LiveRouteStatus } from "@/lib/roamly/liveCompanion";
+
+/** Distance Matrix answers in well under a second when healthy;
+ *  the bound converts a stall into the existing unavailable()
+ *  degrade instead of a hang (wiring audit 2026-11-07). */
+const ROUTE_PROVIDER_TIMEOUT_MS = 6_000;
 
 type RouteMode = "walking" | "transit" | "driving" | "rideshare";
 
@@ -52,7 +58,7 @@ export async function getLiveRouteStatus(params: RouteRequest): Promise<LiveRout
   url.searchParams.set("key", key);
 
   try {
-    const response = await fetch(url.toString(), { cache: "no-store" });
+    const response = await fetchWithTimeout(url.toString(), { cache: "no-store" }, ROUTE_PROVIDER_TIMEOUT_MS);
     if (!response.ok) return unavailable(params.destination, "Live route provider did not return a usable response.", mode);
     const data = await response.json().catch(() => null) as {
       status?: string;

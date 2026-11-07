@@ -11,20 +11,38 @@ import { recordAppEvent } from "@/lib/roamly/events";
 export const CRON_HEARTBEAT_EVENT_TYPE = "cron_heartbeat";
 export const CRON_HEARTBEATS = {
   "roamly-live-companion": { intervalMinutes: 5 },
-  "roamly-notifications-queue": { intervalMinutes: 15 }
+  "roamly-notifications-queue": { intervalMinutes: 15 },
+  // EGRESS DIET (2026-11-02): the work-gated lanes join the same
+  // registry, so every invocation — gated or worked — leaves one
+  // app-event row carrying metadata.gated. That is the per-lane
+  // daily attribution source the owner surfaces read (group
+  // cron_heartbeat events by metadata.cron per day); no new table,
+  // no new subsystem.
+  "roamly-itinerary-generation": { intervalMinutes: 5 },
+  "roamly-booking-monitor": { intervalMinutes: 10 },
+  "roamly-ops-worker": { intervalMinutes: 15 },
+  "roamly-email-sync": { intervalMinutes: 30 },
+  "roamly-pack-refresh": { intervalMinutes: 60 },
+  "roamly-lifecycle": { intervalMinutes: 60 }
 } as const;
 export type CronHeartbeatName = keyof typeof CRON_HEARTBEATS;
 
 export async function recordCronHeartbeat(
   supabase: SupabaseClient,
   cron: CronHeartbeatName,
-  ok: boolean
+  ok: boolean,
+  extra?: { gated?: boolean }
 ): Promise<boolean> {
   try {
     const result = await recordAppEvent(supabase, {
       eventType: CRON_HEARTBEAT_EVENT_TYPE,
       path: `/api/cron/${cron === "roamly-notifications-queue" ? "roamly-notifications" : cron}`,
-      metadata: { cron, intervalMinutes: CRON_HEARTBEATS[cron].intervalMinutes, ok }
+      metadata: {
+        cron,
+        intervalMinutes: CRON_HEARTBEATS[cron].intervalMinutes,
+        ok,
+        ...(extra?.gated ? { gated: true } : {})
+      }
     });
     return !result.error;
   } catch {

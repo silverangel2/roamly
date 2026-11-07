@@ -142,6 +142,15 @@ export function classifyElement(e: OsmElement): string | null {
   if (t.tourism === "attraction") return "attraction";
   if (t.tourism === "viewpoint") return "viewpoint";
   if (["hotel", "hostel", "guest_house", "apartment", "motel"].includes(t.tourism || "")) return "stay";
+  // Consolidation 2026-11-06 (places evaluation leak #1): the
+  // tourism chunk now collects EVERY named tourism element, so
+  // the classifier — not the query whitelist — decides what a
+  // tourism value means. Remaining genuine sight values (zoo,
+  // aquarium, theme_park, castle handled via historic below,
+  // picnic_site, ...) land as attractions; pure infrastructure
+  // values (information boards, offices, the junk "yes") are not
+  // places a traveller visits and stay excluded.
+  if (t.tourism && !["information", "office", "yes"].includes(t.tourism)) return "attraction";
   if (t.leisure === "park") return "park";
   if (t.amenity === "marketplace") return "market";
   if (t.amenity === "ferry_terminal") return "ferry";
@@ -183,7 +192,16 @@ function dedupeCandidates(list: StoredCandidate[]): StoredCandidate[] {
   const seen = new Set<string>();
   const out: StoredCandidate[] = [];
   for (const c of list) {
-    const k = `${c.name.toLowerCase()}|${c.kind}`;
+    // Consolidation 2026-11-06 (ferry case): the key carries the
+    // position at ~100 m grain. Name|kind alone collapsed the two
+    // "Gare fluviale" ferry terminals — one per shore of the
+    // St. Lawrence, ~2 km apart — into a single row, so one shore's
+    // terminal could silently vanish from the pack. Same element
+    // re-served by overlapping coverage boxes still dedupes (same
+    // name, kind and position); distinct places that merely share
+    // a name survive.
+    const posKey = c.pos ? `${c.pos.lat.toFixed(3)},${c.pos.lon.toFixed(3)}` : "nopos";
+    const k = `${c.name.toLowerCase()}|${c.kind}|${posKey}`;
     if (!seen.has(k)) {
       seen.add(k);
       out.push(c);
@@ -211,15 +229,19 @@ export function mainOverpassQuery(bbox: BBox): string {
   const b = bboxString(bbox);
   return `[out:json][timeout:90];
 (
-  node["tourism"~"attraction|museum|gallery|viewpoint|hotel|hostel|guest_house|apartment|motel"]["name"](${b});
-  way["tourism"~"attraction|museum|gallery"]["name"](${b});
+  node["tourism"]["name"](${b});
+  way["tourism"]["name"](${b});
+  relation["tourism"]["name"](${b});
   node["historic"]["name"](${b});
+  way["historic"]["name"](${b});
+  relation["historic"]["name"](${b});
   node["leisure"="park"]["name"](${b});
   way["leisure"="park"]["name"](${b});
+  relation["leisure"="park"]["name"](${b});
   node["amenity"~"restaurant|cafe|fast_food|bakery|marketplace|ferry_terminal|theatre|arts_centre"]["name"](${b});
   way["amenity"~"marketplace|ferry_terminal|theatre|arts_centre"]["name"](${b});
-  node["shop"~"farm|greengrocer|food|deli"]["name"~"market",i](${b});
-  way["shop"~"farm|greengrocer|food|deli"]["name"~"market",i](${b});
+  node["shop"~"farm|greengrocer|food|deli|supermarket"]["name"](${b});
+  way["shop"~"farm|greengrocer|food|deli|supermarket"]["name"](${b});
   node["railway"="station"]["name"](${b});
   node["amenity"="bus_station"]["name"](${b});
   node["man_made"="lighthouse"]["name"](${b});
@@ -266,10 +288,20 @@ export function mainOverpassQueryChunks(bbox: BBox): OverpassChunk[] {
   const head = "[out:json][timeout:45];\n";
   return [
     {
+      // Consolidation 2026-11-06 (places evaluation leaks #1 + #2):
+      // ALL named tourism — nodes, ways AND relations. The old
+      // value whitelist silently dropped a quarter to a half of
+      // the named tourism stock (other tourism=* values, sights
+      // mapped as ways), and relations were never queried at all,
+      // blinding the pipeline to archaeological sites and historic
+      // areas — the exact class travellers travel for (Chan Chan's
+      // protected area is a relation). The classifier decides what
+      // each value means; the query just collects.
       id: "tourism",
       query: `${head}(
-  node["tourism"~"attraction|museum|gallery|viewpoint|hotel|hostel|guest_house|apartment|motel"]["name"](${b});
-  way["tourism"~"attraction|museum|gallery"]["name"](${b});
+  node["tourism"]["name"](${b});
+  way["tourism"]["name"](${b});
+  relation["tourism"]["name"](${b});
 );
 out center;`
     },
@@ -277,8 +309,11 @@ out center;`
       id: "historic-parks",
       query: `${head}(
   node["historic"]["name"](${b});
+  way["historic"]["name"](${b});
+  relation["historic"]["name"](${b});
   node["leisure"="park"]["name"](${b});
   way["leisure"="park"]["name"](${b});
+  relation["leisure"="park"]["name"](${b});
   node["natural"="beach"]["name"](${b});
 );
 out center;`
@@ -302,10 +337,17 @@ out center;`
 out center;`
     },
     {
+      // Consolidation 2026-11-06 (places evaluation leak #3): the
+      // old chunk ANDed a name-regex ("market") into the QUERY, so
+      // it returned 0 in all five evaluated destinations — dead by
+      // construction. The query now collects the named shop stock
+      // and the CLASSIFIER keeps its name gate (a shop is only a
+      // "market" when its name says so) — same discipline, the
+      // filter lives in one place instead of two.
       id: "markets",
       query: `${head}(
-  node["shop"~"farm|greengrocer|food|deli"]["name"~"market",i](${b});
-  way["shop"~"farm|greengrocer|food|deli"]["name"~"market",i](${b});
+  node["shop"~"farm|greengrocer|food|deli|supermarket"]["name"](${b});
+  way["shop"~"farm|greengrocer|food|deli|supermarket"]["name"](${b});
 );
 out center;`
     }
@@ -498,6 +540,47 @@ export async function collectPoiCandidates(
     }
   }
 
+  // Repair pass (consolidation 2026-11-06, ferry case): the
+  // public mirrors' observed failure mode is transient 502/504
+  // "at capacity" bursts. A chunk dropped in a burst used to stay
+  // dropped — a plausible mechanism for the intermittent Lévis
+  // ferry miss (the amenities chunk carries the ferry terminals).
+  // While a real slice of the budget remains, each failed chunk
+  // gets ONE more ladder over the mirrors before the collection
+  // is allowed to call itself partial. A pack that is still
+  // partial after the repair pass says so in its provenance
+  // (liveBuildProvenance) — partial never ships silently.
+  if (failedChunks.length > 0) {
+    const retryIds = [...failedChunks];
+    for (const chunkId of retryIds) {
+      const remainingMs = deadlineMs - (now().getTime() - startedAt);
+      if (remainingMs < 15_000) break;
+      const chunk = chunks.find((c) => c.id === chunkId);
+      if (!chunk) continue;
+      const retryPolicy: FetchPolicy = {
+        ...policy,
+        maxRounds: 1,
+        attemptTimeoutMs: Math.min(45_000, Math.max(1, Math.floor(remainingMs / 3))),
+        backoffBaseMs: Math.max(policy.backoffBaseMs, 4_000)
+      };
+      try {
+        const res = await fetchOverpass(fetcher, chunk.query, retryPolicy);
+        failedChunks.splice(failedChunks.indexOf(chunkId), 1);
+        succeededChunks.push(chunkId);
+        elements.push(...res.elements);
+        if (chunkId === "wide") {
+          wideEndpoint = res.endpoint;
+          wideElements = res.elements.length;
+        } else {
+          if (!mainEndpoint) mainEndpoint = res.endpoint;
+          mainElements += res.elements.length;
+        }
+      } catch {
+        /* still failed — the chunk stays on the partial record */
+      }
+    }
+  }
+
   if (!succeededChunks.length) {
     throw new Error(
       `Overpass collection failed for every chunk (${chunks.map((c) => c.id).join(", ")}): ${chunkErrors.join(" | ")}`
@@ -577,6 +660,70 @@ export async function fetchWeatherDays(
     precipProb: daily.precipitation_probability_max?.[i] ?? null
   }));
   return { days, fetchedAt: toInstant(now()), providerTimeZone: json.timezone ?? null };
+}
+
+/* ------------------------------------------------------------------ */
+/* Guide enrichment — the thin-destination fallback's second step    */
+/* (consolidation 2026-11-06). When the OSM stock inside the         */
+/* registry box is thin, the open guides are the honest next         */
+/* source: Wikipedia (Wikidata-backed articles) and Wikivoyage       */
+/* sights near the centre, via the MediaWiki geosearch API — free,   */
+/* no key. Rows are labelled with their source in tags + the pack    */
+/* provenance; they carry NO opening hours and NO invented facts —   */
+/* a title, a position, and a link to the article.                   */
+/* ------------------------------------------------------------------ */
+
+export async function fetchGuideSights(
+  fetcher: Fetcher,
+  centre: { lat: number; lon: number },
+  policy: FetchPolicy = DEFAULT_FETCH_POLICY
+): Promise<StoredCandidate[]> {
+  const out: StoredCandidate[] = [];
+  const seen = new Set<string>();
+  const sources: { host: string; source: string }[] = [
+    { host: "en.wikipedia.org", source: "wikipedia-geosearch" },
+    { host: "en.wikivoyage.org", source: "wikivoyage-geosearch" }
+  ];
+  for (const { host, source } of sources) {
+    try {
+      const url =
+        `https://${host}/w/api.php?action=query&generator=geosearch&ggsprimary=all&ggsnamespace=0` +
+        `&ggsradius=10000&ggslimit=50&ggscoord=${centre.lat}|${centre.lon}` +
+        `&prop=coordinates&format=json&formatversion=2`;
+      const text = await fetchTextWithTimeout(
+        fetcher,
+        url,
+        { headers: { "User-Agent": COLLECTOR_USER_AGENT } },
+        Math.min(policy.attemptTimeoutMs, 20_000)
+      );
+      const json = JSON.parse(text) as {
+        query?: { pages?: { title?: string; coordinates?: { lat: number; lon: number }[] }[] };
+      };
+      for (const page of json.query?.pages || []) {
+        const title = (page.title || "").trim();
+        const coord = page.coordinates?.[0];
+        if (!title || !coord || !Number.isFinite(coord.lat) || !Number.isFinite(coord.lon)) continue;
+        const dedupeKey = title.toLowerCase();
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        out.push({
+          candidateKey: sourceKey("guide", `${source}:${title}`),
+          osmKey: `guide:${source}:${title}`,
+          kind: "attraction",
+          name: title,
+          nameEn: title,
+          pos: { lat: coord.lat, lon: coord.lon },
+          hoursRaw: null,
+          tags: { source },
+          url: `https://${host}/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`,
+          enrichment: null
+        });
+      }
+    } catch {
+      /* one guide being unreachable never fails the enrichment */
+    }
+  }
+  return out;
 }
 
 /** Provenance for a pack version built by the live collector path. */

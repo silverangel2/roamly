@@ -1046,7 +1046,18 @@ async function createCheckoutSession(
     payment_intent_data:
       priceValidation.mode === "payment"
         ? {
-            metadata
+            metadata,
+            // Receipt path (checkout-success fix, 2026-11-06):
+            // Stripe sends its receipt through ONE mechanism — the
+            // charge's receipt — addressed to receipt_email when
+            // set. Checkout previously set no address at all, so a
+            // traveller's only receipt was whatever the Stripe
+            // dashboard toggle happened to do with the customer
+            // record. Setting the buyer's own email here makes the
+            // Stripe receipt deterministic; it cannot double-send
+            // (same single Stripe receipt per charge) and the
+            // in-app confirmation links the same receipt_url.
+            ...(user.email ? { receipt_email: user.email } : {})
           }
         : undefined,
     subscription_data:

@@ -1,3 +1,4 @@
+import { PHOTON_SOURCE, searchPhoton } from "@/lib/roamly/engine/photon";
 import { destinationRegistryId, shadowBBox } from "@/lib/roamly/engine/packs/destinations";
 import type { DestinationDTO } from "@/lib/roamly/engine/types";
 import type { UtcInstant } from "@/lib/roamly/engine/time";
@@ -45,6 +46,11 @@ export interface GeocodedPlace {
   osmId: number;
   importance: number;
   displayName: string;
+  /** Which candidate source produced this place ("photon" is the
+   *  primary since the 2026-11-06 consolidation; "nominatim" is
+   *  the fallback lane). Absent on places built by older code and
+   *  by proofs — readers default it to GEOCODER_SOURCE. */
+  source?: string;
 }
 
 export type GeocodeOutcome =
@@ -178,9 +184,107 @@ export async function geocodePlaceWithNominatim(
   }
 }
 
-/** Default production geocoder over the global fetch. */
-export const liveGeocoder = (name: string): Promise<GeocodeOutcome> =>
-  geocodePlaceWithNominatim((url, init) => fetch(url, init), name);
+/* ------------------------------------------------------------------ */
+/* Photon — the PRIMARY candidate source (consolidation 2026-11-06)  */
+/*                                                                     */
+/* Photon features are mapped into the Nominatim result shape and    */
+/* run through the SAME classifyGeocodeResults discipline — place/   */
+/* boundary preference, importance ordering, cross-country near-tie  */
+/* ambiguity — so the flip changes where candidates come from, not   */
+/* how strictly they are judged. Photon returns no importance score: */
+/* its rank order is mapped onto a descending ladder with enough     */
+/* spread that a clear rank-1 winner is not a near-tie, while a      */
+/* genuinely split field still trips the ambiguity rule. The         */
+/* picker's country (when the caller knows it) filters candidates    */
+/* BEFORE classification — the evaluation's Lévis case: unbaised,    */
+/* France outranks Canada; with the country the traveller picked,    */
+/* the Canadian city is simply the answer. NO layer filter is used   */
+/* (layer=city returns zero results for "Quebec City" — tested).     */
+/* ------------------------------------------------------------------ */
+
+const PHOTON_OSM_TYPE: Record<string, string> = { N: "node", W: "way", R: "relation" };
+
+export function photonFeatureToNominatimShape(feature: {
+  geometry?: { coordinates?: [number, number] };
+  properties?: Record<string, unknown>;
+}, rank: number): NominatimResult | null {
+  const props = feature.properties || {};
+  const coords = feature.geometry?.coordinates;
+  if (!Array.isArray(coords) || coords.length !== 2) return null;
+  const [lon, lat] = coords;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  const osmKey = typeof props.osm_key === "string" ? props.osm_key : "";
+  const name = typeof props.name === "string" ? props.name : "";
+  const country = typeof props.country === "string" ? props.country : "";
+  const city = typeof props.city === "string" ? props.city : "";
+  return {
+    osm_type: PHOTON_OSM_TYPE[String(props.osm_type || "N")] || "node",
+    osm_id: typeof props.osm_id === "number" ? props.osm_id : 0,
+    lat: String(lat),
+    lon: String(lon),
+    category: osmKey || undefined,
+    type: typeof props.osm_value === "string" ? props.osm_value : undefined,
+    // Rank ladder: 0.66, 0.56, 0.46, ... floored at 0.31 so the
+    // classifier's >= 0.3 runner-up rule can still see a split
+    // field, with 0.10 between adjacent ranks — a clean rank gap
+    // is decisive, adjacent cross-country ranks read as the
+    // near-tie they are.
+    importance: Math.max(0.31, 0.66 - rank * 0.1),
+    display_name: [name, city, country].filter(Boolean).join(", "),
+    address: {
+      ...(city ? { city } : {}),
+      ...(country ? { country } : {}),
+      ...(typeof props.countrycode === "string" ? { country_code: props.countrycode.toLowerCase() } : {})
+    }
+  };
+}
+
+/** One Photon lookup for one place name, classified by the
+ *  existing discipline. Never throws. */
+export async function geocodePlaceWithPhoton(
+  fetcher: GeocodeFetcher,
+  name: string,
+  countryHint?: string | null,
+  timeoutMs = 6_000
+): Promise<GeocodeOutcome> {
+  const { features, error } = await searchPhoton(fetcher, name, { limit: 8 }, timeoutMs);
+  if (error) return { kind: "unavailable", reason: error };
+  let usable = features;
+  const hint = (countryHint || "").trim().toLowerCase();
+  if (hint) {
+    const filtered = features.filter((f) => {
+      const cc = (f.properties?.countrycode || "").toLowerCase();
+      const country = (f.properties?.country || "").toLowerCase();
+      return cc === hint || country === hint;
+    });
+    // The hint narrows; it never empties the field into a false
+    // not_found when Photon plainly has the place under another
+    // country reading.
+    if (filtered.length) usable = filtered;
+  }
+  const mapped: NominatimResult[] = [];
+  usable.forEach((feature, i) => {
+    const row = photonFeatureToNominatimShape(feature as never, i);
+    if (row) mapped.push(row);
+  });
+  const outcome = classifyGeocodeResults(mapped);
+  if (outcome.kind === "found") {
+    outcome.place.source = PHOTON_SOURCE;
+  }
+  return outcome;
+}
+
+/** Default production geocoder over the global fetch: Photon
+ *  PRIMARY, Nominatim FALLBACK (consolidation 2026-11-06). A
+ *  Photon "found" or "ambiguous" is a discipline answer and
+ *  stands; "not_found"/"unavailable" fall through to the
+ *  Nominatim lane, whose own discipline then decides. */
+export const liveGeocoder = async (name: string, countryHint?: string | null): Promise<GeocodeOutcome> => {
+  const fetcher: GeocodeFetcher = (url, init) => fetch(url, init);
+  const photon = await geocodePlaceWithPhoton(fetcher, name, countryHint);
+  if (photon.kind === "found" || photon.kind === "ambiguous") return photon;
+  return geocodePlaceWithNominatim(fetcher, name);
+};
 
 /** The plan-time zone for a place, from Open-Meteo (free, no
  *  key — the same provider the pack weather snapshots use, with
@@ -216,6 +320,7 @@ export async function resolveTimeZoneForCoords(
  *  ID, hence one registration. The bbox is the registry's own
  *  shadow rule, identical to the seeded destinations'. */
 export function buildAutoRegistration(place: GeocodedPlace, timeZone: string, now: Date): DestinationDTO {
+  const source = place.source || GEOCODER_SOURCE;
   return {
     destinationId: destinationRegistryId(place.country, place.canonicalName, place.centre),
     displayName: place.canonicalName,
@@ -224,18 +329,19 @@ export function buildAutoRegistration(place: GeocodedPlace, timeZone: string, no
     bbox: shadowBBox(place.centre, "city"),
     timeZone,
     geocodeProvenance: {
-      source: GEOCODER_SOURCE,
-      sourceRef: `nominatim:${place.osmType}:${place.osmId}`,
+      source,
+      sourceRef: `${source}:${place.osmType}:${place.osmId}`,
       recordedAt: now.toISOString() as UtcInstant,
-      label: `Auto-registered ${now.toISOString()} from OpenStreetMap/Nominatim geocoding (${place.displayName}); first trip request for this destination.`
+      label: `Auto-registered ${now.toISOString()} from OpenStreetMap geocoding via ${source === "photon" ? "Photon" : "Nominatim"} (${place.displayName}); first trip request for this destination.`
     }
   };
 }
 
 /** The durable identity of a geocoded place inside the registry:
- *  its Nominatim source reference. A later variant spelling that
+ *  its geocoder source reference. A later variant spelling that
  *  resolves to the same OSM object finds the existing row by
  *  this reference even if its content ID somehow differed. */
 export function geocodeSourceRef(place: GeocodedPlace): string {
-  return `nominatim:${place.osmType}:${place.osmId}`;
+  const source = place.source || GEOCODER_SOURCE;
+  return `${source}:${place.osmType}:${place.osmId}`;
 }

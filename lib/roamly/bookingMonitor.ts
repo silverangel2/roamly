@@ -17,6 +17,7 @@ import { applyStoredItineraryBookingOverride } from "@/lib/roamly/itineraryBooki
 import { markBookingNotificationsWithdrawn } from "@/lib/roamly/bookingNotificationWithdrawal";
 import { runGmailStalenessDetector } from "@/lib/roamly/gmailStalenessDetector";
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
+import { anyWorkPresent, countWorkRows } from "@/lib/roamly/workGate";
 
 type ConnectionRow = {
   id: string;
@@ -662,7 +663,71 @@ async function monitorUpcomingFlights(
   };
 }
 
+/**
+ * EGRESS DIET (2026-11-02, F2) — work gate for the booking monitor.
+ * Booking Recon legitimately works BEFORE travel: it watches for
+ * bookings once a traveler activates it, so its work rows are not
+ * "trips in window" — they are the monitor's own three work sources,
+ * counted here with the monitor's exact predicates:
+ *   1. Gmail connections due a sync (connected/error, last sync
+ *      older than SYNC_INTERVAL_MINUTES or never);
+ *   2. Gmail watch subscriptions due renewal (expiration within the
+ *      same 24h horizon renewDueGmailWatches uses);
+ *   3. flight bookings inside the monitor's own lookahead/lookback
+ *      window (-8h…+72h, same statuses/filters as
+ *      monitorUpcomingFlights).
+ * Fail-open: any count error counts as work.
+ */
+export async function bookingMonitorHasWork(
+  admin: SupabaseClient,
+  now: Date = new Date()
+): Promise<boolean> {
+  const dueBefore = new Date(now.getTime() - SYNC_INTERVAL_MINUTES * 60_000).toISOString();
+  const watchHorizon = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+  const windowStart = new Date(now.getTime() - FLIGHT_LOOKBACK_HOURS * 60 * 60 * 1000).toISOString();
+  const windowEnd = new Date(now.getTime() + FLIGHT_LOOKAHEAD_HOURS * 60 * 60 * 1000).toISOString();
+  const counts = await Promise.all([
+    countWorkRows(admin, "email_connections", (query) =>
+      query
+        .in("connection_status", ["connected", "error"])
+        .eq("provider", "gmail")
+        .or(`last_synced_at.is.null,last_synced_at.lte.${dueBefore}`)
+    ),
+    countWorkRows(admin, "email_watch_subscriptions", (query) =>
+      query
+        .eq("provider", "gmail")
+        .in("status", ["active", "renewal_due", "expired", "error"])
+        .not("expiration_time", "is", null)
+        .lte("expiration_time", watchHorizon)
+    ),
+    countWorkRows(admin, "roamly_bookings", (query) =>
+      query
+        .eq("booking_type", "flight")
+        .in("booking_status", ["booked", "paid", "reserved"])
+        .not("trip_id", "is", null)
+        .is("superseded_by_booking_id", null)
+        .not("flight_number", "is", null)
+        .gte("start_at", windowStart)
+        .lte("start_at", windowEnd)
+    )
+  ]);
+  return anyWorkPresent(counts);
+}
+
 export async function runScheduledBookingMonitor() {
+  // EGRESS DIET (F2): gate before the lock — no due connections, no
+  // due watches and no in-window flights means no work; skip the
+  // lock writes and the run-row insert entirely.
+  const gateAdmin = createSupabaseAdminClient();
+  if (gateAdmin && !(await bookingMonitorHasWork(gateAdmin).catch(() => true))) {
+    return {
+      ok: true as const,
+      skipped: true,
+      gated: true as const,
+      reason: "No due booking-monitor work (connections, watches, flights)."
+    };
+  }
+
   const lock = await acquireMonitorLock();
 
   if (!lock.ok) {

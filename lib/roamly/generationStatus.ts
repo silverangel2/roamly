@@ -8,7 +8,11 @@ type MetadataProgress = {
 
 export type StagedGenerationStatusJobRow = {
   status?: string | null;
-  error_message?: string | null;
+  // The jobs table's real error column (consolidation 2026-11-06:
+  // this type previously declared the layers table's
+  // `error_message`, which is what pulled the phantom column into
+  // the status route's select — the 42703).
+  last_error_message?: string | null;
   completed_at?: string | null;
   updated_at?: string | null;
 };
@@ -85,7 +89,7 @@ export function deriveTripGenerationStatus({
 
   const jobMarkedComplete =
     isCompletedStatus(latestJob?.status) ||
-    latestJob?.error_message === "STAGED_GENERATION_COMPLETED";
+    latestJob?.last_error_message === "STAGED_GENERATION_COMPLETED";
   const layersMarkedComplete =
     layers.length > 0 && layers.every((layer) => isCompletedStatus(layer.status));
   const countsMarkedComplete =

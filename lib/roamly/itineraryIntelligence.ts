@@ -21,6 +21,11 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
 import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { flightMarketFreshness } from "@/lib/roamly/selectedFlightIdentity";
 import { publicEventTruthForMarketResult } from "@/lib/roamly/publicEventDiscovery";
+import {
+  demoteToDiscoverySuggestion,
+  isSearchQueryTitle,
+  isTimelineAdmissibleCandidate
+} from "@/lib/roamly/timelineGrounding";
 
 const MAX_PRIMARY_TIMELINE_ITEMS = 6;
 const SHORT_TRANSFER_MINUTES = 15;
@@ -210,16 +215,12 @@ function desiredCategories(item: RoamlyActivitySeed): TravelMarketCategory[] {
   return ["attraction", "tour", "restaurant"];
 }
 
-function searchTitleForItem(item: RoamlyActivitySeed, payload: TripPlannerPayload) {
-  const destination = clean(item.location_name) && !isGenericPlaceName(item.location_name)
-    ? clean(item.location_name)
-    : clean(payload.destination || payload.destinationCity) || "destination";
-  const type = timelineType(item);
-  if (type === "meal") return `Search restaurants near ${destination}`;
-  if (type === "hotel") return `Search stays in ${destination}`;
-  if (type === "travel") return `Search route to ${destination}`;
-  return `Search verified places near ${destination}`;
-}
+/* KF-1 (2026-11-03): the former searchTitleForItem retitle — which
+ * renamed an ungroundable generic item into a search query
+ * ("Search restaurants near …", "Search verified places near …") and
+ * thereby manufactured the exact titles the final validator rejects —
+ * is removed. Ungroundable items are demoted to DISCOVERY_SUGGESTION
+ * by applyMarketIdentity instead (see timelineGrounding.ts). */
 
 function movementText(item: RoamlyActivitySeed) {
   const origin = clean(item.origin);
@@ -280,19 +281,49 @@ function applyMarketIdentity(
   item: RoamlyActivitySeed,
   payload: TripPlannerPayload,
   marketResults: TravelMarketResult[],
-  usedMarketIds: Set<string>
+  usedMarketIds: Set<string>,
+  dayNumber?: number | null
 ) {
   if (item.title === "Unresolved place") return item;
   if (!isGenericTimelineItem(item, payload)) return item;
-  const candidate = marketResults.find((result) => desiredCategories(item).includes(result.category) && !usedMarketIds.has(result.id));
+  const destination = clean(payload.destination || payload.destinationCity);
+  const categories = desiredCategories(item);
+  // KF-1 pool admission control: only NAMED candidates may be bound as
+  // factual timeline items. A search_ready fallback whose title is a
+  // search query is a booking suggestion, not a place — it is never
+  // selected here, so its query title can no longer be copied onto
+  // the timeline. The item's own already-bound candidate is preferred
+  // when it is admissible and unconsumed, so a candidate can never be
+  // bound on a second day through this pass (the shared used-set is
+  // honoured for pre-bound items too, not just fresh bindings).
+  const ownCandidate = item.candidateId
+    ? marketResults.find((result) => result.id === item.candidateId)
+    : undefined;
+  const candidate =
+    ownCandidate &&
+    categories.includes(ownCandidate.category) &&
+    !usedMarketIds.has(ownCandidate.id) &&
+    isTimelineAdmissibleCandidate(ownCandidate, destination)
+      ? ownCandidate
+      : marketResults.find(
+          (result) =>
+            categories.includes(result.category) &&
+            !usedMarketIds.has(result.id) &&
+            isTimelineAdmissibleCandidate(result, destination)
+        );
   if (!candidate) {
-    const title = searchTitleForItem(item, payload);
+    // KF-1: no named candidate exists for this generic item. Demote it
+    // to a non-factual discovery suggestion with a neutral title
+    // instead of retitling it into a search query.
+    const demoted = demoteToDiscoverySuggestion(item, {
+      destination,
+      dayNumber,
+      itemType: timelineType(item)
+    });
     return {
-      ...item,
-      title,
-      location_name: clean(payload.destination || payload.destinationCity) || clean(item.location_name) || title,
-      map_query: title,
-      description: "Search-only fallback; verify the exact place, hours, route, and price before relying on it."
+      ...demoted,
+      location_name: clean(item.location_name) || destination || demoted.title,
+      map_query: isSearchQueryTitle(item.map_query, destination) ? demoted.title : item.map_query || demoted.title
     };
   }
   usedMarketIds.add(candidate.id);
@@ -395,10 +426,10 @@ function capPrimaryItems(items: RoamlyActivitySeed[], payload: TripPlannerPayloa
   return items.filter((_, index) => keepIndexes.has(index));
 }
 
-function normalizeTimeline(items: RoamlyActivitySeed[], payload: TripPlannerPayload, marketResults: TravelMarketResult[], usedMarketIds: Set<string>) {
+function normalizeTimeline(items: RoamlyActivitySeed[], payload: TripPlannerPayload, marketResults: TravelMarketResult[], usedMarketIds: Set<string>, dayNumber?: number | null) {
   const identityFixed = items
     .map((item) => ({ ...item, item_type: timelineType(item) }))
-    .map((item) => applyMarketIdentity(item, payload, marketResults, usedMarketIds))
+    .map((item) => applyMarketIdentity(item, payload, marketResults, usedMarketIds, dayNumber))
     .map(fixMealTiming);
   return capPrimaryItems(mergeShortTransfersIntoFollowingActivity(identityFixed), payload);
 }
@@ -721,12 +752,57 @@ export function applyRoamlyItineraryIntelligence(
 ): RoamlyItinerary {
   const marketResults = itineraryMarketResults(payload);
   const usedMarketIds = new Set<string>();
-  const daily_itinerary: RoamlyDayPlan[] = itinerary.daily_itinerary.map((day) => ({
+  // KF-1 cross-day dedupe seed: candidates already bound by NON-generic
+  // timeline items (which applyMarketIdentity leaves untouched) still
+  // consume their candidate, so a generic item on a later day can never
+  // re-bind the same candidate the Charlottetown repair pass duplicated
+  // ("Events in Charlottetown" bound on Day 2 while Day 1's non-generic
+  // namesake never consumed it).
+  for (const day of itinerary.daily_itinerary) {
+    for (const item of day.live_timeline || []) {
+      const type = timelineType(item);
+      if (
+        item.candidateId &&
+        (type === "activity" || type === "meal") &&
+        !isGenericTimelineItem(item, payload)
+      ) {
+        usedMarketIds.add(item.candidateId);
+      }
+    }
+  }
+  const normalizedDays: RoamlyDayPlan[] = itinerary.daily_itinerary.map((day) => ({
     ...day,
     food: (day.food || [])
       .filter((item) => !isGenericPlaceName(item))
       .slice(0, 4),
-    live_timeline: normalizeTimeline(day.live_timeline || [], payload, marketResults, usedMarketIds)
+    live_timeline: normalizeTimeline(day.live_timeline || [], payload, marketResults, usedMarketIds, day.day_number)
+  }));
+
+  // KF-1 cross-day dedupe for candidate-bound activity/meal items: the
+  // same candidate (Banff's single restaurant candidate bound as the
+  // meal on two days) or the same bound title must not survive on a
+  // second day. Later occurrences are demoted to discovery
+  // suggestions; the final validator remains the arbiter for any
+  // repeat this pass cannot see (e.g. unbound model-written titles).
+  const destination = clean(payload.destination || payload.destinationCity);
+  const seenCandidateDays = new Map<string, number>();
+  const seenBoundTitleDays = new Map<string, number>();
+  const daily_itinerary: RoamlyDayPlan[] = normalizedDays.map((day) => ({
+    ...day,
+    live_timeline: (day.live_timeline || []).map((item) => {
+      const type = timelineType(item);
+      if ((type !== "activity" && type !== "meal") || !item.candidateId) return item;
+      const titleKey = `${type}:${uniqueKey(item.title)}`;
+      const candidateSeenDay = seenCandidateDays.get(item.candidateId);
+      const titleSeenDay = seenBoundTitleDays.get(titleKey);
+      const repeatsEarlierDay =
+        (candidateSeenDay != null && candidateSeenDay !== day.day_number) ||
+        (titleSeenDay != null && titleSeenDay !== day.day_number);
+      if (candidateSeenDay == null) seenCandidateDays.set(item.candidateId, day.day_number);
+      if (titleSeenDay == null) seenBoundTitleDays.set(titleKey, day.day_number);
+      if (!repeatsEarlierDay) return item;
+      return demoteToDiscoverySuggestion(item, { destination, dayNumber: day.day_number, itemType: type });
+    })
   }));
 
   return {

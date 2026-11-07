@@ -38,7 +38,7 @@ import { createHash } from "crypto";
  *     carry and serve as idempotency keys beside them.
  */
 
-export type IdSource = "osm" | "google" | "gmail" | "library" | "manual" | "overture";
+export type IdSource = "osm" | "google" | "gmail" | "library" | "manual" | "overture" | "guide";
 
 export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");

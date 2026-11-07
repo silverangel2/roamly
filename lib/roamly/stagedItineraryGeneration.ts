@@ -19,6 +19,14 @@ import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "
 import { searchTripMarketPrices, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
 import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
+import {
+  augmentMarketResultsWithPackFallback,
+  demoteToDiscoverySuggestion,
+  isPlaceholderTitle,
+  isSearchQueryTitle,
+  isTimelineAdmissibleCandidate,
+  packFallbackMarketResults
+} from "@/lib/roamly/timelineGrounding";
 import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { rankActivityCandidates } from "@/lib/roamly/activityFeasibility";
 import {
@@ -41,6 +49,7 @@ import { applyStagedMustDoVerification } from "@/lib/roamly/stagedMustDoVerifica
 import { buildTravelerPersonalizationContext, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { dualWriteGenerationState } from "@/lib/roamly/generationStateStore";
 import { readRelevantSuccessfulTripPatterns, selectRelevantSuccessfulTripPatterns } from "@/lib/roamly/successfulTripExperiencePatterns";
 
 export type StagedGenerationStatus =
@@ -1005,6 +1014,21 @@ export function enforceGroundedTimelineCandidates(day: RoamlyDayPlan, payload: T
     if (item.candidateId) {
       const candidate = byId.get(item.candidateId);
       if (!candidate || !timelineCandidateCategory(item).includes(candidate.category)) return [];
+      // KF-1 pool admission control (2026-11-03): a candidate whose
+      // title is a search query (the search_ready fallback shape) is a
+      // booking suggestion, not a place. It must never be rehydrated
+      // onto the timeline as a factual item — the item is demoted to
+      // a discovery suggestion instead, and any named pack/market
+      // candidate can still ground the slot later in repair.
+      if (!isTimelineAdmissibleCandidate(candidate, payload.destination || payload.destinationCity)) {
+        return [
+          demoteToDiscoverySuggestion(item, {
+            destination: payload.destination || payload.destinationCity,
+            dayNumber: day.day_number,
+            itemType: stagedItemType(item)
+          })
+        ];
+      }
       return [rehydrateGroundedTimelineItem(item, candidate)];
     }
 
@@ -1025,6 +1049,11 @@ function verifiedCandidatesForPrompt(payload: TripPlannerPayload, state: StagedG
   const candidates = itineraryMarketResults(payloadWithStateDiscovery(payload, state))
     .filter((result) => ["hotel", "attraction", "tour", "restaurant", "transport"].includes(result.category))
     .filter((result) => result.title && !isGenericPlaceName(result.title))
+    // KF-1: never offer search-query candidates to the model as
+    // placeable inventory — the model can only bind what it is shown,
+    // and a query title shown here is what used to land on the
+    // timeline verbatim.
+    .filter((result) => isTimelineAdmissibleCandidate(result, payload.destination || payload.destinationCity))
   const activityResults = candidates.filter((result) => ["attraction", "tour"].includes(result.category));
   const mustDoRequirements = payload.constraints?.activity?.mustDoActivities || (payload.explicitRequirements || []).filter((item) => item.type === "activity" && item.priority === "hard");
   const activityContext = {
@@ -1506,7 +1535,11 @@ function parseTime(value?: string | null) {
   return hours * 60 + minutes;
 }
 
-function validateDay(day: RoamlyDayPlan, expectedDayNumber: number) {
+function validateDay(
+  day: RoamlyDayPlan,
+  expectedDayNumber: number,
+  priorActivityMealTitles?: Map<string, number>
+) {
   const errors: string[] = [];
   if (day.day_number !== expectedDayNumber) errors.push("Wrong day number.");
   if (!day.title.trim()) errors.push("Missing day title.");
@@ -1524,6 +1557,42 @@ function validateDay(day: RoamlyDayPlan, expectedDayNumber: number) {
     if (start != null && end != null && end <= start) errors.push(`${item.title} ends before it starts.`);
     if (start != null && previousEnd != null && start < previousEnd) errors.push(`${item.title} overlaps the previous item.`);
     if (end != null) previousEnd = Math.max(previousEnd ?? 0, end);
+    // KF-1 (2026-11-03): day-local traveler-readiness checks, shifted
+    // left from finalization. A search/placeholder title or an
+    // ungrounded hotel discovered here fails the BATCH — while the
+    // batch can still be regenerated — instead of surfacing only at
+    // final validation, where nothing could regenerate content. The
+    // final validator (lib/itinerary.ts) still runs unchanged and
+    // remains the arbiter; these checks mirror its day-local rules.
+    if (isPlaceholderTitle(item.title)) {
+      errors.push(`Day ${day.day_number} item ${item.title || "(untitled)"}: search is not a plan.`);
+    }
+    const type = stagedItemType(item);
+    if (type === "hotel") {
+      const factual = String(item.factualStatus || "").toLowerCase();
+      const grounded = Boolean(item.candidateId) || ["verified", "search_ready", "estimated"].includes(factual);
+      if (!item.title?.trim() || isPlaceholderTitle(item.title) || !grounded) {
+        errors.push(`Day ${day.day_number} hotel ${item.title || "(untitled)"} has no grounding/provenance.`);
+      }
+    }
+    if (priorActivityMealTitles && (type === "activity" || type === "meal")) {
+      const repeatKey = `${type}:${normalizedTextKey(item.title || "")}`;
+      const previousDay = priorActivityMealTitles.get(repeatKey);
+      // Mirror the validator's V1 relaxed-return exception exactly:
+      // activity only, solver-stamped, anchored to the previous
+      // accepted visit, gap >= 4 days, market/park kind.
+      const isLegitimateRelaxedReturn =
+        type === "activity" &&
+        item.repeat === true &&
+        Number.isInteger(item.firstDay) &&
+        previousDay != null &&
+        item.firstDay === previousDay &&
+        day.day_number - previousDay >= 4 &&
+        (item.kind === "market" || item.kind === "park");
+      if (previousDay != null && previousDay !== day.day_number && !isLegitimateRelaxedReturn) {
+        errors.push(`${type} ${item.title} must not repeat across days.`);
+      }
+    }
   }
   return errors;
 }
@@ -1618,6 +1687,14 @@ async function persistState(params: {
     .eq("id", params.trip.id)
     .eq("user_id", params.trip.user_id);
   if (update.error) throw new StagedGenerationError(update.error.message, "GENERATION_STATE_SAVE_FAILED", 500);
+  // GAP-CLOSURE 5a: dual-write the same state object into
+  // roamly_trip_generation_states (fail-soft — the metadata write
+  // above stays exactly as it was and remains a complete copy).
+  await dualWriteGenerationState(params.supabase, {
+    tripId: params.trip.id,
+    userId: params.trip.user_id,
+    state
+  });
   return state;
 }
 
@@ -1683,6 +1760,16 @@ async function claimTrip(supabase: SupabaseClient, trip: RoamlyTripRecord, state
     .select("*")
     .maybeSingle();
   if (error) throw new StagedGenerationError(error.message, "GENERATION_CLAIM_FAILED", 500);
+  if (data) {
+    // GAP-CLOSURE 5a: dual-write the claimed state (lease included)
+    // alongside the metadata claim write above — only on a claim
+    // that actually landed (data returned), fail-soft as always.
+    await dualWriteGenerationState(supabase, {
+      tripId: trip.id,
+      userId: trip.user_id,
+      state: claimedState
+    });
+  }
   return data ? (data as RoamlyTripRecord) : null;
 }
 
@@ -1692,6 +1779,66 @@ function releaseLease(state: StagedGenerationState) {
     worker: null,
     updatedAt: nowIso()
   };
+}
+
+/**
+ * KF-1 named-pool fallback (2026-11-03): when the market pool names no
+ * place for a category, add the destination pack's named inventory
+ * (stays / sights / foods already collected for the zero-engine) to
+ * the discovery pool as candidates, so the staged path can ground a
+ * thin destination in real named places instead of collapsing to
+ * search-query fallbacks. READ-ONLY against the pack store (a missing
+ * or unbuilt pack simply means no fallback) and fail-soft: any error
+ * returns the discovery unchanged. This runs once per generation at
+ * context preparation — no extra model calls, no extra egress beyond
+ * the pack rows themselves.
+ */
+async function augmentDiscoveryWithPackFallback<T extends { marketResults?: TravelMarketResult[] }>(
+  payload: TripPlannerPayload,
+  discovery: T
+): Promise<T> {
+  try {
+    const admin = createSupabaseAdminClient();
+    if (!admin) return discovery;
+    const [{ SupabasePackStore }, { assembleEnginePack }] = await Promise.all([
+      import("@/lib/roamly/engine/packs/supabaseStore"),
+      import("@/lib/roamly/engine/packs/builder")
+    ]);
+    const store = new SupabasePackStore(admin);
+    const targetName = normalizedTextKey(payload.destination || payload.destinationCity || "");
+    if (!targetName) return discovery;
+    const destinations = await store.listDestinations();
+    const destination =
+      destinations.find(
+        (entry) =>
+          normalizedTextKey(entry.displayName) === targetName &&
+          (!payload.destinationCountry ||
+            !entry.country ||
+            normalizedTextKey(entry.country) === normalizedTextKey(payload.destinationCountry))
+      ) || destinations.find((entry) => normalizedTextKey(entry.displayName) === targetName);
+    if (!destination) return discovery;
+    const ready = await store.getReadyVersion(destination.destinationId);
+    if (!ready) return discovery;
+    const candidates = await store.getVersionCandidates(ready.dto.packVersionId);
+    if (!candidates.length) return discovery;
+    const pack = assembleEnginePack(destination, ready, candidates, []);
+    const packResults = packFallbackMarketResults(pack, {
+      destination: payload.destination || payload.destinationCity || destination.displayName,
+      country: payload.destinationCountry || destination.country,
+      currency: payload.budgetCurrency,
+      startDate: payload.startDate
+    });
+    const existing = discovery.marketResults || [];
+    const marketResults = augmentMarketResultsWithPackFallback(
+      existing,
+      packResults,
+      payload.destination || payload.destinationCity
+    );
+    if (marketResults.length === existing.length) return discovery;
+    return { ...discovery, marketResults };
+  } catch {
+    return discovery;
+  }
 }
 
 export async function prepareStagedGenerationContext(params: {
@@ -1741,13 +1888,14 @@ export async function prepareStagedGenerationContext(params: {
     ]
   });
   const groundedDiscovery = { ...discovery, groundedDecision };
+  const packAugmentedDiscovery = await augmentDiscoveryWithPackFallback(params.payload, groundedDiscovery);
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,
     { userId: params.userId, tripId: params.tripId, ...params.payload },
-    groundedDiscovery
+    packAugmentedDiscovery
   );
   return {
-    priceDiscovery: groundedDiscovery as unknown as Record<string, unknown>,
+    priceDiscovery: packAugmentedDiscovery as unknown as Record<string, unknown>,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
     budgetConstraint: buildBudgetConstraintForItinerary(discovery),
     confirmedBookings: confirmedBookings.bookings,
@@ -1912,6 +2060,136 @@ function finalValidationFailureState(
   });
 }
 
+/**
+ * KF-1 finalization sanitize (2026-11-03): the last generation-side
+ * pass before final validation. The day-clean and repair passes only
+ * rewrite GENERIC items, so a search-query candidate bound onto a
+ * non-generic timeline item (the archived Day-1 flight/hotel items)
+ * could otherwise reach the validator untouched. For every item still
+ * bound to a search-query candidate (or still carrying a search title
+ * as a search_ready fact):
+ *  - rebind it to a timeline-admissible (named) candidate of its
+ *    category that is not already used on another day — pack fallback
+ *    candidates included — via the ordinary rehydrate path;
+ *  - a hotel slot with no named candidate anywhere is REMOVED (a
+ *    demoted hotel item would itself fail hotel grounding; with no
+ *    named hotel in the pool the trip honestly still fails the
+ *    multi-day hotel rule, exactly as the validator demands);
+ *  - any other slot is demoted to a DISCOVERY_SUGGESTION with a
+ *    neutral title (never a search retitle).
+ * Cross-day activity/meal repeats that survived the earlier passes
+ * are demoted the same way (validator's relaxed-return exception
+ * mirrored, not widened). Deterministic; no model calls.
+ */
+export function sanitizeSearchBoundTimelineItems(
+  itinerary: RoamlyItinerary,
+  payload: TripPlannerPayload
+): RoamlyItinerary {
+  const marketResults = itineraryMarketResults(payload);
+  const byId = new Map(marketResults.map((result) => [result.id, result]));
+  const destination = payload.destination || payload.destinationCity;
+  const isSearchBound = (item: RoamlyActivitySeed) => {
+    const candidate = item.candidateId ? byId.get(item.candidateId) : undefined;
+    if (candidate) return !isTimelineAdmissibleCandidate(candidate, destination);
+    return item.factualStatus === "search_ready" && isSearchQueryTitle(item.title, destination);
+  };
+  const usedCandidateIds = new Set<string>();
+  for (const day of itinerary.daily_itinerary || []) {
+    for (const item of day.live_timeline || []) {
+      if (item.candidateId && !isSearchBound(item)) usedCandidateIds.add(item.candidateId);
+    }
+  }
+  const titleFirstDay = new Map<string, number>();
+  const daily_itinerary = (itinerary.daily_itinerary || []).map((day) => ({
+    ...day,
+    live_timeline: (day.live_timeline || []).flatMap((item) => {
+      const type = stagedItemType(item);
+      let current: RoamlyActivitySeed = item;
+      if (isSearchBound(item)) {
+        const categories = timelineCandidateCategory(item);
+        const candidate = marketResults.find(
+          (result) =>
+            categories.includes(result.category) &&
+            isTimelineAdmissibleCandidate(result, destination) &&
+            // Hotel candidates are not consumed: the same named stay
+            // legitimately backs the check-in slot on Day 1 and the
+            // checkout slot on the last day (it is one stay).
+            (result.category === "hotel" || !usedCandidateIds.has(result.id)) &&
+            !(
+              (type === "activity" || type === "meal") &&
+              titleFirstDay.has(`${type}:${normalizedTextKey(result.title)}`)
+            )
+        );
+        if (candidate) {
+          current = rehydrateGroundedTimelineItem(item, candidate);
+          if (candidate.category !== "hotel") usedCandidateIds.add(candidate.id);
+        } else if (type === "hotel") {
+          return [];
+        } else {
+          current = demoteToDiscoverySuggestion(item, {
+            destination,
+            dayNumber: day.day_number,
+            itemType: type
+          });
+        }
+      }
+      if (type === "activity" || type === "meal") {
+        const key = `${type}:${normalizedTextKey(current.title || "")}`;
+        const firstDay = titleFirstDay.get(key);
+        if (firstDay != null && firstDay !== day.day_number) {
+          const isLegitimateRelaxedReturn =
+            type === "activity" &&
+            current.repeat === true &&
+            Number.isInteger(current.firstDay) &&
+            current.firstDay === firstDay &&
+            day.day_number - firstDay >= 4 &&
+            (current.kind === "market" || current.kind === "park");
+          if (!isLegitimateRelaxedReturn) {
+            current = demoteToDiscoverySuggestion(current, {
+              destination,
+              dayNumber: day.day_number,
+              itemType: type,
+              forceNeutralTitle: true
+            });
+          }
+        } else if (firstDay == null) {
+          titleFirstDay.set(key, day.day_number);
+        }
+      }
+      return [current];
+    })
+  }));
+  return { ...itinerary, daily_itinerary };
+}
+
+/**
+ * The staged final-validation sequence, extracted verbatim from
+ * completeGeneration so offline harnesses exercise the exact
+ * production finalization path: validate the assembled itinerary; on
+ * failure apply the single deterministic repair+enrich pass and
+ * re-validate. KF-1 note: the repair pass is no longer blind to the
+ * pool defect — repairItineraryForTravelRequirements now binds only
+ * timeline-admissible (named) candidates, demotes ungroundable items
+ * instead of search-retitling them, dedupes candidates across days,
+ * and the payload pool itself carries named destination-pack fallback
+ * candidates for categories the market search could not name
+ * (see timelineGrounding.ts and prepareStagedGenerationContext).
+ */
+export function runStagedFinalValidation(itinerary: RoamlyItinerary, payload: TripPlannerPayload) {
+  let current = sanitizeSearchBoundTimelineItems(itinerary, payload);
+  let validation = validateItineraryForProduction(current, payload);
+  let validationAttemptCount = 1;
+  if (!validation.ok) {
+    current = sanitizeSearchBoundTimelineItems(
+      enrichItineraryBookingSuggestions(repairItineraryForTravelRequirements(current, payload), payload),
+      payload
+    );
+    validation = validateItineraryForProduction(current, payload);
+    validationAttemptCount = 2;
+  }
+  return { itinerary: current, validation, validationAttemptCount };
+}
+
 async function completeGeneration(params: {
   supabase: SupabaseClient;
   trip: RoamlyTripRecord;
@@ -1939,13 +2217,8 @@ async function completeGeneration(params: {
     budgetConstraint: state.budgetConstraint || undefined,
     confirmedBookings: state.confirmedBookings || undefined
   };
-  let itinerary = assembleItinerary(state);
-  let validation = validateItineraryForProduction(itinerary, payload);
-  let validationAttemptCount = 1;
-  if (!validation.ok) {
-    itinerary = enrichItineraryBookingSuggestions(repairItineraryForTravelRequirements(itinerary, payload), payload);
-    validation = validateItineraryForProduction(itinerary, payload);
-    validationAttemptCount = 2;
+  const { itinerary, validation, validationAttemptCount } = runStagedFinalValidation(assembleItinerary(state), payload);
+  if (validationAttemptCount > 1) {
     logGenerationDiagnostic("staged_generation_final_validation_repaired", {
       requestId: params.requestId,
       route: "stagedItineraryGeneration",
@@ -2440,7 +2713,28 @@ export async function advanceStagedItineraryGeneration(params: {
         errorCode: null
       }), ai);
       const batchDays = cleanBatchDays(ai.parsed, outlineDays, payloadWithStateDiscovery(state.payload, state));
-      const batchErrors = batchDays.flatMap((day) => validateDay(day, day.day_number));
+      // KF-1: cross-day repeat context for the day gate — titles from
+      // already-completed days, extended batch-day by batch-day so a
+      // repeat inside this batch is caught as well.
+      const priorActivityMealTitles = new Map<string, number>();
+      for (const completedDay of completedDays(state)) {
+        for (const item of completedDay.live_timeline) {
+          const priorType = stagedItemType(item);
+          if (priorType !== "activity" && priorType !== "meal") continue;
+          const key = `${priorType}:${normalizedTextKey(item.title || "")}`;
+          if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, completedDay.day_number);
+        }
+      }
+      const batchErrors: string[] = [];
+      for (const day of [...batchDays].sort((a, b) => a.day_number - b.day_number)) {
+        batchErrors.push(...validateDay(day, day.day_number, priorActivityMealTitles));
+        for (const item of day.live_timeline) {
+          const itemType = stagedItemType(item);
+          if (itemType !== "activity" && itemType !== "meal") continue;
+          const key = `${itemType}:${normalizedTextKey(item.title || "")}`;
+          if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, day.day_number);
+        }
+      }
       for (const dayNumber of nextBatch.dayNumbers) {
         if (!batchDays.some((day) => day.day_number === dayNumber)) {
           batchErrors.push(`Batch missing Day ${dayNumber}.`);

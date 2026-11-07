@@ -5,7 +5,7 @@ import type {
   ProvenanceDTO
 } from "@/lib/roamly/engine/types";
 import type { UtcInstant } from "@/lib/roamly/engine/time";
-import type { EngineGoogleData, EngineWeatherDay } from "@/lib/roamly/engine/util";
+import type { EngineGoogleData, EngineLegMatrix, EngineWeatherDay } from "@/lib/roamly/engine/util";
 import type { LocalDate } from "@/lib/roamly/engine/time";
 
 /*
@@ -44,10 +44,13 @@ import type { LocalDate } from "@/lib/roamly/engine/time";
 /** Version stamp for the OSM classification/transformation logic
  *  ported from the shadow collectors (collectors.ts). Recorded on
  *  every pack version as DestinationPackDTO.classifierVersion. */
-export const PACK_CLASSIFIER_VERSION = "osm-classifier-1";
+export const PACK_CLASSIFIER_VERSION = "osm-classifier-2";
 
-/** Version stamp for the Overpass query pair (main + wide). */
-export const PACK_QUERY_VERSION = "overpass-queries-2";
+/** Version stamp for the Overpass query pair (main + wide).
+ *  overpass-queries-3 (consolidation 2026-11-06): all-named
+ *  tourism collection + relations + the markets chunk un-deaded
+ *  (see collectors.ts). */
+export const PACK_QUERY_VERSION = "overpass-queries-3";
 
 /** Version stamp for the Open Places (Overture) classification
  *  logic in packs/openPlaces.ts — a SEPARATE classifier from the
@@ -150,9 +153,19 @@ export interface StoredEnrichment extends EngineGoogleData {
 /* Pack versions                                                       */
 /* ------------------------------------------------------------------ */
 
+/** The stored shape of a pack's OSRM leg matrix — the same record
+ *  the engine consumes (util.ts EngineLegMatrix); storage adds
+ *  nothing to it. */
+export type StoredLegMatrix = EngineLegMatrix;
+
 export interface PackVersionRecord {
   /** The Phase 1 boundary DTO for this version. */
   dto: DestinationPackDTO;
+  /** OSRM leg matrix built with this version (consolidation
+   *  2026-11-06), or null when routing was unreachable at build
+   *  time / the version predates the matrix. Part of the version's
+   *  immutable content, like its candidate rows. */
+  legMatrix?: StoredLegMatrix | null;
   /** Per-destination monotonic version number, starting at 1. */
   version: number;
   /** The version this one replaced, or null for the first build. */
