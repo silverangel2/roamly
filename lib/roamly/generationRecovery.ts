@@ -46,6 +46,35 @@
  *    rare, at most `limit` (default 3) actions per sweep run.
  *    Emission is FAIL-SOFT: a failed event write never blocks or
  *    alters the recovery action it describes.
+ *
+ * F8 ADDENDUM (SPEED FIX, 2026-11-07) — two structural blind spots
+ * the crawl investigation found in this sweep:
+ *  - PACK-WAIT INVISIBILITY: a trip waiting for its destination's
+ *    pack build persisted a fresh updatedAt on every wait cycle,
+ *    so its progress clock never aged and the sweep could never
+ *    see it (trips waited 41–78 min invisibly). The engine now
+ *    stamps a NAMED state (state.waitingOnPack, since = the first
+ *    wait cycle). Here: (a) the progress clock caps at
+ *    waitingOnPack.since — wait cycles are not progress; (b)
+ *    phases 1–2 do not misclassify a waiting trip as a driver
+ *    failure (its own wakes + the pack lanes own it; a waiting
+ *    trip whose job has VANISHED still lands in class C, where a
+ *    drive is the cure); (c) Phase 3 below surfaces any wait
+ *    older than PACK_WAIT_ALARM_MS in the summary and as a
+ *    throttled `pack_wait_alarm` recovery event.
+ *  - ZOMBIE SATURATION: a job whose reopen -> fail cycle repeats
+ *    forever consumed one of the sweep's `limit` drives on every
+ *    run, oldest-first, starving real recoveries (2026-11-07:
+ *    184 recovery actions, all on the same 7 tester trips). The
+ *    sweep now counts a trip's completed reopen cycles from its
+ *    own persisted trace; at DEAD_LETTER_MAX_REOPENS the trip is
+ *    DEAD-LETTERED instead of reopened: a named
+ *    `generation_recovery_dead_letter` event surfaces it as a
+ *    zombie, and the sweep never spends another drive on it. The
+ *    traveller's own wakes are unaffected (they never consult
+ *    this sweep) — only the sweep's budget is protected. The
+ *    ledger read is FAIL-SOFT like event emission: an unreadable
+ *    trace degrades to today's behaviour, never to a broken sweep.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordAppEvent } from "@/lib/roamly/events";
@@ -78,6 +107,33 @@ const SCAN_LIMIT = 50;
 const ACTIVE_JOB_STATUSES = ["queued", "running", "waiting"];
 
 export const GENERATION_RECOVERY_EVENT_TYPE = "generation_recovery";
+
+/** F8: the dead-letter event type — the persisted, named surfacing
+ *  of a zombie trip (see the header addendum). */
+export const GENERATION_DEAD_LETTER_EVENT_TYPE = "generation_recovery_dead_letter";
+
+/** F8: completed reopen -> fail cycles after which a job is
+ *  dead-lettered instead of reopened again. Three full cycles is
+ *  a generous budget for a genuinely recoverable job (each cycle
+ *  is a fresh claim + a full drive); past it, the failure is a
+ *  property of the trip, not of the driver. */
+export const DEAD_LETTER_MAX_REOPENS = 3;
+
+/** F8: a pack wait older than this is surfaced by Phase 3 (the
+ *  crawl's waits ran 41–78 min; a healthy drive finishes a build
+ *  in well under 10). */
+export const PACK_WAIT_ALARM_MS = 600_000;
+
+/** F8: minimum spacing between pack_wait_alarm events for one
+ *  trip, so a long wait surfaces repeatedly but never floods. */
+const PACK_WAIT_ALARM_REPEAT_MS = 1_800_000;
+
+/** F8: bound on the per-run recovery-ledger read (the sweep's own
+ *  trace: recovery + dead-letter events, newest first). Past this
+ *  many events a trip's older cycles age out of the count — the
+ *  count only gates the dead-letter, and recent cycles are the
+ *  evidence that matters. */
+const RECOVERY_LEDGER_LIMIT = 1000;
 
 type RecoveryEventCandidate = {
   tripId: string;
@@ -124,7 +180,99 @@ async function recordRecoveryEvent(
   }
 }
 
-export type StrandedGenerationRecoveryClass = "dead_driver" | "retry_exhausted" | "no_active_job";
+export type StrandedGenerationRecoveryClass =
+  | "dead_driver"
+  | "retry_exhausted"
+  | "no_active_job"
+  /** F8: the trip is in the named pack-wait state (Phase 3
+   *  visibility only — never a drive class). */
+  | "waiting_on_pack";
+
+/**
+ * Persist the F8 dead-letter surfacing for one zombie trip: a
+ * `generation_recovery_dead_letter` app event naming the trip, its
+ * job, and the reopen-cycle count that condemned it. This event
+ * is the operator surface for zombies (the sweep's later runs
+ * read it back through the ledger and skip the trip). FAIL-SOFT,
+ * same law as recordRecoveryEvent.
+ */
+async function recordDeadLetterEvent(
+  admin: SupabaseClient,
+  candidate: RecoveryEventCandidate,
+  reopenCycles: number,
+  nowMs: number
+) {
+  try {
+    await recordAppEvent(admin, {
+      userId: candidate.userId,
+      eventType: GENERATION_DEAD_LETTER_EVENT_TYPE,
+      metadata: {
+        tripId: candidate.tripId,
+        jobId: candidate.jobId,
+        recoveryClass: candidate.cls,
+        action: "dead_letter",
+        outcome: "zombie_dead_lettered",
+        reopenCycles,
+        stalenessSeconds: Math.max(0, Math.round((nowMs - candidate.progressMs) / 1000))
+      }
+    });
+  } catch {
+    // Swallowed deliberately — see the fail-soft law above.
+  }
+}
+
+/** The sweep's own persisted trace, read back once per run (F8):
+ *  which trips are already dead-lettered, how many completed
+ *  reopen cycles each trip has burned, and when each trip last
+ *  raised a pack-wait alarm. FAIL-SOFT: any read failure yields
+ *  an empty ledger and the sweep behaves exactly as it did
+ *  before F8 — observability never breaks recovery. */
+type RecoveryLedger = {
+  deadLetteredTripIds: Set<string>;
+  reopenCounts: Map<string, number>;
+  lastPackWaitAlarmMs: Map<string, number>;
+};
+
+async function loadRecoveryLedger(admin: SupabaseClient): Promise<RecoveryLedger> {
+  const ledger: RecoveryLedger = {
+    deadLetteredTripIds: new Set(),
+    reopenCounts: new Map(),
+    lastPackWaitAlarmMs: new Map()
+  };
+  try {
+    const { data, error } = await admin
+      .from("roamly_app_events")
+      .select("event_type,metadata,created_at")
+      .in("event_type", [GENERATION_RECOVERY_EVENT_TYPE, GENERATION_DEAD_LETTER_EVENT_TYPE])
+      .order("created_at", { ascending: false })
+      .limit(RECOVERY_LEDGER_LIMIT);
+    if (error || !Array.isArray(data)) return ledger;
+    for (const row of data as { event_type?: unknown; metadata?: unknown; created_at?: unknown }[]) {
+      const metadata =
+        row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+          ? (row.metadata as Record<string, unknown>)
+          : {};
+      const tripId = typeof metadata.tripId === "string" ? metadata.tripId : null;
+      if (!tripId) continue;
+      if (row.event_type === GENERATION_DEAD_LETTER_EVENT_TYPE) {
+        ledger.deadLetteredTripIds.add(tripId);
+        continue;
+      }
+      if (metadata.action === "reopen_and_drive" && metadata.reopened === true) {
+        ledger.reopenCounts.set(tripId, (ledger.reopenCounts.get(tripId) ?? 0) + 1);
+      }
+      if (metadata.action === "pack_wait_alarm") {
+        const at = parseMs(typeof row.created_at === "string" ? row.created_at : null);
+        if (at > (ledger.lastPackWaitAlarmMs.get(tripId) ?? 0)) {
+          ledger.lastPackWaitAlarmMs.set(tripId, at);
+        }
+      }
+    }
+  } catch {
+    // Fail-soft — see the header of this function.
+  }
+  return ledger;
+}
 
 export type StrandedGenerationRecoveryCandidate = {
   tripId: string;
@@ -140,6 +288,22 @@ export type StrandedGenerationRecoverySummary = {
   reopened: number;
   driven: number;
   skippedLive: number;
+  /** F8: trips dead-lettered on THIS run (they also appear in
+   *  `zombies`). */
+  deadLettered: number;
+  /** F8: candidates skipped because their trip was already
+   *  dead-lettered on an earlier run. */
+  skippedDeadLettered: number;
+  /** F8: the zombies surfaced on this run — named, with the
+   *  reopen-cycle count that condemned them. */
+  zombies: { tripId: string; jobId: string | null; reopenCycles: number }[];
+  /** F8: pack waits older than PACK_WAIT_ALARM_MS seen on this
+   *  run (Phase 3), oldest first. Visibility only: no drive is
+   *  spent on them. */
+  packWaits: { tripId: string; destinationId: string; ageSeconds: number }[];
+  /** F8: pack_wait_alarm events actually emitted on this run
+   *  (throttled per trip). */
+  packWaitAlarms: number;
   /** Set only by callers reporting a sweep-level failure fallback. */
   error?: string;
 };
@@ -171,12 +335,20 @@ function parseMs(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** Freshest progress evidence on the staged state (see header). */
+/** Freshest progress evidence on the staged state (see header).
+ *  F8: a pack-waiting state's progress is capped at the wait's
+ *  start — every wait cycle re-persists the state (refreshing
+ *  updatedAt), but waiting is not progress, so the freshest
+ *  honest progress evidence for a waiting trip is the moment it
+ *  entered the wait. */
 function lastProgressMs(state: StagedGenerationState) {
   let latest = parseMs(state.updatedAt);
   for (const batch of Object.values(state.batches || {})) {
     if (batch.status !== "generating") continue;
     latest = Math.max(latest, parseMs(batch.updatedAt || batch.startedAt));
+  }
+  if (state.waitingOnPack?.since) {
+    latest = Math.min(latest, parseMs(state.waitingOnPack.since));
   }
   return latest;
 }
@@ -211,9 +383,18 @@ export async function runStrandedGenerationRecovery(
     candidates: [],
     reopened: 0,
     driven: 0,
-    skippedLive: 0
+    skippedLive: 0,
+    deadLettered: 0,
+    skippedDeadLettered: 0,
+    zombies: [],
+    packWaits: [],
+    packWaitAlarms: 0
   };
   if (!admin) return summary;
+
+  // F8: the sweep's own trace, read once (fail-soft — an empty
+  // ledger reproduces the pre-F8 behaviour exactly).
+  const ledger = await loadRecoveryLedger(admin);
 
   const now = opts.now || new Date();
   const nowMs = now.getTime();
@@ -308,6 +489,12 @@ export async function runStrandedGenerationRecovery(
     const stateRow = await readGenerationStateRow(admin, trip.id);
     const state = strandedState(trip, resolveState(trip, stateRow));
     if (!state) continue;
+    // F8: a trip in the named pack-wait state is not a driver
+    // failure — its stall has a named owner (the pack lanes) and
+    // a named surface (Phase 3). Phase 1 never reopens or
+    // "recovers" it; if its job has vanished entirely, Phase 2's
+    // no-active-job class is where a drive can still cure it.
+    if (state.waitingOnPack) continue;
 
     if (job.status === "running") {
       const queueLeaseExpired = !job.lease_expires_at || parseMs(job.lease_expires_at) <= nowMs;
@@ -395,16 +582,52 @@ export async function runStrandedGenerationRecovery(
 
   // Oldest progress first; at most `limit` drives per run.
   found.sort((a, b) => a.progressMs - b.progressMs);
-  const selected = found.slice(0, limit);
   logGenerationDiagnostic("generation_recovery_scan_completed", {
     route: "generationRecovery",
     scanned: summary.scanned,
     candidateCount: found.length,
-    selectedCount: selected.length,
+    selectedCount: Math.min(limit, found.length),
     skippedLive: summary.skippedLive
   });
 
-  for (const candidate of selected) {
+  let drivesUsed = 0;
+  for (const candidate of found) {
+    // F8 DEAD-LETTER GATE — applied here, at selection, never
+    // during the candidate scan above: a run that skips
+    // everything must leave the store byte-identical (the
+    // stranded suite's skip cases pin that), and a dead-letter
+    // write is a state change that belongs to a selected
+    // candidate. A dead-lettered trip consumes NO drive slot, so
+    // zombies can no longer starve the limit (header addendum).
+    if (ledger.deadLetteredTripIds.has(candidate.tripId)) {
+      summary.skippedDeadLettered += 1;
+      logGenerationDiagnostic("generation_recovery_dead_lettered_skip", {
+        route: "generationRecovery",
+        tripId: candidate.tripId,
+        jobId: candidate.jobId,
+        candidateClass: candidate.cls
+      });
+      continue;
+    }
+    if (candidate.cls === "retry_exhausted") {
+      const reopenCycles = ledger.reopenCounts.get(candidate.tripId) ?? 0;
+      if (reopenCycles >= DEAD_LETTER_MAX_REOPENS) {
+        await recordDeadLetterEvent(admin, candidate, reopenCycles, nowMs);
+        ledger.deadLetteredTripIds.add(candidate.tripId);
+        summary.deadLettered += 1;
+        summary.zombies.push({ tripId: candidate.tripId, jobId: candidate.jobId, reopenCycles });
+        logGenerationDiagnostic("generation_recovery_dead_lettered", {
+          route: "generationRecovery",
+          tripId: candidate.tripId,
+          jobId: candidate.jobId,
+          reopenCycles
+        });
+        continue;
+      }
+    }
+    if (drivesUsed >= limit) break;
+    drivesUsed += 1;
+
     if (candidate.cls === "retry_exhausted" && candidate.jobId) {
       // Generalized reopen (KF-2 §4.4 case 2): the same field set as
       // reopenResumableFailedJob, but guarded on the exhausted shape
@@ -493,6 +716,57 @@ export async function runStrandedGenerationRecovery(
         reopened: candidate.cls === "retry_exhausted"
       });
     }
+  }
+
+  // Phase 3 (F8): PACK-WAIT VISIBILITY. Trips in the named
+  // pack-wait state hold a `waiting` job, so phases 1–2 never see
+  // them as stranded — by design: the pack lanes own the wait.
+  // What the sweep owes them is a NAME and an ALARM when the wait
+  // outlasts a healthy build: every wait older than
+  // PACK_WAIT_ALARM_MS lands in summary.packWaits, and one
+  // throttled pack_wait_alarm recovery event per trip per
+  // PACK_WAIT_ALARM_REPEAT_MS makes it queryable in the same
+  // trace as every other recovery action. No drive is spent here.
+  const waitingResult = await admin
+    .from("roamly_trip_generation_jobs")
+    .select(JOB_COLUMNS)
+    .eq("status", "waiting")
+    .order("updated_at", { ascending: true })
+    .limit(SCAN_LIMIT);
+  if (!waitingResult.error) {
+    const seenWaitingTripIds = new Set<string>();
+    for (const row of (waitingResult.data || []) as JobRow[]) {
+      if (!row.trip_id || seenWaitingTripIds.has(row.trip_id)) continue;
+      seenWaitingTripIds.add(row.trip_id);
+      const trip = await loadTrip(row.trip_id);
+      if (!trip || generationTripIsTerminal(trip)) continue;
+      const stateRow = await readGenerationStateRow(admin, trip.id);
+      const state = resolveState(trip, stateRow);
+      const wait = state?.waitingOnPack;
+      if (!wait) continue;
+      const sinceMs = parseMs(wait.since);
+      if (!sinceMs) continue;
+      const ageMs = nowMs - sinceMs;
+      if (ageMs < PACK_WAIT_ALARM_MS) continue;
+      summary.packWaits.push({
+        tripId: trip.id,
+        destinationId: wait.destinationId,
+        ageSeconds: Math.round(ageMs / 1000)
+      });
+      const lastAlarmMs = ledger.lastPackWaitAlarmMs.get(trip.id) ?? 0;
+      if (nowMs - lastAlarmMs >= PACK_WAIT_ALARM_REPEAT_MS) {
+        await recordRecoveryEvent(
+          admin,
+          { tripId: trip.id, userId: trip.user_id, jobId: row.id, cls: "waiting_on_pack", progressMs: sinceMs },
+          "pack_wait_alarm",
+          "waiting_on_pack",
+          nowMs
+        );
+        ledger.lastPackWaitAlarmMs.set(trip.id, nowMs);
+        summary.packWaitAlarms += 1;
+      }
+    }
+    summary.packWaits.sort((a, b) => b.ageSeconds - a.ageSeconds);
   }
 
   return summary;

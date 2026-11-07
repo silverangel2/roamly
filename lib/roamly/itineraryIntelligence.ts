@@ -26,6 +26,11 @@ import {
   isSearchQueryTitle,
   isTimelineAdmissibleCandidate
 } from "@/lib/roamly/timelineGrounding";
+import {
+  isGenericStayTitle,
+  marketStopOneLiner,
+  stripLegacyMarketStamp
+} from "@/lib/roamly/marketStopDescription";
 
 const MAX_PRIMARY_TIMELINE_ITEMS = 6;
 const SHORT_TRANSFER_MINUTES = 15;
@@ -277,6 +282,38 @@ export function mergeShortTransfersIntoFollowingActivity(items: RoamlyActivitySe
   return output;
 }
 
+/** Description for a market-bound item (description-boilerplate
+ *  fix, 2026-11-07): the item keeps its OWN description with any
+ *  legacy provenance stamp removed — the caution no longer rides
+ *  as a prefix on every stop. When the item has no real text of
+ *  its own (or only a previous stamp), it gets the composed
+ *  one-liner from the candidate's facts, exactly like the staged
+ *  grounding writer (rehydrateGroundedTimelineItem). Provenance
+ *  is carried by the item's stored factualStatus/source and
+ *  rendered as a chip + one itinerary-level caution, never as
+ *  body text. */
+function boundMarketDescription(
+  item: RoamlyActivitySeed,
+  candidate: TravelMarketResult,
+  verification: string
+): string {
+  const own = stripLegacyMarketStamp(item.description);
+  if (own) return own;
+  return marketStopOneLiner({
+    category: candidate.category,
+    itemType: timelineType(item),
+    city: clean(candidate.city || candidate.destination),
+    origin: candidate.origin,
+    provenance:
+      candidate.source === "roamly_internal"
+        ? "pack"
+        : verification === "verified" || verification === "native_verified"
+          ? "verified"
+          : "search",
+    genericStay: candidate.category === "hotel" && isGenericStayTitle(candidate.title)
+  });
+}
+
 function applyMarketIdentity(
   item: RoamlyActivitySeed,
   payload: TripPlannerPayload,
@@ -358,10 +395,7 @@ function applyMarketIdentity(
     affiliate_category: undefined,
     coordinates: null,
     timing_status: "PLANNED" as const,
-    description:
-      verification === "verified" || verification === "native_verified"
-        ? `Verified source result. ${clean(item.description) || "Confirm current hours, route, and price before going."}`
-        : `Search-backed result. ${clean(item.description) || "Confirm current hours, route, and price before going."}`
+    description: boundMarketDescription(item, candidate, verification)
   };
 }
 
