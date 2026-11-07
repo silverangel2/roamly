@@ -114,9 +114,9 @@ check(
     "Connect Gmail for Booking Recon",
     "Automatically find your flight, hotel and activity confirmations.",
     "Add Roamly to your home screen",
-    "Get instant alerts and a smoother experience.",
+    "Get trip messages on your travel days and a smoother experience.",
     "Enable location (for Live Companion)",
-    "Get real-time nearby suggestions and turn-by-turn guidance."
+    "See what is near when you open Roamly during your trip."
   ]),
   "Gmail · home screen · location, each with the picture's title + description"
 );

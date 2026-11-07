@@ -92,7 +92,7 @@ check(
   "pretrip-banner-copy",
   preTrip.includes("Trip hasn") &&
     preTrip.includes("These are your planned activities for Day {eyebrowDay?.idx || 1}") &&
-    preTrip.includes("You&apos;ll get real-time updates when the trip begins.")
+    preTrip.includes("You&apos;ll get trip messages on your travel days once the trip begins.")
 );
 // --- 5. Day heading is a bold h2 (picture), not the old small-caps label ---
 check(

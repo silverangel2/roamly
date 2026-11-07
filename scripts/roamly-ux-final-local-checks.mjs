@@ -82,7 +82,7 @@ check("hero credit renders only with a loaded real photo",
 check("home panel renders a branded fallback when its pipeline photo fails (offline), keeping destination + dates",
   homePanel.includes('data-testid="roamly-photo-fallback"') &&
   homePanel.includes('photo && photoState === "failed"') &&
-  homePanel.includes("from-teal-700"));
+  homePanel.includes("from-[#071E55]"));
 check("home panel keeps the approved bare header when NO photo exists at all",
   homePanel.includes("border-b border-chair px-4 pb-4"));
 check("home panel settles pre-hydration photo failures (no stuck pending gradient)",

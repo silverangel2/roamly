@@ -30,7 +30,7 @@ check("live pre-trip rows render LiveRowThumb", live.includes("LiveRowThumb venu
 // above). This pins the new shape so a thumbnail creeping back into
 // the compact list fails loudly.
 check("live in-progress compact rows carry no thumbnail (owner-10 item 6)", live.includes("upcomingActivities.map") && !live.includes("LiveRowThumb venuePhotos={venuePhotos} title={timelineRowTitle("));
-check("live pre-trip banner copy matches mock structure", live.includes("Trip hasn&apos;t started yet") && live.includes("These are your planned activities for Day") && live.includes("real-time updates when the trip begins"));
+check("live pre-trip banner copy matches mock structure", live.includes("Trip hasn&apos;t started yet") && live.includes("These are your planned activities for Day") && live.includes("trip messages on your travel days once the trip begins"));
 check("live banner icon uses token color (no hardcoded hex)", !live.includes('stroke="#1E88E5"'));
 
 const venues = read("lib/roamly/venuePhotos.ts");

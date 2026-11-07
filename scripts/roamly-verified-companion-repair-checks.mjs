@@ -71,7 +71,11 @@ assert.match(engine, /expected_event_fingerprint/);
 assert.match(engine, /expected_source_booking_updated_at/);
 assert.match(engine, /roamly_apply_verified_companion_repair/);
 assert.match(engine, /verifyAppliedVerifiedCompanionRepair/);
-assert.match(engine, /getTripBundle\(params\.supabase/);
+// RE-PINNED by GAP-E Wave 3b (2026-11-02): the verify stage now reloads
+// through getTripBundleSlim (lib/trips.ts) — the same fresh canonical
+// reload, projected to the fields verify consumes. The pin's intent
+// (verify reloads the canonical bundle from params.supabase) is kept.
+assert.match(engine, /getTripBundleSlim\(params\.supabase/);
 assert.match(engine, /validateItineraryDeterministically/);
 assert.match(engine, /deriveTripReadiness/);
 assert.match(engine, /classifyVerifiedCompanionRepair/);

@@ -181,15 +181,22 @@ function loadModules(db) {
     "@/lib/roamly/setupState": setupState,
     "@/lib/roamly/liveStatus": liveStatus
   });
+  // Consolidation (2026-11-06): the push/subscribe and live-status
+  // routes now import the shared lib/roamly/tripIdParam.ts guard —
+  // compile the real module (it is import-free) and stub it in.
+  // Loader only; no assertion changes.
+  const tripIdParam = compileTs("lib/roamly/tripIdParam.ts", {});
   const subscribeRoute = compileTs("app/api/roamly/push/subscribe/route.ts", {
     "next/server": NextResponseStub,
     "@/lib/roamly/fieldTestAccess": authStub,
-    "@/lib/roamly/pushEndpoint": pushEndpoint
+    "@/lib/roamly/pushEndpoint": pushEndpoint,
+    "@/lib/roamly/tripIdParam": tripIdParam
   });
   const liveStatusRoute = compileTs("app/api/roamly/live-status/route.ts", {
     "next/server": NextResponseStub,
     "@/lib/roamly/auth": authStub,
-    "@/lib/roamly/liveStatus": liveStatus
+    "@/lib/roamly/liveStatus": liveStatus,
+    "@/lib/roamly/tripIdParam": tripIdParam
   });
   return { liveStatus, setupState, setupGate, completeRoute, subscribeRoute, liveStatusRoute };
 }
