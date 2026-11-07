@@ -11,7 +11,13 @@ const config: Config = {
     extend: {
       colors: {
         ink: "#102033",
-        ocean: "#0f6e66",
+        // DEPRECATED ALIAS (consolidation 2026-11-06, app-wide teal
+        // purge): every ocean utility was migrated to cblue at the
+        // class level; the token survives ONLY so any dynamically
+        // constructed class string lands on the BoardUI blue
+        // instead of resurrecting the killed teal. Do not use in
+        // new code — use cblue.
+        ocean: "#087BFF",
         lagoon: "#54D6C6",
         sun: "#FFB84D",
         coral: "#FF6B6B",

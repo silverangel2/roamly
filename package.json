@@ -219,7 +219,20 @@
     "test:recon-tombstone": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-booking-cancel-server-only-register.mjs scripts/roamly-recon-tombstone-checks.mjs",
     "test:recon-tombstone-missing-schema": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-booking-cancel-server-only-register.mjs scripts/roamly-recon-tombstone-missing-schema-checks.mjs",
     "test:live-status-readback": "node --experimental-strip-types scripts/roamly-live-status-readback-checks.mjs",
-    "test:destination-photo-fallback": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-destination-photo-fallback-checks.mjs"
+    "test:destination-photo-fallback": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-destination-photo-fallback-checks.mjs",
+    "test:live-companion-travel-day": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-live-companion-travel-day-checks.mjs",
+    "test:kf2-kill-resume": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-kf2-kill-resume-checks.mjs",
+    "test:stranded-recovery": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-stranded-recovery-checks.mjs",
+    "test:gap-m6a": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-gap-closure-m6a-checks.mjs",
+    "test:egress-diet": "node scripts/roamly-egress-diet-checks.mjs",
+    "test:egress-simulated-day": "node scripts/roamly-egress-diet-simulated-day.mjs",
+    "test:gap-5a": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-gap-closure-5a-checks.mjs",
+    "test:gap-5b": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-gap-closure-5b-checks.mjs",
+    "test:gap-g346": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-gap-g346-checks.mjs",
+    "test:gap-g2": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-gap-g2-checks.mjs",
+    "test:gap-g346-route1": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-gap-g346-route1-checks.mjs",
+    "test:gap-g6": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-gap-g6-checks.mjs",
+    "test:gap-slimbundle": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-gap-slimbundle-checks.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

@@ -16,6 +16,7 @@ import {
   logAuthDiagnostic
 } from "@/lib/roamly/authDiagnostics";
 import { isMaintenanceExemptPath, isMaintenanceModeOn, isMemberAreaPath } from "@/lib/roamly/maintenanceGate";
+import { ROAMLY_LAST_ACTIVITY_COOKIE, activityStampExpired } from "@/lib/roamly/sessionActivity";
 
 const AUTH_NEXT_COOKIE = "roamly_auth_next";
 
@@ -88,6 +89,28 @@ export async function middleware(request: NextRequest) {
     roamlyPathname.startsWith("/api/auth/facebook/")
   ) {
     return NextResponse.next();
+  }
+
+  // INACTIVITY EXPIRY (consolidation 2026-11-06, Block D): a
+  // signed-in request whose activity stamp is older than the
+  // 30-day limit is signed out here — auth cookies cleared on the
+  // response, protected pages redirected to /login with the
+  // reason stated. The client half (AppShellClient) stamps the
+  // cookie on real activity; a missing stamp is not expiry (see
+  // lib/roamly/sessionActivity.ts for the full policy + the named
+  // dashboard follow-up).
+  if (
+    hasSupabaseAuthCookie(request) &&
+    activityStampExpired(request.cookies.get(ROAMLY_LAST_ACTIVITY_COOKIE)?.value, Date.now())
+  ) {
+    const expiredResponse = isProtectedPage(roamlyPathname)
+      ? NextResponse.redirect(loginRedirectUrl(request, "session-expired"))
+      : NextResponse.next();
+    for (const cookie of request.cookies.getAll()) {
+      if (isSupabaseAuthCookieName(cookie.name)) expiredResponse.cookies.delete(cookie.name);
+    }
+    expiredResponse.cookies.delete(ROAMLY_LAST_ACTIVITY_COOKIE);
+    return expiredResponse;
   }
 
   // SITE MAINTENANCE GATE: when the owner flips maintenance on (a settings
