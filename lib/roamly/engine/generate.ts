@@ -84,7 +84,7 @@ import { applyMustDoVerdicts, evaluateMustDoVerdicts } from "@/lib/roamly/mustDo
 import { fmt, isoPlus, parseHhmm, type EngineDay, type EngineItem, type EnginePack } from "@/lib/roamly/engine/util";
 import { predictionId } from "@/lib/roamly/engine/ids";
 import { assemblePinnedEnginePack, readServingPack, type PackCollector } from "@/lib/roamly/engine/packs/builder";
-import { runPackKick } from "@/lib/roamly/engine/packs/kick";
+import { drivePackBuild } from "@/lib/roamly/engine/packs/kick";
 import { destinationRegistryId } from "@/lib/roamly/engine/packs/destinations";
 import { PackStoreError } from "@/lib/roamly/engine/packs/types";
 import {
@@ -952,6 +952,12 @@ export interface DayConversionContext {
   anchorName: string;
   anchorKey: string | null;
   anchorBooked: boolean;
+  /** How the anchor was derived (EngineSolveContext.anchorSource):
+   *  the stay seed's coordinate honesty keys off it — a "booked"
+   *  anchor with no anchorKey matched no candidate, so its position
+   *  is the destination centre, not the property (map-honesty fix,
+   *  2026-11-07). */
+  anchorSource: EngineSolveContext["anchorSource"];
   /** The stay anchor's solver position (EngineSolveContext.anchorPos):
    *  stay seeds carry it as itinerary coordinates so the saved
    *  activities keep the coordinates the Live Companion reads. */
@@ -1005,6 +1011,23 @@ export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionConte
   const isLast = day.dayNumber === ctx.totalDayCount;
   const isMustDo = (i: EngineItem) => Boolean(i.protected) || i.role === "mustsee" || (i.key ? ctx.mustSeeKeys.has(i.key) : false);
 
+  // Map honesty (2026-11-07): the stay seed's coordinates are the
+  // traveller-facing pin for the stay, so they must be the stay's
+  // OWN point or none. A candidate-backed anchor (booked stay
+  // matched to a scored stay, or the top scored stay) pins at that
+  // candidate — a real place point. The destination-centre base
+  // anchor keeps its centre pin (its name already discloses
+  // "centre"), stamped area-precision so the map renders it as
+  // approximate. A BOOKED stay that matched NO candidate gets NO
+  // coordinates at all: writing pack.center under the booking's
+  // own title presented a destination-level guess with
+  // property-level certainty. The solver still plans from
+  // anchorPos internally — only the presented pin changes — and
+  // the area stamp rides along without coordinates so the display
+  // can say why this stay has no pin.
+  const anchorUnmatchedBooking = ctx.anchorBooked && !ctx.anchorKey;
+  const anchorAreaPrecision =
+    ctx.anchorSource === "destination-centre" || anchorUnmatchedBooking;
   const staySeed = (label: string, timed: { start: number; end: number } | null): RoamlyActivitySeed => ({
     time_label: label,
     ...(timed ? { startTime: hhmm(timed.start), endTime: hhmm(timed.end) } : {}),
@@ -1020,9 +1043,14 @@ export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionConte
     category: "Hotel",
     map_query: ctx.anchorName,
     item_type: "hotel",
-    ...(ctx.anchorPos && Number.isFinite(ctx.anchorPos.lat) && Number.isFinite(ctx.anchorPos.lon)
+    ...(!anchorUnmatchedBooking &&
+    ctx.anchorPos &&
+    Number.isFinite(ctx.anchorPos.lat) &&
+    Number.isFinite(ctx.anchorPos.lon)
       ? { coordinates: { latitude: ctx.anchorPos.lat, longitude: ctx.anchorPos.lon } }
       : {}),
+    coordinateSource: ctx.anchorKey ? "candidate" : "destination_centre",
+    coordinatePrecision: anchorAreaPrecision ? "area" : "place",
     ...(ctx.anchorKey ? { candidateId: ctx.anchorKey } : {}),
     factualStatus: ctx.anchorBooked ? "verified" : "search_ready",
     cost_status: "UNKNOWN",
@@ -1062,6 +1090,11 @@ export function engineDayToRoamlyDayPlan(day: EngineDay, ctx: DayConversionConte
       map_query: leg.toName,
       item_type: "transfer",
       travelTimeMinutes: leg.minutes,
+      // The solver's source label rides into the stored artefact
+      // (matrix-coverage fix, 2026-11-07): a haversine-estimate
+      // leg stays labelled an estimate after persistence, so a
+      // matrix coverage miss is visible in the itinerary itself.
+      ...(leg.minutesSource ? { travelTimeSource: leg.minutesSource } : {}),
       origin: leg.fromName,
       destination: leg.toName,
       cost_status: "UNKNOWN",
@@ -1162,7 +1195,13 @@ function engineItemToSeed(item: EngineItem, day: EngineDay, mustDo: boolean): Ro
     map_query: item.name || item.title || "",
     item_type: isMeal ? "meal" : isRest ? "rest" : "activity",
     ...(item.pos && Number.isFinite(item.pos.lat) && Number.isFinite(item.pos.lon)
-      ? { coordinates: { latitude: item.pos.lat, longitude: item.pos.lon } }
+      ? {
+          coordinates: { latitude: item.pos.lat, longitude: item.pos.lon },
+          // The item's own candidate point (map-honesty fix,
+          // 2026-11-07): a real place pin, stamped as such.
+          coordinateSource: "candidate" as const,
+          coordinatePrecision: "place" as const
+        }
       : {}),
     ...(item.key ? { candidateId: item.key } : {}),
     source: item.key ? "openstreetmap" : undefined,
@@ -1457,8 +1496,9 @@ export interface EngineAdvanceDeps {
    *  inject a recorder; ABSENT means no kick — the pre-kick
    *  behavior, where only the hourly cron drains the queue. */
   packKickScheduler?: (task: () => Promise<void>) => void;
-  /** Collector factory for kicked drains. Optional: production
-   *  uses runPackKick's default (the live Overpass collector);
+  /** Collector factory for driven drains. Optional: production
+   *  uses drivePackBuild's default (the primary collector —
+   *  prebuilt Overture extract first, live Overpass fallback);
    *  checks inject a fake. */
   packCollectorFor?: (destinationId: string) => PackCollector;
 }
@@ -1581,26 +1621,28 @@ export async function autoRegisterDestination(deps: EngineAdvanceDeps, payload: 
 
 /* ------------------------- outline stage ------------------------- */
 
-/** Pack-build kick (2026-10-22): the outline stage is about to
- *  leave this trip waiting on a queued pack build — hand the
- *  destination's drain to the post-response scheduler so the
- *  build STARTS now instead of at the next hourly cron tick. This
- *  one seam covers both the enqueue wake (the serving read just
- *  created the job) and every later wake of the still-waiting
- *  trip (the read coalesces onto the same job; decidePackKick
- *  inside runPackKick suppresses the kick when the build is
- *  already claimed or a pack has since published). Scheduling is
- *  fire-and-forget by construction and can never fail the wake:
- *  no scheduler injected ⇒ no kick (the pre-kick behavior); a
- *  throwing scheduler is caught and logged, and the drain's own
- *  failures ride runPackKick's result, never an exception. The
- *  outcome line is the runtime-log evidence of the attempt. */
+/** Pack-build drive (2026-10-22 kick; 2026-11-07 continuous
+ *  drive): the outline stage is about to leave this trip waiting
+ *  on a queued pack build — hand the destination's build to the
+ *  post-response scheduler so the build is DRIVEN TO COMPLETION
+ *  inside this trip's own window (drivePackBuild: the kick looped
+ *  with a real budget) instead of starting at 45 s and finishing
+ *  at the next hourly cron tick. This one seam covers both the
+ *  enqueue wake (the serving read just created the job) and every
+ *  later wake of the still-waiting trip (the read coalesces onto
+ *  the same job; the drive's per-attempt decidePackKick stops it
+ *  when the build is already claimed or a pack has since
+ *  published). Scheduling is fire-and-forget by construction and
+ *  can never fail the wake: no scheduler injected ⇒ no drive (the
+ *  pre-kick behavior); a throwing scheduler is caught and logged,
+ *  and the drive's own failures ride its result, never an
+ *  exception. The outcome line is the runtime-log evidence. */
 function schedulePackBuildKick(deps: EngineAdvanceDeps, destinationId: string, tripId: string): void {
   const schedule = deps.packKickScheduler;
   if (!schedule) return;
   try {
     schedule(async () => {
-      const result = await runPackKick(deps.packStore, destinationId, { collectorFor: deps.packCollectorFor });
+      const result = await drivePackBuild(deps.packStore, destinationId, { collectorFor: deps.packCollectorFor });
       console.log(
         JSON.stringify({
           event: "roamly_pack_kick",
@@ -1610,7 +1652,10 @@ function schedulePackBuildKick(deps: EngineAdvanceDeps, destinationId: string, t
           reason: result.decision.reason,
           jobId: result.decision.jobId,
           published: result.publishedPackVersionIds,
-          error: result.error
+          error: result.error,
+          driveOutcome: result.outcome,
+          driveAttempts: result.attempts,
+          driveElapsedMs: result.elapsedMs
         })
       );
     });
@@ -1685,7 +1730,25 @@ async function runOutlineStage(params: {
       await deps.store.persistState(trip, failed, run);
       return { ok: false, status: "failed", state: failed, advanced: false, error: "ZERO_ENGINE_PACK_WAIT_TIMEOUT", stage: "outline" };
     }
-    const waiting = releaseLease({ ...state, status: "queued", currentStage: "generating_outline", updatedAt: nowIso() });
+    // SPEED FIX F8 (2026-11-07): the wait is a NAMED state.
+    // waitingOnPack stamps when the wait began (first cycle) and
+    // how many cycles it has taken; later cycles preserve `since`.
+    // The recovery sweep reads it to keep pack-wait cycles from
+    // refreshing the generation progress clock — a waiting trip
+    // is visible as waiting-on-pack instead of looking freshly
+    // progressed forever (the crawl investigation: pack-waiting
+    // trips were definitionally never stranded).
+    const waiting = releaseLease({
+      ...state,
+      status: "queued",
+      currentStage: "generating_outline",
+      updatedAt: nowIso(),
+      waitingOnPack: {
+        destinationId,
+        since: state.waitingOnPack?.since || nowIso(),
+        waits: run.packWaitCount
+      }
+    });
     await deps.store.persistState(trip, waiting, run);
     schedulePackBuildKick(deps, destinationId, state.tripId);
     return { ok: true, status: waiting.status, state: waiting, advanced: false, busy: true, waitingForPack: true, stage: "outline" };
@@ -1744,7 +1807,9 @@ async function runOutlineStage(params: {
         provider: ZERO_ENGINE_PROVIDER,
         model: null,
         lastError: null,
-        lastErrorCode: null
+        lastErrorCode: null,
+        // The pack arrived: the named wait is over (F8).
+        waitingOnPack: null
       },
       engineStageRun({
         stage: "outline",
@@ -1884,6 +1949,7 @@ async function runDayBatchStage(params: {
     anchorName: planRun.ctx.anchorName,
     anchorKey: planRun.ctx.anchorKey,
     anchorBooked: planRun.ctx.anchorSource === "booked",
+    anchorSource: planRun.ctx.anchorSource,
     anchorPos: planRun.ctx.anchorPos,
     totalDayCount: state.totalDayCount,
     mustSeeKeys,

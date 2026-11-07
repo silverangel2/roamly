@@ -82,6 +82,16 @@ export type RoamlyActivitySeed = {
   item_id?: string;
   route_evidence?: RouteEvidence | null;
   coordinates?: Record<string, unknown> | null;
+  /** Coordinate provenance (map-honesty fix, 2026-11-07): where this
+   *  item's coordinates came from, and whether they are the place's
+   *  own point ("place") or only an area point such as the
+   *  destination centre ("area"). An "area" point must never render
+   *  as if it were the place itself; an item can also carry the
+   *  "area" stamp WITHOUT coordinates (a booked stay whose property
+   *  location was never saved) so the display can say why there is
+   *  no pin. Absent on unstamped rows. */
+  coordinateSource?: "candidate" | "booking_record" | "destination_centre";
+  coordinatePrecision?: "place" | "area";
   /** Stable identity for the proven conflict involving this item, when present. */
   conflict_id?: string;
   candidateId?: string;
@@ -110,6 +120,14 @@ export type RoamlyActivitySeed = {
    *  stop on the same package — render as "Included", never as "Free". */
   packageIncluded?: boolean;
   travelTimeMinutes?: number;
+  /** Where travelTimeMinutes came from (matrix-coverage fix,
+   *  2026-11-07): the solver labels every leg "osrm-routed" (the
+   *  pack matrix's routed minutes) or "haversine-estimate" (the
+   *  straight-line fallback). Persisting the label on the stored
+   *  leg makes routed-vs-estimate visible in the artefact instead
+   *  of discoverable only by recomputing the haversine formula.
+   *  Absent = the writer did not label the leg; never invented. */
+  travelTimeSource?: "osrm-routed" | "haversine-estimate";
   origin?: string;
   destination?: string;
   booking_label?: string;
