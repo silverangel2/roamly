@@ -10,9 +10,12 @@
 // consumed), so the companion produced nothing for the rest of the
 // trip. These checks pin the reconciled behaviour:
 //   S1 mid-window unlock: elapsed days recorded skipped at creation,
-//      today catch-up-scheduled with a future fire time, later days
-//      scheduled at their natural times; nothing fires early; today's
-//      event fires when due; later days stay armed; idempotent.
+//      today catch-up-scheduled due at the creation instant (or at
+//      its natural time when that is still ahead — the fire time is
+//      never pushed out past either), later days scheduled at their
+//      natural times; nothing fires early; today's event fires in
+//      the first dispatch that starts after it exists; later days
+//      stay armed; idempotent.
 //   S2 a gate-killed event for today is resurrected by the next
 //      reconcile; an elapsed-day corpse is NOT duplicated.
 //   S3 pre-trip creation: past-due stage events clamp for catch-up
@@ -262,6 +265,7 @@ function advanceTime(horizonMs) {
   fake.reset(); seedUser();
   const TRIP = "33333333-3333-4333-8333-333333333331";
   seedTrip(TRIP, { start: shift(todayStart, -2), end: shift(todayStart, 2) });
+  const createdMs = Date.now();
   const result = await scheduleCompanionEvents(admin, TRIP);
   eq("S1 schedule ok", result.ok, true);
   const rows = eventsOf(TRIP);
@@ -275,7 +279,18 @@ function advanceTime(horizonMs) {
   const today3 = dayRow(TRIP, 3);
   check("S1 today's travel-day event exists (dayIndex 3)", Boolean(today3));
   eq("S1 today's event status", today3?.status, "scheduled");
-  check("S1 today's event has a FUTURE fire time", Date.parse(today3.scheduled_for) > Date.now(), today3.scheduled_for);
+  // Fire-time law (2026-11-08, Paris run-1 collapse): a past-due
+  // catch-up event is due AT the creation instant; an event whose
+  // natural time is still ahead keeps it. Either way the fire time
+  // is never pushed out — the old +60s cushion made the first
+  // dispatcher run after unlock see zero due events.
+  const s1NaturalMs = Date.parse(atNine(todayStart));
+  const s1ExpectedFireMs = s1NaturalMs <= createdMs ? createdMs : s1NaturalMs;
+  check(
+    "S1 today's event fire time = creation instant when past-due, else its natural time (never pushed out)",
+    Math.abs(Date.parse(today3.scheduled_for) - s1ExpectedFireMs) < 5000,
+    today3.scheduled_for
+  );
   eq("S1 day 4 natural fire time", dayRow(TRIP, 4)?.scheduled_for, atNine(shift(todayStart, 1)));
   eq("S1 day 5 natural fire time", dayRow(TRIP, 5)?.scheduled_for, atNine(shift(todayStart, 2)));
 
@@ -284,8 +299,23 @@ function advanceTime(horizonMs) {
   eq("S1 row count unchanged after re-schedule", eventsOf(TRIP).length, 11);
 
   const d0 = await sendScheduledTripNotifications();
-  eq("S1 immediate dispatch processes nothing (no early burn)", d0.processed, 0);
-  eq("S1 today's event still scheduled after immediate dispatch", dayRow(TRIP, 3)?.status, "scheduled");
+  // The Paris law: the first dispatch after creation carries every
+  // event already due (here: today's catch-up event when its natural
+  // time has passed) and nothing that is not due yet (no early burn).
+  // Before 09:00Z today's event is not due and the run is empty.
+  const s1DueAtCreation = s1NaturalMs <= createdMs;
+  eq("S1 first dispatch carries exactly the events already due (no blind window, no early burn)", d0.processed, s1DueAtCreation ? 1 : 0);
+  if (s1DueAtCreation) {
+    check(
+      "S1 today's event fired in the FIRST dispatch (notification minted)",
+      Boolean(fake.table("roamly_notifications").find((n) => n.event_id === today3.id))
+    );
+    eq(
+      "S1 the burst email landed in the first dispatch (run-1 collapse)",
+      fake.table("roamly_email_logs").filter((l) => l.trip_id === TRIP).length,
+      1
+    );
+  }
 
   // Advance to today's event's OWN fire time (the same rewind-seam
   // operation the day-4 phase uses). The old now+90s advance only
@@ -347,13 +377,21 @@ function advanceTime(horizonMs) {
       metadata: { generatedBy: "roamly_companion" }
     }
   );
+  const s2CreatedMs = Date.now();
   const result = await scheduleCompanionEvents(admin, TRIP);
   eq("S2 schedule ok", result.ok, true);
   eq("S2 elapsed corpse NOT duplicated", eventsOf(TRIP).filter((e) => e.event_type === "one_week_before").length, 1);
   const day2Rows = travelDaysOf(TRIP).filter((e) => (e.metadata || {}).travelDayIndex === 2);
   eq("S2 today's killed event resurrected alongside its corpse", day2Rows.length, 2);
   const healed = day2Rows.find((e) => e.status === "scheduled");
-  check("S2 resurrected row is scheduled with a future fire time", Boolean(healed) && Date.parse(healed.scheduled_for) > Date.now());
+  // Same fire-time law as S1: due at the creation instant when its
+  // natural time (today 09:00Z) has passed, else at the natural time.
+  const s2NaturalMs = Date.parse(atNine(todayStart));
+  const s2ExpectedFireMs = s2NaturalMs <= s2CreatedMs ? s2CreatedMs : s2NaturalMs;
+  check(
+    "S2 resurrected row is scheduled, due at creation or its natural time (never pushed out)",
+    Boolean(healed) && Math.abs(Date.parse(healed.scheduled_for) - s2ExpectedFireMs) < 5000
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -372,7 +410,16 @@ function advanceTime(horizonMs) {
   check("S3 travel days 2 and 3 present at natural times",
     dayRow(TRIP, 2)?.scheduled_for === atNine(shift(todayStart, 4)) && dayRow(TRIP, 3)?.scheduled_for === atNine(shift(todayStart, 5)));
   const d0 = await sendScheduledTripNotifications();
-  eq("S3 immediate dispatch processes nothing", d0.processed, 0);
+  // Paris law (2026-11-08): the clamped catch-up events are due at
+  // creation, so the FIRST dispatch carries the whole burst — and
+  // the burst still collapses to exactly one email for the trip.
+  const s3ClampedCount = rows.filter((e) => (e.metadata || {}).catchUp === "clamped").length;
+  eq("S3 first dispatch carries the whole catch-up burst", d0.processed, s3ClampedCount);
+  eq("S3 the burst collapses to exactly one email", fake.table("roamly_email_logs").filter((l) => l.trip_id === TRIP).length, 1);
+  check(
+    "S3 no clamped event emailed twice (one email per event)",
+    rows.filter((e) => (e.metadata || {}).catchUp === "clamped").every((e) => ((e.metadata || {}).emailAttempts ?? 0) <= 1)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -411,6 +458,39 @@ function advanceTime(horizonMs) {
   eq("S5 day 1 still scheduled", day1?.status, "scheduled");
   check("S5 days 2 and 3 added at natural times",
     dayRow(TRIP, 2)?.scheduled_for === atNine(shift(todayStart, 1)) && dayRow(TRIP, 3)?.scheduled_for === atNine(shift(todayStart, 2)));
+}
+
+// ---------------------------------------------------------------------------
+// S6 — the Paris shape (2026-11-08 Europe production test): a trip
+// starting TOMORROW unlocked with fast generation, so every pre-trip
+// stage event is already past-due at creation and the first
+// dispatcher run starts seconds later. Production run 1 produced
+// ZERO email rows (the +60s clamp cushion hid the whole burst) and
+// the single consolidated email only landed in run 2. The law now:
+// run 1 carries the burst; the cumulative count is 1 from run 1 on.
+// ---------------------------------------------------------------------------
+{
+  fake.reset(); seedUser();
+  const TRIP = "33333333-3333-4333-8333-333333333336";
+  seedTrip(TRIP, { start: shift(todayStart, 1), end: shift(todayStart, 4) });
+  const result = await scheduleCompanionEvents(admin, TRIP);
+  eq("S6 schedule ok", result.ok, true);
+  const rows = eventsOf(TRIP);
+  const clamped = rows.filter((e) => (e.metadata || {}).catchUp === "clamped");
+  check("S6 every pre-trip stage event clamped for catch-up (trip starts tomorrow)", clamped.length >= 4, `${clamped.length} clamped`);
+  check(
+    "S6 clamped events are due at creation (fire time not in the future)",
+    clamped.every((e) => Date.parse(e.scheduled_for) <= Date.now())
+  );
+  const d1 = await sendScheduledTripNotifications();
+  eq("S6 run 1 processes the whole due burst", d1.processed, clamped.length);
+  eq("S6 run 1 lands exactly one consolidated email", fake.table("roamly_email_logs").filter((l) => l.trip_id === TRIP).length, 1);
+  const d2 = await sendScheduledTripNotifications();
+  eq("S6 run 2 adds no email (cumulative stays 1)", fake.table("roamly_email_logs").filter((l) => l.trip_id === TRIP).length, 1);
+  check(
+    "S6 one email per event holds across runs",
+    clamped.every((e) => ((e.metadata || {}).emailAttempts ?? 0) <= 1)
+  );
 }
 
 const failed = results.filter((r) => !r.ok);

@@ -173,18 +173,27 @@ function activity(title, extra = {}) {
   eq(r3[0].item, "Traverse Québec-Lévis", "§3 the ferry match is the ferry crossing");
 }
 
-/* §4 — proper-noun-only must-do: exempt, exactly as in the
- * zero-engine (no head-noun requirement, no flag from this pass),
- * even when nothing in the plan names it. */
+/* §4 — proper-noun-only must-do: a pure named-place ask carries
+ * the place-name anchor (2026-11-08, Europe/Paris law — this block
+ * previously pinned the old exemption, under which the ask was
+ * excused even when nothing in the plan named it; that exemption
+ * is the contract that let the Versailles day trip vanish). When
+ * nothing in the plan names the place, the must-do is UNMET and
+ * the honest flag lands in the day words, exactly as in the
+ * zero-engine. */
 {
   const ask = "Please keep the days gentle, and also include a trip out to Montmorency Falls please.";
   const plan = miniItinerary([activity("Old Town Promenade")]);
   const results = verifyStagedMustDos(plan, payload("Quebec City", ask));
   const falls = results.find((r) => /Montmorency/i.test(r.label));
   ok(falls, "§4 the proper-noun must-do is still derived");
-  eq(falls.status, "exempt", "§4 a proper-noun-only must-do carries no requirement and is exempt");
+  eq(falls.status, "unmet", "§4 a named-place must-do nothing names is UNMET, never silently exempt");
   const applied = applyStagedMustDoVerification(clone(plan), payload("Quebec City", ask));
-  eq(applied.daily_itinerary[0].primary_plan, "A day out.", "§4 an exempt must-do gets no unmet flag");
+  ok(
+    /Montmorency Falls/.test(applied.daily_itinerary[0].primary_plan) &&
+      /no verified match/.test(applied.daily_itinerary[0].primary_plan),
+    "§4 the unmet named-place ask is flagged honestly in the day words"
+  );
 }
 
 /* §5 — constraint regressions on the real fixture: the
