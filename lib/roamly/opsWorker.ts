@@ -375,11 +375,15 @@ export type OpsWorkerBatchSummary = {
 
 async function recordAutodeployGateVerdict(job: OperationsJob): Promise<void> {
   const client = createSupabaseAdminClient();
-  let evidence: Array<Pick<OperationsEvidence, "result" | "category">> = [];
+  let evidence: Array<Pick<OperationsEvidence, "result" | "category" | "source">> = [];
   if (client) {
     const detail = await getOperationsJob(client, job.id);
     if (detail.ok) {
-      evidence = (detail.detail.evidence || []).map((row) => ({ result: row.result, category: row.category }));
+      evidence = (detail.detail.evidence || []).map((row) => ({ result: row.result, category: row.category, source: row.source }));
+      // Verdict-once guard (2026-11-08): a LEVEL_3 job's gate verdict is
+      // recorded once, not re-inserted on every hourly batch — a stuck job
+      // previously gained ~24 identical evidence rows per day, unbounded.
+      if (evidence.some((row) => row.source === "ops_worker:autodeploy_gate")) return;
     }
   }
   const verdict = await evaluateAutoDeployGate(job, evidence);

@@ -5,11 +5,13 @@ import {
   KEEPER_LOCK_NAME,
   KEEPER_RUNNER_PREFIX,
   acquireKeeperLock,
+  classifyEmailError,
   logKeeperRun,
   releaseKeeperLock,
   runKeeperSuite,
   type KeeperDeps
 } from "@/lib/roamly/roamlyKeeper";
+import { recordKeeperFaultMemory } from "@/lib/roamly/keeperFaultMemory";
 import { conciergeRowsToSuggestionTally } from "@/lib/roamly/concierge/conciergeSuggestionTally";
 import type { ConciergeSuggestionRow } from "@/lib/roamly/concierge/conciergeSuggestions";
 import { supabaseKeeperDb } from "@/lib/roamly/keeperStore";
@@ -73,8 +75,21 @@ export async function GET(request: NextRequest) {
       { db, env: process.env as Record<string, string | undefined>, now: () => new Date(), suggestions },
       runnerId
     );
-    const logged = await logKeeperRun(admin, report);
-    return NextResponse.json({ ok: true, report, logged }, { status: 200 });
+    // FAULT MEMORY (Lift 2, v1): record this run's fault patterns and
+    // outcomes into roamly_keeper_fault_memory, beside logKeeperRun.
+    // Fail-soft by contract — a memory failure never fails the run, and
+    // until the migration is applied by hand every call simply reports
+    // tableMissing. The returned report carries the memory counters in
+    // its summary, so the ops-ledger attempt and the Sophie World keeper
+    // station (sitrep recentRuns) show them; last_job_id inside memory
+    // uses the same deterministic `keeper-<runnerId>` id logKeeperRun
+    // is about to write.
+    const memory = await recordKeeperFaultMemory(admin, report, classifyEmailError);
+    const logged = await logKeeperRun(admin, memory.report);
+    return NextResponse.json(
+      { ok: true, report: memory.report, logged, faultMemory: memory.counters },
+      { status: 200 }
+    );
   } catch (error) {
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : String(error) },

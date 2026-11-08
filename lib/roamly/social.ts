@@ -4,6 +4,7 @@ import {
   ROAMLY_AFFILIATE_DISCLOSURE,
   ROAMLY_PUBLIC_DOMAIN
 } from "@/lib/roamly/emailTemplates";
+import { executeRoutedChatCompletion } from "@/lib/ai/modelRouter";
 
 export const ROAMLY_SOCIAL_CONTENT_TYPES = [
   "Destination inspiration posts",
@@ -231,42 +232,52 @@ export async function generateRoamlySocialPost(input: RoamlySocialDraftInput): P
   if (!client) return fallback;
 
   try {
-    const completion = await client.chat.completions.create({
-      model: process.env.OPENAI_SOCIAL_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You create premium, helpful, travel-agent style social posts for Roamly. Avoid spam, hype, fake urgency, and unsupported claims. Return only JSON."
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            brand: "Roamly",
-            domain: ROAMLY_PUBLIC_DOMAIN,
-            product:
-              "AI-powered itineraries, budget checks, booking organization, and Live Trip Companion for smarter travel planning.",
-            contentType,
-            destination: clean(input.destination),
-            topic: clean(input.topic),
-            affiliatePartners,
-            requiredFields: [
-              "title",
-              "facebookCaption",
-              "instagramCaption",
-              "tiktokScript",
-              "linkedinPost",
-              "hashtags",
-              "cta",
-              "affiliateDisclosure"
-            ],
-            affiliateDisclosure: hasAffiliateLinks({ contentType, affiliatePartners }) ? ROAMLY_AFFILIATE_DISCLOSURE : "",
-            tone: "premium, helpful, travel-agent style, not spammy"
-          })
-        }
-      ],
-      temperature: 0.7
+    // Model routing (Lift 1): routine class. Lane override
+    // OPENAI_SOCIAL_MODEL still wins; legacy OPENAI_MODEL fallback kept
+    // as this site's legacy chain. A routed failure still lands in the
+    // catch below and returns the deterministic fallback post.
+    const { completion } = await executeRoutedChatCompletion({
+      client,
+      taskClass: "routine",
+      lane: "social",
+      laneOverrideEnv: "OPENAI_SOCIAL_MODEL",
+      legacyEnvChain: ["OPENAI_MODEL"],
+      createParams: {
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You create premium, helpful, travel-agent style social posts for Roamly. Avoid spam, hype, fake urgency, and unsupported claims. Return only JSON."
+          },
+          {
+            role: "user",
+            content: JSON.stringify({
+              brand: "Roamly",
+              domain: ROAMLY_PUBLIC_DOMAIN,
+              product:
+                "AI-powered itineraries, budget checks, booking organization, and Live Trip Companion for smarter travel planning.",
+              contentType,
+              destination: clean(input.destination),
+              topic: clean(input.topic),
+              affiliatePartners,
+              requiredFields: [
+                "title",
+                "facebookCaption",
+                "instagramCaption",
+                "tiktokScript",
+                "linkedinPost",
+                "hashtags",
+                "cta",
+                "affiliateDisclosure"
+              ],
+              affiliateDisclosure: hasAffiliateLinks({ contentType, affiliatePartners }) ? ROAMLY_AFFILIATE_DISCLOSURE : "",
+              tone: "premium, helpful, travel-agent style, not spammy"
+            })
+          }
+        ],
+        temperature: 0.7
+      }
     });
 
     return parseGenerated(completion.choices[0]?.message?.content || "", fallback);

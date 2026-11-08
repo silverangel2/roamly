@@ -524,33 +524,44 @@ function aiClient() {
 export async function extractBookingWithAiStructuredOutput(metadata: TravelEmailMetadata) {
   const client = aiClient();
   if (!client) return null;
-  const completion = await client.chat.completions.create({
-    model: process.env.OPENAI_BOOKING_EXTRACTION_MODEL || "gpt-4o-mini",
-    temperature: 0,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "roamly_booking_extraction",
-        schema: BOOKING_EXTRACTION_JSON_SCHEMA,
-        strict: true
-      }
-    },
-    messages: [
-      {
-        role: "system",
-        content:
-          "Extract only travel booking facts from the supplied email metadata. Return strict JSON. Do not infer missing booking facts, prices, live status, or availability."
+  // Model routing (Lift 1): routine class. The router is loaded
+  // dynamically, never statically — the same isolation law as the KDE
+  // first-pass above (the junk-gmail guard suite transpiles this module
+  // with a strict import allowlist). Lane override
+  // OPENAI_BOOKING_EXTRACTION_MODEL still wins for this lane.
+  const { executeRoutedChatCompletion } = await import("@/lib/ai/modelRouter");
+  const { completion } = await executeRoutedChatCompletion({
+    client,
+    taskClass: "routine",
+    lane: "booking-extraction",
+    laneOverrideEnv: "OPENAI_BOOKING_EXTRACTION_MODEL",
+    createParams: {
+      temperature: 0,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "roamly_booking_extraction",
+          schema: BOOKING_EXTRACTION_JSON_SCHEMA,
+          strict: true
+        }
       },
-      {
-        role: "user",
-        content: JSON.stringify({
-          sender: metadata.sender || "",
-          subject: metadata.subject || "",
-          snippet: metadata.snippet || "",
-          body_preview: clean(metadata.bodyText).slice(0, EMAIL_LOOKBACK_TEXT_LIMIT)
-        })
-      }
-    ]
+      messages: [
+        {
+          role: "system",
+          content:
+            "Extract only travel booking facts from the supplied email metadata. Return strict JSON. Do not infer missing booking facts, prices, live status, or availability."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            sender: metadata.sender || "",
+            subject: metadata.subject || "",
+            snippet: metadata.snippet || "",
+            body_preview: clean(metadata.bodyText).slice(0, EMAIL_LOOKBACK_TEXT_LIMIT)
+          })
+        }
+      ]
+    }
   });
   const content = completion.choices[0]?.message?.content || "";
   const parsed = JSON.parse(content) as Record<string, unknown>;

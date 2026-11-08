@@ -42,6 +42,11 @@ import {
   updateOperationsJobStatus,
 } from "@/lib/roamly/opsStore";
 import { getRoamlyLaunchReadiness } from "@/lib/roamly/launchReadiness";
+import {
+  attachFaultMemoryHistory,
+  faultRecallKeysForEmailCheck,
+  recallKeeperFaultMemory,
+} from "@/lib/roamly/keeperFaultMemory";
 
 // ── Kill switch ─────────────────────────────────────────────────────────────
 
@@ -1050,6 +1055,18 @@ export async function runKeeperSuite(deps: KeeperDeps, runnerId: string): Promis
     });
   }
 
+  // FAULT MEMORY recall (Lift 2, v1 — text only): recall the queue-stuck
+  // patterns for the error classes present in this run's email check,
+  // BEFORE any repair decision is made. The recall reads only the
+  // fault-memory table; its result is used solely by
+  // attachFaultMemoryHistory below, so repair inputs and decisions are
+  // byte-identical with or without memory. Fail-soft: a missing table or
+  // any read error recalls nothing and the run proceeds as before.
+  const emailCheckForRecall = checks.find((c) => c.lane === "completion_email_queue");
+  const faultRecall = emailCheckForRecall
+    ? await recallKeeperFaultMemory(deps.db, faultRecallKeysForEmailCheck(emailCheckForRecall))
+    : [];
+
   let repair: KeeperRepairResult | null = null;
   const repairsOn = keeperRepairsEnabled();
   const emailCheck = checks.find((c) => c.lane === "completion_email_queue");
@@ -1072,6 +1089,10 @@ export async function runKeeperSuite(deps: KeeperDeps, runnerId: string): Promis
         "Dylan: the keeper found stuck completion emails but repairs are switched OFF (ROAMLY_KEEPER_REPAIRS). Re-drive them manually via the existing generation-email retry path, or enable keeper repairs deliberately.",
     });
   }
+
+  // Attach recalled history to matching escalation text (v1 charter
+  // guardrail: memory changes words, never actions).
+  if (faultRecall.length) attachFaultMemoryHistory(escalations, faultRecall, classifyEmailError);
 
   const down = checks.filter((c) => c.status === "down").length;
   const degraded = checks.filter((c) => c.status === "degraded").length;

@@ -5,8 +5,8 @@
  * Sophie (Junel's local AI) connects OUTBOUND from his iMac to this door.
  * She can read the keeper/ops picture (sitrep) and enqueue whitelisted jobs
  * into Roamly's OWN roamly_ops_jobs ledger, where the existing
- * roamly-ops-worker (cron every 15 min) executes them under its own
- * authority ceiling:
+ * roamly-ops-worker (hourly cron at :37, per vercel.json) executes them
+ * under its own authority ceiling:
  *   - "run_sweep"      → LEVEL_1_OBSERVE, runner phase2.gap-audit.observe:
  *     the real read-only check suite (route probes + policy registry).
  *   - "prepare_repair" → LEVEL_3_SAFE_REPAIR, runner phase2.gap-audit.safe-repair:
@@ -197,14 +197,26 @@ export async function placeSophieOrder(
       error: "Roamly ops ledger is not provisioned yet; orders cannot be recorded.",
     };
   }
+  // Anti-flood guard, split by order type (2026-11-08): sweeps and repairs
+  // draw on separate QUEUED pools of MAX_QUEUED_SOPHIE_JOBS each, keyed on
+  // the initiating_signal prefix. One shared pool let a backlog of stuck
+  // LEVEL_3 repairs fill all 3 slots and 429 every further Sophie order,
+  // sweeps included; a repair backlog can now never starve her sweeps.
   const queuedSophie = (listed.jobs as OperationsJobRow[]).filter(
     (j) => j.status === "QUEUED" && jobSource(j) === "sophie"
+  );
+  const queuedForType = queuedSophie.filter((j) =>
+    String(j.initiating_signal ?? "").startsWith(
+      validation.type === "run_sweep"
+        ? "sophie-command:run_sweep"
+        : "sophie-command:prepare_repair"
+    )
   ).length;
-  if (queuedSophie >= MAX_QUEUED_SOPHIE_JOBS) {
+  if (queuedForType >= MAX_QUEUED_SOPHIE_JOBS) {
     return {
       ok: false,
       status: 429,
-      error: `Too many Sophie orders already queued (${queuedSophie}). Wait for the ops worker to drain them.`,
+      error: `Too many Sophie ${validation.type} orders already queued (${queuedForType}). Wait for the ops worker to drain them.`,
     };
   }
 
@@ -331,6 +343,16 @@ export type SophieSitrep = {
         created_at: string;
       }>;
     } | null;
+    repairRunner: {
+      latest: {
+        id: string;
+        status: string;
+        objective: string;
+        created_at: string;
+        at: string;
+      } | null;
+      awaitingApproval: number;
+    } | null;
   };
   degraded: string[];
 };
@@ -377,6 +399,7 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
   const degraded: string[] = [];
   let ops: SophieSitrep["sections"]["ops"] = null;
   let keeper: SophieSitrep["sections"]["keeper"] = null;
+  let repairRunner: SophieSitrep["sections"]["repairRunner"] = null;
 
   let rows: OperationsJobRow[] = [];
   try {
@@ -384,6 +407,7 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
     if (!listed.ok) {
       degraded.push("ops");
       degraded.push("keeper");
+      degraded.push("repairRunner");
     } else {
       rows = listed.jobs as OperationsJobRow[];
       const { counts, failures, bots, recentJobs } = summarizeJobs(rows);
@@ -403,17 +427,45 @@ export async function buildSophieSitrep(): Promise<SophieSitrep> {
           created_at: String(row.created_at ?? ""),
         })),
       };
+      // The Repair Runner's board picture, from the same rows: repair
+      // jobs are claimed on the scope.safeRepair flag (never authority
+      // alone — keeper rows carry LEVEL_3 authority without it). Rows
+      // arrive newest-first, so the first match is the latest repair.
+      const repairRows = rows.filter(
+        (row) =>
+          (row.scope_json as { safeRepair?: unknown } | null | undefined)
+            ?.safeRepair === true
+      );
+      const latestRepair = repairRows[0];
+      repairRunner = {
+        latest: latestRepair
+          ? {
+              id: String(latestRepair.id ?? ""),
+              status: String(latestRepair.status ?? ""),
+              objective: String(latestRepair.objective ?? "").slice(0, 160),
+              created_at: String(latestRepair.created_at ?? ""),
+              at:
+                String(latestRepair.completed_at ?? "") ||
+                String(latestRepair.updated_at ?? "") ||
+                String(latestRepair.created_at ?? ""),
+            }
+          : null,
+        awaitingApproval: repairRows.filter(
+          (row) => String(row.status ?? "").toUpperCase() === "AWAITING_APPROVAL"
+        ).length,
+      };
     }
   } catch {
     degraded.push("ops");
     degraded.push("keeper");
+    degraded.push("repairRunner");
   }
 
   return {
     ok: degraded.length === 0,
     site: "roamly",
     at: new Date().toISOString(),
-    sections: { ops, keeper },
+    sections: { ops, keeper, repairRunner },
     degraded,
   };
 }

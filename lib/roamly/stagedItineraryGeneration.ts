@@ -57,6 +57,7 @@ import {
   type MarketStopProvenance
 } from "@/lib/roamly/marketStopDescription";
 import { readRelevantSuccessfulTripPatterns, selectRelevantSuccessfulTripPatterns } from "@/lib/roamly/successfulTripExperiencePatterns";
+import { resolveModel } from "@/lib/ai/modelRouter";
 
 export type StagedGenerationStatus =
   | "queued"
@@ -213,6 +214,10 @@ type StageAiResult = {
   estimatedCostUsd: number;
   durationMs: number;
   attemptNumber: number;
+  /** True when this stage ran on a model below the resolved decision tier
+   * (e.g. the OPENAI_FALLBACK_MODEL attempt swap) — never present a
+   * degraded stage's output as full-tier quality. */
+  degradedModel: boolean;
 };
 
 export class StagedGenerationError extends Error {
@@ -516,13 +521,19 @@ type AiProviderConfig = {
 function primaryAiProvider(): AiProviderConfig | null {
   const apiKey = (process.env.OPENAI_API_KEY || "").trim();
   if (!apiKey) return null;
+  // Model routing (Lift 1): decision class. The legacy chain preserves
+  // today's resolution exactly (OPENAI_MODEL, else gpt-4o-mini); setting
+  // AI_MODEL_STRONG promotes this lane — and only decision-class lanes —
+  // in one env change. Prices come from the router's per-model table,
+  // which still honours the ROAMLY_OPENAI_*_PRICE_PER_1M overrides.
+  const resolved = resolveModel({ taskClass: "decision", lane: "staged-generation", legacyEnvChain: ["OPENAI_MODEL"] });
   return {
-    provider: (process.env.ROAMLY_PRIMARY_AI_PROVIDER || "openai").trim() || "openai",
+    provider: resolved.provider,
     apiKey,
-    model: (process.env.OPENAI_MODEL || "gpt-4o-mini").trim() || "gpt-4o-mini",
+    model: resolved.model,
     baseURL: (process.env.ROAMLY_OPENAI_BASE_URL || "").trim() || undefined,
-    inputPricePer1M: DEFAULT_INPUT_PRICE_PER_1M,
-    outputPricePer1M: DEFAULT_OUTPUT_PRICE_PER_1M
+    inputPricePer1M: resolved.inputPricePer1M,
+    outputPricePer1M: resolved.outputPricePer1M
   };
 }
 
@@ -684,6 +695,13 @@ async function callJsonStage(params: {
 }): Promise<StageAiResult> {
   const client = openAiClient(params.provider);
   const model = params.provider.model;
+  // Model routing (Lift 1): providerForAttempt may have swapped the model
+  // for this attempt (OPENAI_FALLBACK_MODEL). When the model that runs is
+  // not the resolved decision-tier model, the stage is stamped degraded —
+  // in its trace and in StageAiResult — so degraded output is never
+  // presented as full-tier quality.
+  const resolvedDecision = resolveModel({ taskClass: "decision", lane: "staged-generation", legacyEnvChain: ["OPENAI_MODEL"] });
+  const degradedModel = model !== resolvedDecision.model;
   const started = Date.now();
   traceStage(params.trace, "staged_ai_call_start", {
     stage: params.stage,
@@ -743,6 +761,10 @@ async function callJsonStage(params: {
       stage: params.stage,
       provider: params.provider.provider,
       model,
+      taskClass: "decision",
+      lane: "staged-generation",
+      tier: resolvedDecision.tier,
+      degraded: degradedModel,
       status: "success",
       durationMs,
       inputCharacters: params.prompt.length,
@@ -766,7 +788,8 @@ async function callJsonStage(params: {
       outputTokens,
       estimatedCostUsd,
       durationMs,
-      attemptNumber: params.attemptNumber
+      attemptNumber: params.attemptNumber,
+      degradedModel
     };
   } catch (error) {
     const safe = error instanceof StagedGenerationError
