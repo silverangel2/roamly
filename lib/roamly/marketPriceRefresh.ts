@@ -9,6 +9,11 @@ import {
   savePriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
 import {
+  buildStayOptions,
+  carryForwardStaySelection,
+  type StaySelection
+} from "@/lib/roamly/stayOptions";
+import {
   searchTripMarketPrices,
   type SelectedHotelRevalidationResult
 } from "@/lib/roamly/travelMarketSearch";
@@ -168,6 +173,31 @@ export async function loadSelectedHotelActionContext(
   };
 }
 
+/**
+ * The trip's stored stay pick from its latest discovery row, when
+ * one exists. A refresh re-derives every estimate from scratch; the
+ * traveller's confirmed stay is not an estimate, so the refresh
+ * carries it forward (carryForwardStaySelection) instead of
+ * silently replacing it with the engine's hotel estimate.
+ */
+async function loadPreviousStaySelection(
+  supabase: SupabaseClient,
+  trip: RoamlyTripRecord
+): Promise<StaySelection | null> {
+  if (!trip.latest_price_discovery_id) return null;
+  const { data } = await supabase
+    .from("roamly_price_discoveries")
+    .select("metadata")
+    .eq("id", trip.latest_price_discovery_id)
+    .eq("trip_id", trip.id)
+    .eq("user_id", trip.user_id)
+    .maybeSingle();
+  const raw = getRecord(getRecord(data?.metadata).staySelection);
+  const candidateId = getString(raw.candidateId);
+  if (!candidateId) return null;
+  return { candidateId, title: getString(raw.title), selectedBy: "traveler" };
+}
+
 export async function refreshTripMarketPricesForTrip(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -185,7 +215,21 @@ export async function refreshTripMarketPricesForTrip(params: {
     searchTripMarketPrices(payload, { supabase: params.supabase, forceRefresh: params.forceRefresh, store: true, selectedHotelForRevalidation: params.selectedHotelForRevalidation }),
     getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId, payload.budgetCurrency)
   ]);
-  const discovery = await discoverTripPrices({ userId: params.userId, tripId: params.tripId, ...payload, committedBookingCost: committed, confirmedBookings: confirmedBookings.bookings, marketResults: marketSearch.results });
+  const freshDiscovery = await discoverTripPrices({ userId: params.userId, tripId: params.tripId, ...payload, committedBookingCost: committed, confirmedBookings: confirmedBookings.bookings, marketResults: marketSearch.results });
+  // Stay-pick honouring: if the traveller already picked a stay,
+  // the refresh must not silently overwrite it with a fresh hotel
+  // estimate. When the picked property is still among the trip's
+  // stay options at a displayable price, the pick is re-applied to
+  // the fresh discovery (its stay line re-tabulates from the fresh
+  // fixed costs); otherwise the fresh estimate stands.
+  const previousStaySelection = await loadPreviousStaySelection(params.supabase, params.trip);
+  const discovery = previousStaySelection
+    ? carryForwardStaySelection(
+        freshDiscovery,
+        previousStaySelection,
+        buildStayOptions(params.itinerary?.full_json?.booking_suggestions || [], Math.max(1, (payload.daysCount || 1) - 1))
+      )
+    : freshDiscovery;
   const savedDiscovery = await savePriceDiscovery(params.supabase, { userId: params.userId, tripId: params.tripId, ...payload }, discovery);
   const full = params.itinerary?.full_json || null;
   const updatedItinerary = full ? enrichItineraryBookingSuggestions(applyPriceDiscoveryToItinerary(full, discovery), { ...payload, priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null, budgetConstraint: buildBudgetConstraintForItinerary(discovery), priceDiscovery: discovery as unknown as Record<string, unknown>, confirmedBookings: confirmedBookings.bookings }, confirmedBookings.bookings) : null;
