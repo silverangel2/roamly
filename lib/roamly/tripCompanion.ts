@@ -528,10 +528,16 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
   //     today or still ahead, so a wrongly killed event heals on the
   //     next reconcile instead of staying dead for the whole trip;
   //   * a past-due event whose day is today (or whose trip has not
-  //     started yet) is inserted with its fire time clamped ~1 minute
-  //     out, so it fires through the normal dispatcher path as a real
-  //     delivery instead of being born as an already-expired row for
-  //     the dispatcher's terminal gates to consume unseen;
+  //     started yet) is inserted with its fire time clamped to the
+  //     creation instant, so the FIRST dispatcher run that starts
+  //     after the row exists claims it as a real delivery through
+  //     the normal path. (2026-11-08, Europe/Paris production test:
+  //     the earlier ~1-minute cushion was a blind window — the
+  //     unlock-to-dispatch gap is shorter than the cushion whenever
+  //     generation is fast, so run 1 saw zero due events and the
+  //     consolidated reminder only landed in run 2. A row cannot be
+  //     "born expired" unseen: the dispatcher only ever fetches
+  //     rows that already exist when its run starts.);
   //   * an event whose whole day has elapsed is recorded directly as
   //     skipped (metadata catchUp: "elapsed_day") — honest bookkeeping
   //     that costs no dispatcher cycle and sends nothing.
@@ -574,7 +580,7 @@ export async function scheduleCompanionEvents(supabase: SupabaseClient, tripId: 
         status = "skipped";
         catchUp = "elapsed_day";
       } else {
-        fireAt = new Date(nowMs + 60_000).toISOString();
+        fireAt = new Date(nowMs).toISOString();
         catchUp = "clamped";
       }
     }
