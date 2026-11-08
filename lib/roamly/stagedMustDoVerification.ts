@@ -42,9 +42,12 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
  *   kind-bearing fields — category / item_type / affiliate
  *   category — carry a required kind). A related place that
  *   matches only the label's context words does NOT satisfy.
- * - Proper-noun-only labels carry no requirement in
- *   mustSeeRequirement; they are EXEMPT here exactly as in the
- *   solver (no requirement = the historical behaviour governs).
+ * - Pure named-place labels (no head noun at all) carry the
+ *   place-name anchor from mustSeeRequirement (2026-11-08, Europe
+ *   test): satisfied only by an activity that names the place,
+ *   otherwise UNMET and named — here exactly as in the solver.
+ *   Labels with neither a head noun nor a named place carry no
+ *   requirement and remain EXEMPT (the historical behaviour).
  * - An unsatisfied must-do is never dropped and never silently
  *   substituted: it is reported through the same honest surface
  *   the zero-engine uses — the namedMustSeeMiss sentence, appended

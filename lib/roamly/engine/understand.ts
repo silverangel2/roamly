@@ -23,11 +23,45 @@ import type { EngineDay, EngineItem } from "@/lib/roamly/engine/util";
  */
 
 const TIME_WORDS: Record<string, string> = {
+  six: "06:00",
+  seven: "07:00",
   nine: "09:00",
   ten: "10:00",
   eight: "08:00",
-  eleven: "11:00"
+  eleven: "11:00",
+  twelve: "12:00"
 };
+const MINUTE_WORDS: Record<string, number> = {
+  fifteen: 15,
+  thirty: 30,
+  "forty-five": 45,
+  "forty five": 45
+};
+
+/** Parse the time phrase after "no starts before …" as a WHOLE:
+ *  "eight thirty" is 08:30, "eight" is 08:00, "8:30" / "08:30" /
+ *  "8" are their clock times. (Europe test, 2026-11-08: the old
+ *  single-word capture read "eight thirty" as 08:00 — the minutes
+ *  were silently dropped, so the traveller's 08:30 earliest start
+ *  reached the solver as 08:00 and the day-3 rest marker was
+ *  stamped 08:00 against their own stated constraint.) */
+function parseEarliestStartPhrase(phrase: string): string | null {
+  const p = phrase.trim().replace(/\s+/g, " ");
+  const digit = p.match(/^(\d{1,2})(?::(\d{2}))?$/);
+  if (digit) {
+    const h = Number(digit[1]);
+    const m = digit[2] ? Number(digit[2]) : 0;
+    if (h > 23 || m > 59) return null;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+  const parts = p.split(" ");
+  const hour = TIME_WORDS[parts[0]];
+  if (!hour) return null;
+  const minuteWord = parts.slice(1).join(" ");
+  const minutes = minuteWord ? MINUTE_WORDS[minuteWord] : 0;
+  if (minutes === undefined) return null;
+  return `${hour.slice(0, 2)}:${String(minutes).padStart(2, "0")}`;
+}
 const DIET_RULES: [string, RegExp][] = [
   ["vegetarian", /\bvegetarian\b/],
   ["vegan", /\bvegan\b/],
@@ -184,6 +218,27 @@ export interface MustSeeRequirement {
  *  mustSeePatterns). A label with NO type-checkable head noun keeps
  *  every head noun it has (hot springs, funicular): there the nouns
  *  are all the requirement can honestly state. */
+/** Sentence-openers that are never the place itself, for the
+ *  named-place anchor below. */
+const NON_PLACE_OPENERS: ReadonlySet<string> = new Set([
+  "the", "a", "an", "one", "visit", "visiting", "see", "explore",
+  "tour", "day", "trip", "take", "go", "going", "morning",
+  "afternoon", "evening", "full"
+]);
+
+/** The proper-noun tokens of a label — the named place itself. */
+function properNounAnchors(label: string): string[] {
+  const out: string[] = [];
+  const tokens = String(label || "").split(/[^A-Za-z0-9'’-]+/).filter(Boolean);
+  tokens.forEach((raw, i) => {
+    if (!/^[A-Z]/.test(raw) || raw.length < 3) return;
+    const w = raw.toLowerCase();
+    if (i === 0 && NON_PLACE_OPENERS.has(w)) return;
+    if (!out.includes(w)) out.push(w);
+  });
+  return out;
+}
+
 export function mustSeeRequirement(label: string): MustSeeRequirement {
   const headNouns: string[] = [];
   for (const raw of String(label || "").split(/[^A-Za-z0-9'’-]+/)) {
@@ -194,6 +249,25 @@ export function mustSeeRequirement(label: string): MustSeeRequirement {
   const typed = headNouns.filter((w) => MUST_SEE_HEAD_KINDS[w]);
   const patterns = typed.length ? typed : headNouns;
   const kinds = [...new Set(patterns.map((p) => MUST_SEE_HEAD_KINDS[p]).filter(Boolean))];
+  if (!patterns.length) {
+    // Pure named-place ask (Europe test, 2026-11-08): the label
+    // carries NO head noun at all — "a day trip to Versailles if it
+    // fits the plan" — so the proper noun is not context, it IS the
+    // ask. With no requirement, the pattern ladder's fallback
+    // tokens did the satisfying: "plan" (from the conditional
+    // clause) substring-matched "Histoire des Plantes", the solver
+    // reported the day trip "scheduled" against a plant museum,
+    // and the ask vanished with no unmet note. Anchor the
+    // requirement on the place's own name: a candidate satisfies
+    // the must-see only when it names that place; anything else
+    // leaves the must-see honestly unmet, to be named in the day
+    // words — built, or the honest reason, never a silent drop.
+    // A capitalized kind noun still never becomes a KIND
+    // requirement (kinds stay empty) — the anchor is a name test,
+    // not a kind test.
+    const anchors = properNounAnchors(label);
+    if (anchors.length) return { patterns: anchors, kinds: [] };
+  }
   return { patterns, kinds };
 }
 
@@ -222,9 +296,10 @@ export function extractConstraints(
   const unresolved: string[] = [];
   const c: ExtractedConstraints = { dietary: [], access: [], unresolved };
 
-  const startMatch = lower.match(/no starts before (\w+)/);
-  if (startMatch)
-    c.earliestStart = TIME_WORDS[startMatch[1]] || (/\d/.test(startMatch[1]) ? startMatch[1] : null);
+  const startMatch = lower.match(
+    /no starts before ([a-z]+(?:\s+(?:thirty|fifteen|forty[-\s]five))?|\d{1,2}(?::\d{2})?)/
+  );
+  if (startMatch) c.earliestStart = parseEarliestStartPhrase(startMatch[1]);
   if (!c.earliestStart) unresolved.push('earliest-start: no "no starts before …" clause found');
 
   if (/rest afternoon/.test(lower)) c.rest = { type: "afternoon", text: "one full rest afternoon in the middle" };

@@ -174,7 +174,12 @@ function solveBanff(pack, mustSees) {
 // proper name is the ask and the historical ladder governs.
 {
   const req = mustSeeRequirement("a trip out to Montmorency Falls");
-  eq(req.patterns.length, 0, "§3 a capitalized kind noun is context/proper name, not a head-noun requirement");
+  eq(req.kinds.length, 0, "§3 a capitalized kind noun never becomes a KIND requirement");
+  eq(
+    req.patterns.join(","),
+    "montmorency,falls",
+    "§3 a pure named-place ask anchors on the place's own name (Paris law, 2026-11-08: no requirement let 'plan' satisfy Versailles against a plant museum)"
+  );
 }
 
 /* §4 + §5 — the saved production itinerary.json (customer shape:
