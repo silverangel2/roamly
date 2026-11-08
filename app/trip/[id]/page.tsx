@@ -19,6 +19,8 @@ import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
 import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
 import { buildVenuePhotoMap } from "@/lib/roamly/venuePhotos";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
+import { StaySelector } from "@/components/trip/StaySelector";
+import { buildStayOptions } from "@/lib/roamly/stayOptions";
 import { DestinationPhotoBand } from "@/components/trip/DestinationPhotoBand";
 import { GuardedImage } from "@/components/roamly/GuardedImage";
 import { GuardedHotelActionButton } from "@/components/trip/GuardedHotelActionButton";
@@ -34,6 +36,7 @@ import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryBu
 import { TripShareActions } from "@/components/trip/TripShareActions";
 import { ItineraryHomePanel } from "@/components/trip/ItineraryHomePanel";
 import { buildHomeDayView, formatHomeDateRange } from "@/lib/roamly/itineraryHome";
+import { buildDocumentChecklist } from "@/lib/roamly/tripCompanion";
 import { PostTripLibraryAskCard } from "@/components/trip/PostTripLibraryAskCard";
 import { TripCommentBox } from "@/components/trip/TripCommentBox";
 import { TripWeatherCard, type TripWeatherRequest } from "@/components/roamly/TripWeatherCard";
@@ -1827,53 +1830,65 @@ function PreTripEssentialsSection({
 function PackageStays({
   suggestions,
   trip,
-  tripId
+  tripId,
+  currency,
+  staySelectionId,
+  totals
 }: {
   suggestions: RoamlyItinerary["booking_suggestions"];
   trip: RoamlyTripRecord;
   tripId: string;
+  currency: string;
+  /** The trip's stored stay pick (its option id) from the latest
+   *  price discovery, or null — the selector opens on the
+   *  traveller's own stay after a reload. */
+  staySelectionId: string | null;
+  /** The trip's current totals from its own budget breakdown
+   *  (dollars there, cents here), or null when the saved trip
+   *  carries none — the selector then records the pick without
+   *  inventing a total to re-tabulate. */
+  totals: { stayEstimateCents: number; bufferEstimateCents: number; totalEstimateCents: number } | null;
 }) {
   const areaPartners = areaHotelPartners(trip);
   if (!suggestions.length && !areaPartners.length) return null;
 
+  // Stay selector (owner order, 2026-11-08): the stored suggestions
+  // ARE the stay options. buildStayOptions applies the surface's own
+  // price-display rule (a price shows only when a partner returned
+  // one — the old subline's promise, now structural: an unpriced
+  // stay is a quiet line, never a card with an invented figure).
+  // Titles pass through the same traveler-title presentation the
+  // list used. Nights follow the engine's rule (days − 1).
+  const nights = Math.max(1, (getTripDaysCount(trip) || 1) - 1);
+  const titledSuggestions = suggestions.map((suggestion) => ({
+    ...suggestion,
+    title: presentTravelerTitle({
+      title: bookingTitle(suggestion),
+      category: "hotel",
+      destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip)
+    }).title
+  }));
+  const options = buildStayOptions(titledSuggestions, nights);
+  const partnersByOptionId: Record<string, HotelPartnerChoice[]> = {};
+  options.forEach((option, index) => {
+    const suggestion = suggestions[index];
+    if (suggestion) partnersByOptionId[option.id] = partnersForHotelSuggestion(suggestion, trip);
+  });
+
   return (
     <section aria-label="Your stay" className="bui-enter rounded-bui-panel border border-chair bg-white px-4 py-6 shadow-bui-card sm:px-6 sm:py-7">
       <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-ink">Stay options in this package</h2>
-      <p className="mt-1.5 max-w-md text-[0.9375rem] leading-6 text-slate-500">Partner searches for your dates. A price is shown only when a partner returns one.</p>
-      <div className="mt-5 divide-y divide-[#efe7da]">
-        {suggestions.length ? suggestions.map((suggestion, index) => {
-          const title = presentTravelerTitle({
-            title: bookingTitle(suggestion),
-            category: "hotel",
-            destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip)
-          }).title;
-          const partners = partnersForHotelSuggestion(suggestion, trip);
-          return (
-            <article key={`${title}-${index}`} className="py-5 first:pt-1">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-base font-semibold tracking-tight text-ink">{title}</h3>
-                <p className="bui-display-number shrink-0 text-right text-sm font-medium text-slate-600">{hotelTravelerPrice(suggestion)}</p>
-              </div>
-              {bookingDescription(suggestion) ? <p className="mt-1 text-sm leading-5 text-slate-500">{bookingDescription(suggestion)}</p> : null}
-              {partners.length ? (
-                <HotelPartnerChoices
-                  partners={partners}
-                  tripId={tripId}
-                  title={title}
-                  recommendationId={suggestion.candidateId || null}
-                />
-              ) : null}
-            </article>
-          );
-        }) : (
-          <div className="pt-1">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-base font-semibold tracking-tight text-ink">Stay to confirm</h3>
-              <p className="bui-display-number shrink-0 text-sm font-medium text-slate-600">Price not available</p>
-            </div>
-            <HotelPartnerChoices partners={areaPartners} tripId={tripId} title={`Stay in ${getTripDestinationLabel(trip)}`} />
-          </div>
-        )}
+      <div className="mt-5">
+        <StaySelector
+          tripId={tripId}
+          options={options}
+          currency={currency}
+          initialSelectionId={staySelectionId}
+          totals={totals}
+          partnersByOptionId={partnersByOptionId}
+          areaPartners={areaPartners}
+          destinationLabel={getTripDestinationLabel(trip)}
+        />
       </div>
     </section>
   );
@@ -2456,6 +2471,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const localTipItems = full?.local_tips.slice(0, 6) || [];
   const safetyItems = full?.safety_notes.slice(0, 6) || [];
   const documentItems = getStringList(trip.document_checklist, [], 6);
+  // Documents tab only: trips.document_checklist has no writer anywhere
+  // in the app (it defaults to [] at insert), so on its own the tab was
+  // a dead end for every trip. When no grounded list is saved, fall back
+  // to the designed destination-aware checklist — the same builder the
+  // Live Companion stores in metadata and shows on its surfaces. The
+  // briefing above keeps using documentItems (grounded items only).
+  const panelDocumentItems = documentItems.length ? documentItems : buildDocumentChecklist(trip).slice(0, 6);
   const emergencyItems = full?.emergency_notes.slice(0, 6) || [];
   const lowCostItems = full?.free_or_low_cost_notes.slice(0, 5) || [];
   const hasEssentials = Boolean(full?.pre_trip_essentials.length);
@@ -2974,7 +2996,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     editHref={itineraryHomeEditHref}
                     essentials={itineraryHomeEssentials}
                     packing={packingItems}
-                    documents={documentItems}
+                    documents={panelDocumentItems}
                   />
                 </section>
                 <section id="day-by-day" className="roamly-tab-panel roamly-panel-day-by-day mt-8 scroll-mt-32">
@@ -3013,7 +3035,31 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                   ) : null}
 
                   <div className="mt-7">
-                    <PackageStays suggestions={packageHotelItems} trip={trip} tripId={id} />
+                    <PackageStays
+                      suggestions={packageHotelItems}
+                      trip={trip}
+                      tripId={id}
+                      currency={currency}
+                      staySelectionId={
+                        persistedPriceDiscovery?.staySelection &&
+                        typeof persistedPriceDiscovery.staySelection === "object" &&
+                        typeof (persistedPriceDiscovery.staySelection as { candidateId?: unknown }).candidateId === "string"
+                          ? ((persistedPriceDiscovery.staySelection as { candidateId: string }).candidateId as string)
+                          : null
+                      }
+                      totals={
+                        full &&
+                        typeof full.estimated_budget_breakdown.selected_hotel_estimate_amount === "number" &&
+                        typeof full.estimated_budget_breakdown.buffer_estimate_amount === "number" &&
+                        typeof full.estimated_budget_breakdown.total_estimate_amount === "number"
+                          ? {
+                              stayEstimateCents: Math.round(full.estimated_budget_breakdown.selected_hotel_estimate_amount * 100),
+                              bufferEstimateCents: Math.round(full.estimated_budget_breakdown.buffer_estimate_amount * 100),
+                              totalEstimateCents: Math.round(full.estimated_budget_breakdown.total_estimate_amount * 100)
+                            }
+                          : null
+                      }
+                    />
                   </div>
 
                   {!draftCommand && commandNextTitle ? (

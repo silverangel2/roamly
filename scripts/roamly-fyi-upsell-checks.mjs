@@ -204,7 +204,9 @@ check("gap offers reuse the /finds affiliate endpoints — nothing new invented"
   assert.ok(esim.widget, "esim offer carries the widget embed");
   assert.ok(esim.widget.src.includes("trs=549715") && esim.widget.src.includes("shmarker=750294"), "esim widget keeps the approved identifiers");
   const car = gaps.buildGapOffer("car", tripBase, amazon);
-  assert.ok(car.widget && car.widget.src.includes("trs=549715"), "car widget keeps the approved identifiers");
+  assert.equal(car.href, "https://getrentacar.tpo.lu/l16uVhOn", "car offer uses the /finds GetRentacar tracked link (marker 750294 rides its redirect)");
+  assert.ok(!car.widget, "car offer carries no widget — the link is the card's guaranteed way forward");
+  assert.ok(/browse/i.test(car.ctaLabel + car.description), "car offer is labeled as browsing, not an exact product");
   const gear = gaps.buildGapOffer("gear", tripBase, amazon);
   assert.ok(gear.href.includes("tag=roamly02e-20"), "gear offer carries the configured Amazon tag");
   for (const offer of [hotel, transfer, tours, esim, car, gear]) {

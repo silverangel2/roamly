@@ -33,19 +33,22 @@ export type TripGapType = (typeof TRIP_GAP_TYPES)[number];
  *  - Stay22 smart link (hotels)
  *  - Intui tracked link (airport transfers)
  *  - KKday tracked promo link (tours — labeled as a browse link, never an exact product)
- *  - Travelpayouts widget identifiers trs=549715 / shmarker=750294 (flights, eSIM, rental cars)
+ *  - Travelpayouts widget identifiers trs=549715 / shmarker=750294 (flights, eSIM)
+ *  - GetRentacar tracked link (rental cars — the same link the /finds
+ *    "Find a car for the road" deal uses; resolves to getrentacar.com
+ *    carrying marker 750294)
  */
 export const GAP_AFFILIATE_SOURCES = {
   stay22SmartLink: "https://booking.stay22.com/roamly/YhpfMFjm2n",
   intuiTransferLink: "https://intui.tpo.lu/6GQiV5Ai",
   kkdayPromoLink: "https://kkday.tpo.lu/DrPvqlSH",
+  getRentacarLink: "https://getrentacar.tpo.lu/l16uVhOn",
   travelpayouts: {
     origin: "https://tpwdgt.com",
     path: "/content",
     trs: "549715",
     shmarker: "750294",
-    esim: { promoId: "8588", campaignId: "541" },
-    cars: { promoId: "3507", campaignId: "22", ag: "18", ap: "34", rid: "481" }
+    esim: { promoId: "8588", campaignId: "541" }
   }
 } as const;
 
@@ -217,7 +220,7 @@ export type GapOffer = {
   ctaLabel: string;
   /** e.g. "Stay22", "Intui", "KKday", "Travelpayouts", "Amazon". */
   providerLabel: string;
-  /** For widget-based offers (eSIM, rental cars): iframe embed config reused from /finds. */
+  /** For widget-based offers (eSIM): iframe embed config reused from /finds. */
   widget?: { src: string; minHeight: number };
   /** Amazon search query for the gear offer; the tag comes from config, not here. */
   amazonQuery?: string;
@@ -235,22 +238,6 @@ function esimWidgetSrc(country: string) {
   url.searchParams.set("campaign_id", GAP_AFFILIATE_SOURCES.travelpayouts.esim.campaignId);
   url.searchParams.set("color_button", "#f2685f");
   url.searchParams.set("plain", "false");
-  return url.toString();
-}
-
-function carsWidgetSrc() {
-  const url = new URL(`${GAP_AFFILIATE_SOURCES.travelpayouts.origin}${GAP_AFFILIATE_SOURCES.travelpayouts.path}`);
-  url.searchParams.set("trs", GAP_AFFILIATE_SOURCES.travelpayouts.trs);
-  url.searchParams.set("shmarker", GAP_AFFILIATE_SOURCES.travelpayouts.shmarker);
-  url.searchParams.set("powered_by", "true");
-  url.searchParams.set("locale", "en");
-  url.searchParams.set("curr", "USD");
-  url.searchParams.set("color", "blue");
-  url.searchParams.set("ag", GAP_AFFILIATE_SOURCES.travelpayouts.cars.ag);
-  url.searchParams.set("ap", GAP_AFFILIATE_SOURCES.travelpayouts.cars.ap);
-  url.searchParams.set("rid", GAP_AFFILIATE_SOURCES.travelpayouts.cars.rid);
-  url.searchParams.set("promo_id", GAP_AFFILIATE_SOURCES.travelpayouts.cars.promoId);
-  url.searchParams.set("campaign_id", GAP_AFFILIATE_SOURCES.travelpayouts.cars.campaignId);
   return url.toString();
 }
 
@@ -305,15 +292,20 @@ export function buildGapOffer(gap: TripGapType, trip: GapTripInput, amazonSearch
         providerLabel: "KKday"
       };
     case "car":
+      // A tracked link, not the Travelpayouts widget: the widget script was
+      // the card's ONLY way forward (TripGapCards renders no CTA beside a
+      // widget), it takes no destination or dates, and when it renders blank
+      // the traveller is left with an empty card and the disclosure. The
+      // link is the same GetRentacar endpoint /finds uses, labelled as the
+      // search it is.
       return {
         ...base,
         eyebrow: "Need a car?",
         title: "Keep the journey moving",
-        description: "Browse current car options for the road ahead. Prices are shown in USD; the provider sets final terms.",
-        href: GAP_AFFILIATE_SOURCES.travelpayouts.origin,
+        description: "Search rental cars for your destination and dates. GetRentacar sets the prices and final terms.",
+        href: GAP_AFFILIATE_SOURCES.getRentacarLink,
         ctaLabel: "Browse rental cars",
-        providerLabel: "Travelpayouts",
-        widget: { src: carsWidgetSrc(), minHeight: 300 }
+        providerLabel: "Travelpayouts"
       };
     case "gear":
       return {

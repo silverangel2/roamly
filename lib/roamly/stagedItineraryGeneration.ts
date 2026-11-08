@@ -15,6 +15,7 @@ import { markFreeItineraryUsed, lockGeneratedItinerary } from "@/lib/roamly/bill
 import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
+import { carryForwardStaySelection, type StayOption, type StaySelection } from "@/lib/roamly/stayOptions";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import { searchTripMarketPrices, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
@@ -1893,6 +1894,47 @@ async function augmentDiscoveryWithPackFallback<T extends { marketResults?: Trav
   }
 }
 
+/**
+ * The trip's stored stay pick (selection + the option set it was
+ * made from), read from its latest discovery row. A re-generation
+ * re-derives every estimate from scratch; the traveller's confirmed
+ * stay is not an estimate, so generation carries it forward
+ * (carryForwardStaySelection) instead of silently replacing it with
+ * a fresh hotel estimate. Null for a trip with no stored pick (or
+ * no stored option set to re-apply it from).
+ */
+async function loadStoredStaySelection(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string
+): Promise<{ selection: StaySelection; options: StayOption[] } | null> {
+  const tripResult = await supabase
+    .from("roamly_trips")
+    .select("latest_price_discovery_id")
+    .eq("id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const discoveryId = getString(tripResult.data?.latest_price_discovery_id, "");
+  if (!discoveryId) return null;
+  const rowResult = await supabase
+    .from("roamly_price_discoveries")
+    .select("metadata")
+    .eq("id", discoveryId)
+    .eq("trip_id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const metadata = getRecord(rowResult.data?.metadata);
+  const rawSelection = getRecord(metadata?.staySelection);
+  const candidateId = getString(rawSelection?.candidateId, "");
+  if (!candidateId) return null;
+  const options = Array.isArray(metadata?.stayOptions) ? (metadata.stayOptions as StayOption[]) : [];
+  if (!options.length) return null;
+  return {
+    selection: { candidateId, title: getString(rawSelection?.title, ""), selectedBy: "traveler" },
+    options
+  };
+}
+
 export async function prepareStagedGenerationContext(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -1941,15 +1983,25 @@ export async function prepareStagedGenerationContext(params: {
   });
   const groundedDiscovery = { ...discovery, groundedDecision };
   const packAugmentedDiscovery = await augmentDiscoveryWithPackFallback(params.payload, groundedDiscovery);
+  // Stay-pick honouring: a stored traveller pick survives into the
+  // generation's discovery (stamp + re-tabulated stay line), so the
+  // built itinerary's hotel line is the picked stay's cost — the
+  // same way the transport stamp flows through its applied totals.
+  const storedStay = await loadStoredStaySelection(params.supabase, params.userId, params.tripId);
+  const generationDiscovery = storedStay
+    ? carryForwardStaySelection(packAugmentedDiscovery, storedStay.selection, storedStay.options)
+    : packAugmentedDiscovery;
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,
     { userId: params.userId, tripId: params.tripId, ...params.payload },
-    packAugmentedDiscovery
+    generationDiscovery
   );
   return {
-    priceDiscovery: packAugmentedDiscovery as unknown as Record<string, unknown>,
+    priceDiscovery: generationDiscovery as unknown as Record<string, unknown>,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
-    budgetConstraint: buildBudgetConstraintForItinerary(discovery),
+    budgetConstraint: buildBudgetConstraintForItinerary(
+      generationDiscovery !== packAugmentedDiscovery ? generationDiscovery : discovery
+    ),
     confirmedBookings: confirmedBookings.bookings,
     personalization
   };

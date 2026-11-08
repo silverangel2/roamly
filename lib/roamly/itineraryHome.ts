@@ -30,7 +30,7 @@
  *   panel shows. The one import below is that pure derivation.
  */
 
-import { deriveDaySummary } from "@/lib/roamly/daySummary";
+import { deriveDaySummary, isGenericStopText } from "@/lib/roamly/daySummary";
 import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
 import {
   isGenericStayTitle,
@@ -184,6 +184,14 @@ export type HomeRow = {
    *  title, or an unbooked generic stay placeholder). The panel
    *  labels such links as a search, never as the place itself. */
   mapLinkSearchOnly: boolean;
+  /** True when this row may appear on the Map tab's stop list
+   *  (segment-link fix, 2026-11-08): the list is a list of PLACES,
+   *  and a row whose query is only a segment label ("Getting
+   *  there"), a bare generic placeholder ("Free time"), an
+   *  unverified title, or an unbooked generic stay placeholder
+   *  names no place — it gets no map card and no place-search
+   *  links. The row itself still renders in the List view. */
+  mapListed: boolean;
 };
 
 /** One Map-tab link entry (map-honesty fix, 2026-11-07): the same
@@ -224,7 +232,8 @@ export type HomeDayView = {
    *  the stored subtitle rather than inventing a sentence. */
   displaySummary: string;
   rows: HomeRow[];
-  /** Deduped map queries for the Map tab, in timeline order. */
+  /** Deduped map queries for the Map tab, in timeline order —
+   *  place rows only (see HomeRow.mapListed). */
   mapStops: string[];
   /** The same entries as mapStops, with the producing row's
    *  coordinates + search-only flag (map-honesty fix, 2026-11-07). */
@@ -431,6 +440,42 @@ export function toHomeRow(
       ? [detail ? compact(detail) : "", durationPart]
       : [durationPart, detail ? compact(detail) : ""];
   const subtitle = parts.filter(Boolean).join(" · ");
+  const mapQuery = getString(item.mapQuery) || getString(item.location) || getString(item.title);
+  const latitude =
+    typeof item.latitude === "number" && Number.isFinite(item.latitude) ? item.latitude : null;
+  const longitude =
+    typeof item.longitude === "number" && Number.isFinite(item.longitude) ? item.longitude : null;
+  const hasCoordinates = latitude != null && longitude != null;
+  // An unbooked generic stay placeholder: a hotel row whose title
+  // names no property ("Stay in <city>") and that no booking
+  // confirms. Shared by the search-only flag below and the map
+  // listing rule — the same predicate the map-honesty fix used.
+  const genericStayUnbooked =
+    getString(item.itemType).toLowerCase() === "hotel" &&
+    isGenericStayTitle(getString(item.title)) &&
+    item.authority !== "confirmed";
+  // Whether this row may appear on the Map tab's stop list
+  // (segment-link fix, 2026-11-08). The list is a list of PLACES:
+  // a row with stored coordinates always belongs (its links target
+  // the point, not the words). Without coordinates the row must
+  // name an identified place — not an unverified title, not a bare
+  // generic placeholder, not an unbooked generic stay placeholder.
+  // A segment row (travel leg, arrival) is a movement, not a
+  // place: it belongs only when its query carries a place its own
+  // label does not (a stored map query / location distinct from
+  // the title — the engine's arrival leg queries the destination
+  // city), or when it is a hotel check-in, whose title IS the
+  // property. A segment whose query is just its label ("Getting
+  // there") names no place and gets no map card.
+  const mapListed =
+    hasCoordinates ||
+    (!unverified &&
+      !genericStayUnbooked &&
+      !isGenericStopText(mapQuery) &&
+      (kind === "venue" ||
+        kind === "return-to-stay" ||
+        mapQuery.toLowerCase() !== getString(item.title).toLowerCase() ||
+        getString(item.itemType).toLowerCase() === "hotel"));
   return {
     key: `${index}-${homeRowTime(item.time)}-${getString(item.title)}`,
     kind,
@@ -448,11 +493,9 @@ export function toHomeRow(
     planned,
     timeFromBooking: item.timeFromBooking === true,
     retimed: item.timeRetimed === true,
-    mapQuery: getString(item.mapQuery) || getString(item.location) || getString(item.title),
-    latitude:
-      typeof item.latitude === "number" && Number.isFinite(item.latitude) ? item.latitude : null,
-    longitude:
-      typeof item.longitude === "number" && Number.isFinite(item.longitude) ? item.longitude : null,
+    mapQuery,
+    latitude,
+    longitude,
     itemId:
       typeof item.itemId === "string" && item.itemId.trim() ? item.itemId : null,
     category: getString(item.category).toLowerCase(),
@@ -474,17 +517,9 @@ export function toHomeRow(
     // traveller never booked. Named real places (a booked stay, a
     // pack venue, the destination itself) keep ordinary links.
     mapLinkSearchOnly:
-      !(
-        typeof item.latitude === "number" &&
-        Number.isFinite(item.latitude) &&
-        typeof item.longitude === "number" &&
-        Number.isFinite(item.longitude)
-      ) &&
-      (item.provenance === "search" ||
-        unverified ||
-        (getString(item.itemType).toLowerCase() === "hotel" &&
-          isGenericStayTitle(getString(item.title)) &&
-          item.authority !== "confirmed"))
+      !hasCoordinates &&
+      (item.provenance === "search" || unverified || genericStayUnbooked),
+    mapListed
   };
 }
 
@@ -537,6 +572,10 @@ export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView 
   const mapStops: string[] = [];
   const mapStopDetails: HomeMapStopDetail[] = [];
   for (const row of rows) {
+    // Only place rows join the map list (segment-link fix,
+    // 2026-11-08 — see HomeRow.mapListed): a segment label or
+    // placeholder row keeps its List row but gets no map card.
+    if (!row.mapListed) continue;
     const query = row.mapQuery.trim();
     if (!query || seen.has(query.toLowerCase())) continue;
     seen.add(query.toLowerCase());
