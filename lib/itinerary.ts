@@ -25,7 +25,7 @@ import {
   applyRoamlyItineraryIntelligence,
   mergeShortTransfersIntoFollowingActivity
 } from "@/lib/roamly/itineraryIntelligence";
-import type { TransportOption } from "@/lib/roamly/transportOptions";
+import { estimateIntercityLegMinutes, type TransportOption } from "@/lib/roamly/transportOptions";
 import type { TravelMarketConfidence, TravelMarketPriceType, TravelMarketSource } from "@/lib/roamly/travelMarketSearch";
 import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
 import { safeTravelIdentity } from "@/lib/roamly/travelResultValidation";
@@ -475,6 +475,14 @@ function transportMode(payload: TripPlannerPayload) {
 }
 
 export function effectiveTransportMode(payload: TripPlannerPayload) {
+  // A confirmed traveller pick from the transport selector outranks
+  // the free-text preference below: the pick is the traveller's
+  // latest, explicit, priced decision (repo priority order: confirmed
+  // choice > stated preference > recommendation). Without this, a
+  // stale "Drive" preference would silently rebuild drive legs under
+  // a flight the traveller picked and paid into the budget.
+  const selectionMode = discoveryTransportSelectionMode(payload);
+  if (selectionMode) return selectionMode;
   const preference = cleanString(payload.transportationPreference, "").toLowerCase();
   if (/\bflight|fly|plane\b/.test(preference)) return "flight";
   if (/\btrain|rail\b/.test(preference)) return "train";
@@ -500,6 +508,43 @@ function travelBookingLabel(mode: string) {
   return "Check route";
 }
 
+/**
+ * Arrival-buffer steps (baggage, border/ground transport, getting home)
+ * get their own tens-of-minutes duration. They must never inherit the
+ * intercity leg's duration — the flat per-type fallback previously gave
+ * the "Estimated arrival back in …" step the same 3h as the leg itself
+ * (walk finding 4, 2026-11-08).
+ */
+const ARRIVAL_BUFFER_MINUTES = 45;
+
+/**
+ * One-way duration estimate for the generated intercity leg, from the
+ * same numbers the transport comparison already computed: the
+ * recommended discovery option's estimated hours when that option is
+ * the leg's mode, otherwise the distance model for the mode. Without
+ * this, generated legs fell back to a flat 180 minutes for every mode
+ * and distance — a "3h flight" Montreal→Saint John matched no real
+ * mode (flight total-travel model ≈ 4h at 755 km; driving ≈ 9.9h).
+ * Returns null when neither source can ground an estimate.
+ */
+function intercityLegDurationMinutes(payload: TripPlannerPayload, mode: string) {
+  const option = discoveryRecommendedTransportOption(payload, discoveryTransportOptions(payload));
+  const optionMode = option?.mode === "mixed" ? "mixed transport" : option?.mode;
+  if (
+    option &&
+    optionMode === mode &&
+    typeof option.estimated_duration_hours === "number" &&
+    Number.isFinite(option.estimated_duration_hours) &&
+    option.estimated_duration_hours > 0
+  ) {
+    // Note: this file's own option cleaner (cleanNullableNumber) keeps
+    // estimated_duration_hours at whole hours, so the leg inherits the
+    // same rounded figure the rest of the itinerary already shows.
+    return Math.round(option.estimated_duration_hours * 60);
+  }
+  return estimateIntercityLegMinutes(payload, mode);
+}
+
 function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
   const origin = cleanString(payload.origin || payload.originCity, "Departure city");
   const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
@@ -512,6 +557,7 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
     destinationCountry: payload.destinationCountry,
     routeText: `${origin} ${destination}`
   }).cross_border;
+  const legDurationMinutes = intercityLegDurationMinutes(payload, mode);
 
   return [
     {
@@ -541,8 +587,14 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
       map_query: `${origin} to ${destination}`,
       item_type: "travel",
       travel_mode: mode,
+      durationMinutes: legDurationMinutes ?? undefined,
       routing_status: "UNCERTAIN",
-      uncertainty: ["Route duration and departure time are not confirmed."],
+      uncertainty: [
+        "Route duration and departure time are not confirmed.",
+        ...(mode === "flight"
+          ? ["Estimated duration is total travel time — flight plus airport and connection time — not flight time alone."]
+          : [])
+      ],
       origin,
       destination,
       booking_label: travelBookingLabel(mode),
@@ -558,6 +610,7 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
       map_query: `${destination} airport station arrivals`,
       item_type: "travel",
       travel_mode: mode,
+      durationMinutes: ARRIVAL_BUFFER_MINUTES,
       routing_status: "UNCERTAIN",
       uncertainty: ["Arrival and border-processing duration are not confirmed."],
       origin,
@@ -599,6 +652,7 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
   const origin = cleanString(payload.origin || payload.originCity, "Home");
   const destination = cleanString(payload.destination || payload.destinationCity, "Destination");
   const mode = transportMode(payload);
+  const legDurationMinutes = intercityLegDurationMinutes(payload, mode);
   return [
     {
       time_label: "",
@@ -665,7 +719,13 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
       item_type: "travel",
       travel_mode: mode,
       routing_status: "UNCERTAIN",
-      uncertainty: ["Return route duration and departure time are not confirmed."],
+      durationMinutes: legDurationMinutes ?? undefined,
+      uncertainty: [
+        "Return route duration and departure time are not confirmed.",
+        ...(mode === "flight"
+          ? ["Estimated duration is total travel time — flight plus airport and connection time — not flight time alone."]
+          : [])
+      ],
       origin: destination,
       destination: origin,
       booking_label: travelBookingLabel(mode),
@@ -681,6 +741,7 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
       map_query: `${origin} arrivals ground transport`,
       item_type: "travel",
       travel_mode: mode,
+      durationMinutes: ARRIVAL_BUFFER_MINUTES,
       routing_status: "UNCERTAIN",
       uncertainty: ["Final arrival timing is not confirmed."],
       origin: `${origin} arrival point`,
@@ -1571,6 +1632,13 @@ function discoveryRecommendedTransportOption(payload: TripPlannerPayload, option
     options.find((option) => option.budget_fit === "best") ||
     null
   );
+}
+
+function discoveryTransportSelectionMode(payload: TripPlannerPayload) {
+  const raw = payload.priceDiscovery?.transportSelection;
+  if (!raw || typeof raw !== "object") return null;
+  const mode = cleanString((raw as { mode?: unknown }).mode, "").toLowerCase();
+  return mode === "flight" || mode === "train" || mode === "bus" || mode === "drive" ? mode : null;
 }
 
 function buildSuggestion(input: Omit<RoamlyBookingSuggestion, "category" | "booking_category" | "booking_label" | "normal_search_url" | "estimated_cost_min" | "estimated_cost_max" | "currency" | "price_confidence" | "booking_status"> & {
