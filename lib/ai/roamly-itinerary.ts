@@ -18,6 +18,7 @@ import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { describeTravelEssentialsContext } from "@/lib/roamly/amazonAffiliate";
 import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT } from "@/lib/roamly/generationLanguage";
+import { executeRoutedChatCompletion } from "@/lib/ai/modelRouter";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -875,7 +876,6 @@ export async function translateRoamlyItinerary(params: {
 }) {
   const targetLanguage = languageName(params.language);
   const sourceLanguage = languageName(params.sourceLanguage || "en");
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
   const client = getClient();
 
   if (!client) {
@@ -887,9 +887,15 @@ export async function translateRoamlyItinerary(params: {
   }
 
   try {
-    const completion = await client.chat.completions.create(
-      {
-        model,
+    // Model routing (Lift 1): routine class. This site has no lane env;
+    // its legacy chain is OPENAI_MODEL, preserved verbatim, so the
+    // resolved model is unchanged until AI_MODEL_CHEAP is set.
+    const { completion } = await executeRoutedChatCompletion({
+      client,
+      taskClass: "routine",
+      lane: "itinerary-translate",
+      legacyEnvChain: ["OPENAI_MODEL"],
+      createParams: {
         temperature: 0.2,
         response_format: { type: "json_object" },
         messages: [
@@ -915,11 +921,11 @@ ${JSON.stringify(params.itinerary)}`
           }
         ]
       },
-      {
+      createOptions: {
         maxRetries: 0,
         timeout: OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS
       }
-    );
+    });
 
     const text = completion.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(text) as unknown;

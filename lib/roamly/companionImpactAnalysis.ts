@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { executeRoutedChatCompletion } from "@/lib/ai/modelRouter";
 
 export const COMPANION_IMPACT_SCHEMA = {
   type: "object",
@@ -146,25 +147,33 @@ async function aiImpactReview(event: CompanionEventRecord, impact: ImpactResult)
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
   const client = new OpenAI({ apiKey });
-  const completion = await client.chat.completions.create({
-    model: process.env.OPENAI_COMPANION_IMPACT_MODEL || "gpt-4o-mini",
-    temperature: 0,
-    response_format: {
-      type: "json_schema",
-      json_schema: {
-        name: "roamly_companion_impact_review",
-        schema: COMPANION_IMPACT_SCHEMA,
-        strict: true
-      }
-    },
-    messages: [
-      {
-        role: "system",
-        content:
-          "Review a travel disruption impact result. Suggest only non-purchase fallback options and concise notes. Do not book, cancel, purchase, or promise live availability."
+  // Model routing (Lift 1): diagnosis class — the model reviews a computed
+  // result and only advises. Lane override OPENAI_COMPANION_IMPACT_MODEL
+  // still wins; otherwise the mid tier (AI_MODEL_MID, default gpt-4o-mini).
+  const { completion } = await executeRoutedChatCompletion({
+    client,
+    taskClass: "diagnosis",
+    lane: "companion-impact",
+    laneOverrideEnv: "OPENAI_COMPANION_IMPACT_MODEL",
+    createParams: {
+      temperature: 0,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "roamly_companion_impact_review",
+          schema: COMPANION_IMPACT_SCHEMA,
+          strict: true
+        }
       },
-      { role: "user", content: JSON.stringify({ event, impact }) }
-    ]
+      messages: [
+        {
+          role: "system",
+          content:
+            "Review a travel disruption impact result. Suggest only non-purchase fallback options and concise notes. Do not book, cancel, purchase, or promise live availability."
+        },
+        { role: "user", content: JSON.stringify({ event, impact }) }
+      ]
+    }
   });
   return JSON.parse(completion.choices[0]?.message?.content || "{}") as { fallback_options?: string[]; notes?: string[] };
 }

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { createTripBooking } from "@/lib/roamly/bookingWallet";
 import { bookingTimestamp } from "@/lib/roamly/bookingDateTime";
+import { executeRoutedChatCompletion } from "@/lib/ai/modelRouter";
 export { createBookingEvidenceToken, verifyBookingEvidenceToken } from "@/lib/roamly/bookingEvidenceToken";
 
 export type RoamlyBookingType =
@@ -195,28 +196,38 @@ export async function extractBookingFromScreenshot(file: File): Promise<{ bookin
     };
   }
 
-  const completion = await client.chat.completions.create({
-    model: process.env.OPENAI_VISION_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
-    temperature: 0,
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You extract travel booking details from screenshots. Return strict JSON only. Never include card numbers, CVV, or payment credentials."
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text:
-              "Extract a travel booking into normalized fields only: booking_type, provider_name, title, confirmation_number, flight_number, airline_code, terminal, gate, baggage, duration, origin, destination, booking_status, amount_cents, currency, start_date, end_date, start_time, end_time, address, city, region, country, latitude, longitude, extraction_confidence, metadata. Do not return OCR transcripts, raw screenshot text, full model responses, payment credentials, or unrelated document text. For flight screenshots, capture exact departure/arrival times, airline, flight number, terminal, gate, baggage, duration, origin, and destination when visible. If unsure, use empty string/null and low confidence."
-          },
-          { type: "image_url", image_url: { url: dataUrl } }
-        ]
-      }
-    ]
+  // Model routing (Lift 1): routine class. Lane override
+  // OPENAI_VISION_MODEL still wins; the legacy OPENAI_MODEL fallback is
+  // preserved as this site's legacy chain, so today's resolution is
+  // unchanged until a tier env (AI_MODEL_CHEAP) is deliberately set.
+  const { completion } = await executeRoutedChatCompletion({
+    client,
+    taskClass: "routine",
+    lane: "booking-screenshot",
+    laneOverrideEnv: "OPENAI_VISION_MODEL",
+    legacyEnvChain: ["OPENAI_MODEL"],
+    createParams: {
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You extract travel booking details from screenshots. Return strict JSON only. Never include card numbers, CVV, or payment credentials."
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text:
+                "Extract a travel booking into normalized fields only: booking_type, provider_name, title, confirmation_number, flight_number, airline_code, terminal, gate, baggage, duration, origin, destination, booking_status, amount_cents, currency, start_date, end_date, start_time, end_time, address, city, region, country, latitude, longitude, extraction_confidence, metadata. Do not return OCR transcripts, raw screenshot text, full model responses, payment credentials, or unrelated document text. For flight screenshots, capture exact departure/arrival times, airline, flight number, terminal, gate, baggage, duration, origin, and destination when visible. If unsure, use empty string/null and low confidence."
+            },
+            { type: "image_url", image_url: { url: dataUrl } }
+          ]
+        }
+      ]
+    }
   });
 
   const raw = completion.choices[0]?.message?.content || "{}";
