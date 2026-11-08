@@ -13,6 +13,7 @@ import {
   transportOptionCostCents,
   type TransportOption
 } from "@/lib/roamly/transportOptions";
+import type { StayOption, StaySelection } from "@/lib/roamly/stayOptions";
 
 export type BudgetStatus = "within_budget" | "tight" | "over_budget" | "unknown";
 export type BudgetCategoryConfidenceLabel =
@@ -79,6 +80,7 @@ export type TripPriceDiscoveryInput = {
   pace?: string;
   walkingTolerance?: string;
   transportationPreference?: string;
+  vehicleClass?: string;
   accessibilityNeeds?: string;
   dietaryPreference?: string;
   interests?: string[];
@@ -139,6 +141,24 @@ export type TripPriceDiscovery = {
   routeLegs: RouteLegEstimate[];
   transportOptions: TransportOption[];
   recommendedTransportOption: TransportOption | null;
+  /**
+   * The traveller's own pick from the transport selector, when they
+   * made one. Distinct from the logic map's recommendation: the map
+   * suggests, the traveller confirms. Persisted with the discovery so
+   * the pick (and its provenance) survives into the saved trip.
+   */
+  transportSelection?: { mode: TransportOption["mode"]; title: string; selectedBy: "traveler" } | null;
+  /**
+   * The trip's stay options (the curated hotel suggestions, priced
+   * per lib/roamly/stayOptions.ts) and the traveller's own pick from
+   * the stay selector, when they made one. Distinct from the hotel
+   * estimate: the estimate is the engine's planning figure; a
+   * selection is a named property the traveller confirmed, and it
+   * re-tabulates the stay line. Persisted with the discovery, the
+   * same way transportSelection is.
+   */
+  stayOptions?: StayOption[];
+  staySelection?: StaySelection | null;
   transportAssumptions: string[];
   cityEstimates: CityCostEstimate[];
   recommendationNotes: string[];
@@ -635,6 +655,16 @@ function selectMarketPrices(params: {
   };
 }
 
+function transportConfidenceLabel(transport: TransportOption | null | undefined): BudgetCategoryConfidenceLabel {
+  return transport?.price_confidence === "live_partner"
+    ? "Live price"
+    : transport?.price_confidence === "cached_recent"
+      ? "Recently searched"
+      : transport?.availability === "search_ready"
+        ? "Market estimate"
+        : "Conservative estimate";
+}
+
 function buildBudgetCategoryConfidence(params: {
   selectedMarketPrices: TravelMarketResult[];
   recommendedTransportOption: TransportOption | null;
@@ -653,14 +683,7 @@ function buildBudgetCategoryConfidence(params: {
   const tour = marketFor("tour");
   const hotel = marketFor("hotel");
   const transport = params.recommendedTransportOption;
-  const transportLabel: BudgetCategoryConfidenceLabel =
-    transport?.price_confidence === "live_partner"
-      ? "Live price"
-      : transport?.price_confidence === "cached_recent"
-        ? "Recently searched"
-        : transport?.availability === "search_ready"
-          ? "Market estimate"
-          : "Conservative estimate";
+  const transportLabel: BudgetCategoryConfidenceLabel = transportConfidenceLabel(transport);
 
   return [
     {
@@ -976,9 +999,85 @@ function transportRangeLabel(option: TransportOption | null | undefined, currenc
   return `${option.title}: ${range} (${option.availability}, ${option.realistic ? "realistic" : "not recommended"}, ${option.price_confidence}). ${option.why_recommended} ${option.warning}`;
 }
 
+/**
+ * The traveller's confirmed pick from the transport selector, applied
+ * to a completed discovery. Pure re-tabulation with the discovery's
+ * own formula: transport cents come from the picked option (the same
+ * transportOptionCostCents the engine used), fixed costs are whatever
+ * the rest of the trip already totalled, buffer stays 12%, and budget
+ * status is recomputed with the same calculateBudgetStatus the engine
+ * used — so the trip's auto-calculation can never drift from the
+ * engine's math. The pick is stamped as transportSelection so it is
+ * never confused with the logic map's recommendation downstream.
+ *
+ * Guard rails: an option the logic map excluded by rule (or one with
+ * no service on the route) can never be applied — the discovery is
+ * returned unchanged. The map shortlists; the traveller confirms;
+ * neither can resurrect an excluded mode.
+ */
+export function applyTransportOptionSelection(discovery: TripPriceDiscovery, option: TransportOption): TripPriceDiscovery {
+  if (!option || option.availability === "not_available" || option.presentation === "excluded") return discovery;
+  const sameOption = (candidate: TransportOption) => candidate.mode === option.mode && candidate.title === option.title;
+  if (!discovery.transportOptions.some(sameOption)) return discovery;
+
+  const selectedTransportEstimateCents =
+    discovery.budgetIncludesFlights === false ? 0 : transportOptionCostCents(option) || discovery.flightEstimateCents;
+  const fixedTripCostCents = discovery.totalEstimateCents - discovery.bufferEstimateCents - discovery.selectedTransportEstimateCents;
+  const subtotalCents = selectedTransportEstimateCents + fixedTripCostCents;
+  const bufferEstimateCents = Math.round(subtotalCents * 0.12);
+  const totalEstimateCents = subtotalCents + bufferEstimateCents;
+  const budget = calculateBudgetStatus({
+    budgetAmount: discovery.budgetAmount,
+    budgetCurrency: discovery.budgetCurrency,
+    totalEstimateCents,
+    committedBudgetCents: discovery.committedBudgetCents,
+    committedBookingStatus: discovery.committedBookingCostStatus
+  });
+
+  const transportOptions = discovery.transportOptions.map((candidate) => {
+    if (sameOption(candidate)) {
+      return {
+        ...candidate,
+        budget_fit: "best" as TransportOption["budget_fit"],
+        presentation: "suggested" as const,
+        presentation_label: "Your pick — added to your itinerary and budget",
+        logic_rule: candidate.logic_rule ?? null
+      };
+    }
+    return candidate.budget_fit === "best"
+      ? { ...candidate, budget_fit: "okay" as TransportOption["budget_fit"], presentation: "available" as const, presentation_label: null }
+      : candidate;
+  });
+
+  const budgetCategoryConfidence = discovery.budgetCategoryConfidence.map((entry) =>
+    entry.category === "transport"
+      ? {
+          ...entry,
+          label: transportConfidenceLabel(option),
+          amountCents: selectedTransportEstimateCents,
+          source: option.source || entry.source,
+          note: option.warning || entry.note
+        }
+      : entry
+  );
+
+  return {
+    ...discovery,
+    transportOptions,
+    recommendedTransportOption: option,
+    transportSelection: { mode: option.mode, title: option.title, selectedBy: "traveler" },
+    selectedTransportEstimateCents,
+    bufferEstimateCents,
+    totalEstimateCents,
+    remainingBudgetCents: budget.remainingBudgetCents,
+    budgetStatus: budget.budgetStatus,
+    budgetCategoryConfidence
+  };
+}
+
 export function buildBudgetConstraintForItinerary(discovery: TripPriceDiscovery) {
   const transportComparison = [
-    `Recommended transport: ${transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency)}`,
+    `${discovery.transportSelection ? "Traveller-selected transport" : "Recommended transport"}: ${transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency)}`,
     `Transport options: ${discovery.transportOptions.map((option) => transportRangeLabel(option, discovery.budgetCurrency)).join(" | ") || "none"}.`,
     "Before finalizing the itinerary, compare flight, driving, train, bus, and mixed transport modes by route availability, travel time, budget fit, comfort, and time saved.",
     "Do not recommend bus/train as best unless the option is verified or search-ready, realistic, and reasonable for the trip length.",
@@ -1064,6 +1163,8 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       priceCoverage: discovery.priceCoverage,
       unknownMarketPriceCount: discovery.unknownMarketPriceCount,
       recommendedTransportOption: discovery.recommendedTransportOption,
+      transportSelection: discovery.transportSelection ?? null,
+      staySelection: discovery.staySelection ?? null,
       selectedTransportEstimateCents: discovery.selectedTransportEstimateCents,
       budgetCategoryConfidence: discovery.budgetCategoryConfidence,
       cross_border: discovery.cross_border,
@@ -1083,6 +1184,9 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       routeLegs: discovery.routeLegs,
       transportOptions: discovery.transportOptions,
       recommendedTransportOption: discovery.recommendedTransportOption,
+      transportSelection: discovery.transportSelection ?? null,
+      stayOptions: discovery.stayOptions ?? [],
+      staySelection: discovery.staySelection ?? null,
       selectedTransportEstimateCents: discovery.selectedTransportEstimateCents,
       transportAssumptions: discovery.transportAssumptions,
       hotelNights: discovery.hotelNights,
@@ -1117,6 +1221,200 @@ export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: Tri
       }
     }
   };
+}
+
+/**
+ * The inverse of discoveryToDatabaseRow: rebuild a TripPriceDiscovery
+ * (plus the input savePriceDiscovery needs) from a stored
+ * roamly_price_discoveries row. The write-back seams (a traveller's
+ * stay pick on the detailed itinerary) load the trip's latest
+ * discovery this way, apply their change with the same pure
+ * functions the engine uses, and save the result as the next row —
+ * discoveries stay append-only snapshots, exactly as the market
+ * refresh path treats them.
+ *
+ * One documented asymmetry: the writer persists
+ * committedBookingKnownCents (in the committed_budget_cents column
+ * and in metadata); the discovery's separate committedBudgetCents
+ * is not stored distinctly, so it is rebuilt from the known-cents
+ * figure — the same number the stored row itself reports.
+ */
+export function discoveryFromDatabaseRow(row: Record<string, unknown> | null | undefined): {
+  discovery: TripPriceDiscovery;
+  input: TripPriceDiscoveryInput & { userId: string };
+} | null {
+  if (!row || typeof row !== "object") return null;
+  const record = (value: unknown): Record<string, unknown> =>
+    value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+  const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
+  const text = (value: unknown): string => (typeof value === "string" ? value : "");
+  const numberOr = (value: unknown, fallback: number): number =>
+    typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  const nullableNumber = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+
+  const metadata = record(row.metadata);
+  const sourceSummary = record(row.source_summary);
+  const preferences = record(metadata.preferences);
+  const destination = text(row.destination);
+  const totalEstimateCents = numberOr(row.total_estimate_cents, 0);
+  if (!destination && !totalEstimateCents) return null;
+
+  const budgetStatusRaw = text(row.budget_status);
+  const budgetStatus: BudgetStatus =
+    budgetStatusRaw === "within_budget" || budgetStatusRaw === "tight" || budgetStatusRaw === "over_budget"
+      ? budgetStatusRaw
+      : "unknown";
+  const committedStatusRaw = text(record(metadata).committed_booking_status);
+  const committedBookingCostStatus: ConfirmedBookingCostStatus =
+    committedStatusRaw === "known_compatible" ||
+    committedStatusRaw === "unknown_amount" ||
+    committedStatusRaw === "unknown_currency" ||
+    committedStatusRaw === "currency_mismatch" ||
+    committedStatusRaw === "query_error"
+      ? committedStatusRaw
+      : "unknown_amount";
+  const priceCoverageRaw = text(metadata.priceCoverage);
+  const priceCoverage: TripPriceDiscovery["priceCoverage"] =
+    priceCoverageRaw === "market" || priceCoverageRaw === "partial" ? priceCoverageRaw : "fallback";
+  const committedKnownCents =
+    nullableNumber(metadata.committed_booking_known_cents) ?? nullableNumber(row.committed_budget_cents) ?? 0;
+
+  const rawStaySelection = record(metadata.staySelection ?? sourceSummary.staySelection);
+  const staySelection: StaySelection | null =
+    typeof rawStaySelection.title === "string" && rawStaySelection.title
+      ? {
+          candidateId: typeof rawStaySelection.candidateId === "string" ? rawStaySelection.candidateId : null,
+          title: rawStaySelection.title,
+          selectedBy: "traveler"
+        }
+      : null;
+  const rawTransportSelection = record(metadata.transportSelection ?? sourceSummary.transportSelection);
+  const transportSelection: TripPriceDiscovery["transportSelection"] =
+    typeof rawTransportSelection.title === "string" && rawTransportSelection.title
+      ? {
+          mode: rawTransportSelection.mode as TransportOption["mode"],
+          title: rawTransportSelection.title,
+          selectedBy: "traveler"
+        }
+      : null;
+
+  const travelersCount = Math.max(1, Math.round(numberOr(row.travelers_count, 1)));
+  const travelers = normalizeTravelers({
+    destination,
+    travelers: metadata.travelers as TripPriceDiscoveryInput["travelers"],
+    travelersCount
+  } as TripPriceDiscoveryInput);
+  const daysCount = Math.max(1, Math.round(numberOr(row.days_count, 1)));
+  const budgetCurrency = text(row.budget_currency) || "CAD";
+
+  const discovery: TripPriceDiscovery = {
+    tripType: text(metadata.tripType) === "multi_city" ? "multi_city" : "single_destination",
+    origin: text(row.origin),
+    destination,
+    destinationStops: list(metadata.destinationStops) as TripPriceDiscovery["destinationStops"],
+    returnToOrigin: metadata.returnToOrigin !== false,
+    flexibleCityOrder: metadata.flexibleCityOrder === true,
+    flexibleDates: metadata.flexibleDates === true,
+    startDate: text(row.start_date),
+    endDate: text(row.end_date),
+    daysCount,
+    travelersCount,
+    travelers,
+    rooms: Math.max(1, Math.round(numberOr(metadata.rooms, 1))),
+    bedPreference: text(metadata.bedPreference),
+    budgetAmount: nullableNumber(row.budget_amount),
+    budgetCurrency,
+    budgetIncludesFlights: row.budget_includes_flights !== false,
+    budgetIncludesHotel: row.budget_includes_hotel !== false,
+    budgetIncludesActivities: metadata.budgetIncludesActivities !== false,
+    flightEstimateCents: numberOr(row.flight_estimate_cents, 0),
+    hotelEstimateCents: numberOr(row.hotel_estimate_cents, 0),
+    activitiesEstimateCents: numberOr(row.activities_estimate_cents, 0),
+    foodEstimateCents: numberOr(row.food_estimate_cents, 0),
+    localTransportEstimateCents: numberOr(row.local_transport_estimate_cents, 0),
+    selectedTransportEstimateCents: numberOr(metadata.selectedTransportEstimateCents, 0),
+    bufferEstimateCents: numberOr(row.buffer_estimate_cents, 0),
+    totalEstimateCents,
+    committedBudgetCents: committedKnownCents,
+    committedBookingCostStatus,
+    committedBookingKnownCents: committedKnownCents,
+    committedBookingCurrencies: list(metadata.committed_booking_currencies).filter(
+      (value): value is string => typeof value === "string"
+    ),
+    remainingBudgetCents: nullableNumber(row.remaining_budget_cents),
+    budgetStatus,
+    coverageNote: text(row.coverage_note),
+    hotelNights: Math.max(1, Math.round(numberOr(metadata.hotelNights, Math.max(1, daysCount - 1)))),
+    hotelNightlyEstimateCents: numberOr(metadata.hotelNightlyEstimateCents, 0),
+    hotelTaxesFeesBufferCents: numberOr(metadata.hotelTaxesFeesBufferCents, 0),
+    hotelEstimateNote: text(metadata.hotelEstimateNote),
+    budgetCategoryConfidence: list(metadata.budgetCategoryConfidence) as BudgetCategoryConfidence[],
+    routeLegs: list(metadata.routeLegs) as RouteLegEstimate[],
+    transportOptions: list(metadata.transportOptions) as TransportOption[],
+    recommendedTransportOption: (metadata.recommendedTransportOption as TransportOption | null) ?? null,
+    transportSelection,
+    stayOptions: list(metadata.stayOptions) as StayOption[],
+    staySelection,
+    transportAssumptions: list(metadata.transportAssumptions).filter(
+      (value): value is string => typeof value === "string"
+    ),
+    cityEstimates: list(metadata.cityEstimates) as CityCostEstimate[],
+    recommendationNotes: list(metadata.recommendationNotes).filter(
+      (value): value is string => typeof value === "string"
+    ),
+    sources: list(row.sources) as TripPriceDiscovery["sources"],
+    marketResults: list(metadata.marketResults) as TravelMarketResult[],
+    selectedMarketPrices: list(metadata.selectedMarketPrices) as TravelMarketResult[],
+    unknownMarketPriceCount: numberOr(metadata.unknownMarketPriceCount, 0),
+    unknownMarketPriceCategories: list(metadata.unknownMarketPriceCategories).filter(
+      (value): value is string => typeof value === "string"
+    ),
+    priceCoverage,
+    cross_border: metadata.cross_border === true || sourceSummary.cross_border === true,
+    crossBorderWarnings: list(metadata.crossBorderWarnings).filter(
+      (value): value is string => typeof value === "string"
+    ),
+    originCurrency: text(metadata.originCurrency) || budgetCurrency,
+    destinationCurrency: text(metadata.destinationCurrency) || budgetCurrency,
+    currencyChange: metadata.currencyChange === true || sourceSummary.currencyChange === true
+  };
+
+  const input: TripPriceDiscoveryInput & { userId: string } = {
+    userId: text(row.user_id),
+    tripId: text(row.trip_id) || null,
+    tripType: discovery.tripType,
+    origin: discovery.origin,
+    destination: discovery.destination,
+    destinationStops: discovery.destinationStops,
+    returnToOrigin: discovery.returnToOrigin,
+    flexibleCityOrder: discovery.flexibleCityOrder,
+    flexibleDates: discovery.flexibleDates,
+    startDate: discovery.startDate,
+    endDate: discovery.endDate,
+    daysCount: discovery.daysCount,
+    travelersCount: discovery.travelersCount,
+    travelers: discovery.travelers,
+    rooms: discovery.rooms,
+    bedPreference: discovery.bedPreference,
+    budgetAmount: discovery.budgetAmount,
+    budgetCurrency: discovery.budgetCurrency,
+    budgetIncludesFlights: discovery.budgetIncludesFlights,
+    budgetIncludesHotel: discovery.budgetIncludesHotel,
+    budgetIncludesActivities: discovery.budgetIncludesActivities,
+    committedBudgetCents: discovery.committedBudgetCents ?? undefined,
+    accommodationPreference: text(preferences.accommodationPreference) || undefined,
+    travelStyle: text(preferences.travelStyle) || undefined,
+    pace: text(preferences.pace) || undefined,
+    walkingTolerance: text(preferences.walkingTolerance) || undefined,
+    transportationPreference: text(preferences.transportationPreference) || undefined,
+    accessibilityNeeds: text(preferences.accessibilityNeeds) || undefined,
+    dietaryPreference: text(preferences.dietaryPreference) || undefined,
+    interests: list(preferences.interests).filter((value): value is string => typeof value === "string"),
+    marketResults: discovery.marketResults
+  };
+
+  return { discovery, input };
 }
 
 export async function savePriceDiscovery(
