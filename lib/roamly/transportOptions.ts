@@ -27,6 +27,12 @@ export type TransportOption = {
   distance_km?: number;
   cost_breakdown?: {
     gas?: number;
+    gas_price_per_liter?: number;
+    fuel_liters?: number;
+    gas_price_source?: string;
+    fuel_consumption_l_per_100km?: number;
+    vehicle_class?: string;
+    fuel_consumption_source?: string;
     parking?: number;
     tolls?: number;
     train_or_bus_ticket?: number;
@@ -45,6 +51,15 @@ export type TransportOption = {
   source: string;
   why_recommended: string;
   budget_fit: TransportBudgetFit;
+  /**
+   * Logic-map presentation (owner law, 2026-11-08): options are the
+   * OUTPUT of the transport logic map below, not a raw mode list.
+   * "suggested" = the map leads with this one; "available" = pickable;
+   * "excluded" = removed BY RULE, with the reason in presentation_label.
+   */
+  presentation?: "suggested" | "available" | "excluded";
+  presentation_label?: string | null;
+  logic_rule?: string | null;
 };
 
 export type TransportComparison = {
@@ -84,6 +99,8 @@ type TransportBuildInput = Partial<
   >
 > & {
   destination: string;
+  /** Traveller's car type for the gas allowance (compact/sedan/suv/pickup/minivan); defaults to sedan class. */
+  vehicleClass?: string;
 };
 
 type BuildOptionsConfig = {
@@ -93,7 +110,95 @@ type BuildOptionsConfig = {
   fixedTripCostCents?: number;
 };
 
-const DEFAULT_FUEL_L_PER_100KM = 8.5;
+/**
+ * Fuel consumption by vehicle class — SOURCED, not assumed (owner:
+ * "repos for everything", 2026-11-08). Dataset: Natural Resources
+ * Canada, "Fuel consumption ratings" (Open Government Portal dataset
+ * 98f1a129-f628-4ce4-b24d-6f16bf24dd64), file my2015-2024, retrieved
+ * 2026-11-08. NRCan's own size classes are cabin-volume classes (its
+ * "Compact" contains an Aston Martin DB11) whose medians misstate
+ * typical cars, so each traveller class is keyed to ONE representative
+ * model — the class's best-known Canadian seller — and the figure is
+ * that model's official NRCan combined rating: the median of its
+ * gasoline, non-hybrid configurations, model years 2023-2024.
+ * Derivation script + dataset + output are kept as the receipt in
+ * goals/roamly-october-4-repair/hidden_files/transport-data-2026-11-08/.
+ * Refresh path: re-run the derivation against the newest NRCan file
+ * (the dataset updates as new model years are rated).
+ */
+export type VehicleClass = "compact" | "sedan" | "suv" | "pickup" | "minivan";
+export const FUEL_CONSUMPTION_BY_CLASS: Record<VehicleClass, { lPer100Km: number; representative: string }> = {
+  compact: { lPer100Km: 6.8, representative: "Toyota Corolla (gasoline)" },
+  sedan: { lPer100Km: 8.3, representative: "Toyota Camry (gasoline)" },
+  suv: { lPer100Km: 8.0, representative: "Toyota RAV4 (gasoline)" },
+  pickup: { lPer100Km: 12.7, representative: "Ford F-150 (gasoline)" },
+  minivan: { lPer100Km: 11.3, representative: "Chrysler Pacifica (gasoline)" }
+};
+export const FUEL_CONSUMPTION_SOURCE =
+  "Natural Resources Canada Fuel Consumption Ratings 2023-2024 — median configuration of the representative model";
+export const DEFAULT_VEHICLE_CLASS: VehicleClass = "sedan";
+
+export function normalizeVehicleClass(value: unknown): VehicleClass {
+  const text = String(value || "").toLowerCase();
+  if (/pickup|truck/.test(text)) return "pickup";
+  if (/minivan|van/.test(text)) return "minivan";
+  if (/suv|crossover/.test(text)) return "suv";
+  if (/compact|hatchback|small/.test(text)) return "compact";
+  if (/sedan|car/.test(text)) return "sedan";
+  return DEFAULT_VEHICLE_CLASS;
+}
+
+function fuelConsumptionFor(input: TransportBuildInput) {
+  const vehicleClass = normalizeVehicleClass(input.vehicleClass);
+  const entry = FUEL_CONSUMPTION_BY_CLASS[vehicleClass];
+  return { vehicleClass, lPer100Km: entry.lPer100Km, representative: entry.representative };
+}
+/**
+ * TRANSPORT LOGIC MAP (owner law, 2026-11-08 — "prompt asking only, to
+ * identify needs; if and only if logics"): the questions identify the
+ * traveller's needs, then these NAMED rules — in this precedence order —
+ * decide which options are suggested, available, or excluded by rule.
+ * Hard facts beat stated needs; stated needs beat suggestions:
+ *   confirmed booking > hard requirement > recommendation (repo order).
+ *
+ * DRIVE_TOO_FAR_HOURS basis: 8 hours is one full driving day. Beyond
+ * it a one-way drive eats the trip (the engine itself starts adding
+ * overnight stops), and the owner's own test case — Montreal <->
+ * Saint John at ~9.9h — must land on the flight-only side.
+ */
+export const DRIVE_TOO_FAR_HOURS = 8;
+export const TRANSPORT_LOGIC_RULES = [
+  {
+    id: "NO_SERVICE",
+    kind: "hard",
+    description: "IF a mode has no real service on this route (availability not_available — e.g. no passenger rail serves Saint John), THEN it is excluded, with the reason shown. Never a fake option, never silently dropped."
+  },
+  {
+    id: "TOO_FAR_TO_DRIVE",
+    kind: "hard",
+    description: "IF the routed one-way drive is longer than DRIVE_TOO_FAR_HOURS (8h, one full driving day) AND the traveller has not explicitly chosen an intercity mode, THEN driving is excluded by rule."
+  },
+  {
+    id: "FLIGHT_ONLY",
+    kind: "hard",
+    description: "ONLY IF driving is excluded as too far AND a usable flight exists (realistic, verified or search-ready, priced), THEN flight is the only suggestion and every other remaining mode is excluded by rule. If no usable flight exists, this rule does not fire."
+  },
+  {
+    id: "TRAVELLER_PREFERENCE",
+    kind: "need",
+    description: "IF the traveller explicitly chose an intercity mode in their answers and that mode is not excluded by a hard rule, THEN that mode is suggested. An explicit choice also disarms TOO_FAR_TO_DRIVE — a traveller who says they are driving is told the honest drive time, not forced to fly."
+  },
+  {
+    id: "BUDGET_LOW_DRIVE",
+    kind: "suggestion",
+    description: "IF the stated budget cannot absorb flying (the flight option is budget_fit 'expensive' under the trip's own fit formula — fixed costs + option max + the standard 12% buffer vs the stated budget) AND driving is available and fits, THEN driving is suggested: 'fits your budget' (owner example: budget low -> suggest driving). Cheaper ground modes stay available to pick; they do not cancel the suggestion."
+  },
+  {
+    id: "BEST_BALANCE",
+    kind: "suggestion",
+    description: "OTHERWISE the engine's scored recommendation (cost, duration, availability) is suggested as the best balance for the trip."
+  }
+] as const;
 const DRIVE_ROUTE_MULTIPLIER = 1.18;
 const MAX_REASONABLE_DRIVE_KM = 1200;
 const MAX_SAME_COUNTRY_DRIVE_KM = 1400;
@@ -378,6 +483,43 @@ function flightHoursFromDistance(distanceKm: number | null) {
   return Math.max(3.5, distanceKm / 760 + 3);
 }
 
+/**
+ * Estimated one-way duration, in minutes, for the intercity leg between
+ * the input's origin and destination under the given mode, using the
+ * same distance models as the transport comparison above: road distance
+ * from coordinates (or the known-corridor fallback table) for surface
+ * modes, and for flight/mixed legs the flight model — air time by
+ * distance PLUS an airport/connection allowance, i.e. an estimate of
+ * total travel time, never air time alone. Returns null when the route
+ * distance is unknown so callers cannot invent a duration.
+ */
+export function estimateIntercityLegMinutes(
+  input: TransportBuildInput,
+  mode: "flight" | "drive" | "train" | "bus" | "mixed" | "mixed transport" | string
+): number | null {
+  const originPlace = placeFromInput(input, "origin", input.origin || "Origin");
+  const destination = destinationPlace(input);
+  const originLabel = placeLabel(originPlace, input.origin || "Origin");
+  const destinationLabel = placeLabel(destination, input.destination || "Destination");
+  const distanceKm = routeDistanceKm(originPlace, destination, originLabel, destinationLabel);
+  if (distanceKm == null) return null;
+  const borderDelayHours = crossBorder(originPlace, destination, input, originLabel, destinationLabel) ? 1.5 : 0;
+  let hours: number | null;
+  if (mode === "drive") {
+    hours = (driveHoursFromDistance(distanceKm) ?? 0) + borderDelayHours;
+  } else if (mode === "train") {
+    hours = surfaceHoursFromDistance(distanceKm, "train");
+  } else if (mode === "bus") {
+    hours = (surfaceHoursFromDistance(distanceKm, "bus") ?? 0) + borderDelayHours;
+  } else {
+    // Flight legs, and mixed legs (drive-to-airport + flight in this
+    // engine), are flight-scale: use the total-travel flight model.
+    hours = flightHoursFromDistance(distanceKm);
+  }
+  if (hours == null || !Number.isFinite(hours) || hours <= 0) return null;
+  return Math.round(hours * 60);
+}
+
 function maxSurfaceHoursForTrip(days: number, mode: TransportMode) {
   if (mode === "drive") {
     if (days <= 3) return 6;
@@ -395,6 +537,22 @@ function tooLongForTrip(hours: number | null, days: number, mode: TransportMode)
   if (hours == null) return false;
   if (mode === "flight" || mode === "mixed") return false;
   return hours > maxSurfaceHoursForTrip(days, mode);
+}
+
+/**
+ * Cities with NO passenger rail service at all, so a train option must
+ * render as unavailable with the reason — never as an "unverified"
+ * estimate for a service that does not exist. Saint John, New
+ * Brunswick lost VIA Rail service in 1994; VIA's Ocean route serves
+ * Moncton instead. Grounded per the owner's route knowledge
+ * (2026-11-08): Montreal <-> Saint John has no train, full stop.
+ */
+const noPassengerRailPatterns: Array<{ pattern: RegExp; city: string; nearestStation: string }> = [
+  { pattern: /\bsaint john\b/i, city: "Saint John", nearestStation: "Moncton" }
+];
+
+function noPassengerRailCity(originLabel: string, destinationLabel: string) {
+  return noPassengerRailPatterns.find((entry) => entry.pattern.test(originLabel) || entry.pattern.test(destinationLabel)) || null;
 }
 
 function knownRailCorridor(originLabel: string, destinationLabel: string) {
@@ -604,7 +762,8 @@ function buildDrivingOption(
   const oneWayKm = distanceKm;
   const roundTripMultiplier = input.returnToOrigin === false ? 1 : 2;
   const country = placeCountry(originPlace, input.originCountry) || placeCountry(destinationPlaceValue, input.destinationCountry);
-  const fuelLiters = (oneWayKm * roundTripMultiplier * DEFAULT_FUEL_L_PER_100KM) / 100;
+  const fuel = fuelConsumptionFor(input);
+  const fuelLiters = (oneWayKm * roundTripMultiplier * fuel.lPer100Km) / 100;
   const gas = Math.round(fuelLiters * gasPricePerLiter(country));
   const dailyParking = parkingDaily(destinationLabel);
   const parking = dailyParking ? Math.round(dailyParking * Math.min(10, tripNights(input))) : 0;
@@ -647,6 +806,12 @@ function buildDrivingOption(
     distance_km: Math.round(oneWayKm),
     cost_breakdown: {
       gas,
+      gas_price_per_liter: gasPricePerLiter(country),
+      fuel_liters: Math.round(fuelLiters * 10) / 10,
+      gas_price_source: `Roamly planning rate for ${country || "the route country"} — a planning assumption, not a live pump price`,
+      fuel_consumption_l_per_100km: fuel.lPer100Km,
+      vehicle_class: fuel.vehicleClass,
+      fuel_consumption_source: `${FUEL_CONSUMPTION_SOURCE}: ${fuel.representative}`,
       parking: parking || undefined,
       tolls: tolls || undefined,
       overnight_stop: overnightStop || undefined,
@@ -679,6 +844,19 @@ function buildTrainOption(
   destinationLabel: string,
   distanceKm: number | null
 ) {
+  const railGap = noPassengerRailCity(originLabel, destinationLabel);
+  if (railGap) {
+    return unavailableOption({
+      mode: "train",
+      origin: originLabel,
+      destination: destinationLabel,
+      input,
+      title: `${originLabel} to ${destinationLabel} train route`,
+      reason: `No passenger trains serve ${railGap.city} — the nearest VIA Rail station is ${railGap.nearestStation}, so there is no train option for this route.`,
+      warning: "Train is not available for this route.",
+      source: "Rail route estimate"
+    });
+  }
   const sameCountryCanada = trainAvailable(input, originPlace, destinationPlaceValue) || (sameCountry(originPlace, destinationPlaceValue, input) && countryHintFromLabel(destinationLabel) === "canada");
   const corridorReady = sameCountryCanada && knownRailCorridor(originLabel, destinationLabel);
   const availability: TransportAvailability = corridorReady ? "search_ready" : sameCountryCanada ? "unverified" : "not_available";
@@ -839,7 +1017,8 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
   const currency = cleanCurrency(input.budgetCurrency);
   const travelers = travelersCount(input);
   const country = clean(input.originCountry || "Canada");
-  const gas = Math.round(((airport.driveKm * (input.returnToOrigin === false ? 1 : 2) * DEFAULT_FUEL_L_PER_100KM) / 100) * gasPricePerLiter(country));
+  const fuel = fuelConsumptionFor(input);
+  const gas = Math.round(((airport.driveKm * (input.returnToOrigin === false ? 1 : 2) * fuel.lPer100Km) / 100) * gasPricePerLiter(country));
   const airportParking = input.returnToOrigin === false ? 0 : Math.round(18 * Math.min(10, tripNights(input)));
   const flightFallback = centsToAmount(config.flightEstimateCents || config.fallbackFlightEstimateCents || null);
   const flight = flightFallback ? Math.round(flightFallback * 0.82) : Math.round(240 * travelers);
@@ -869,6 +1048,12 @@ function buildMixedOption(input: TransportBuildInput, originLabel: string, desti
     distance_km: airport.driveKm,
     cost_breakdown: {
       gas,
+      gas_price_per_liter: gasPricePerLiter(country),
+      fuel_liters: Math.round(((airport.driveKm * (input.returnToOrigin === false ? 1 : 2) * fuel.lPer100Km) / 100) * 10) / 10,
+      gas_price_source: `Roamly planning rate for ${country} — a planning assumption, not a live pump price`,
+      fuel_consumption_l_per_100km: fuel.lPer100Km,
+      vehicle_class: fuel.vehicleClass,
+      fuel_consumption_source: `${FUEL_CONSUMPTION_SOURCE}: ${fuel.representative}`,
       parking: airportParking || undefined,
       flight,
       airport_transfer: transfer,
@@ -960,6 +1145,71 @@ export function pickRecommendedTransportOption(
   })[0];
 }
 
+type LogicExclusion = { rule: string; label: string };
+
+function transportOptionKey(option: TransportOption) {
+  return `${option.mode}::${option.title}`;
+}
+
+/**
+ * The hard half of the transport logic map (rules NO_SERVICE,
+ * TOO_FAR_TO_DRIVE, FLIGHT_ONLY — see TRANSPORT_LOGIC_RULES). Returns
+ * the options excluded BY RULE, each with its plain-words reason.
+ * Availability stays truthful underneath: a too-far drive still exists,
+ * it is the map — not reality — that excludes it, and the label says so.
+ */
+function transportLogicExclusions(options: TransportOption[], input: TransportBuildInput) {
+  const exclusions = new Map<string, LogicExclusion>();
+  // Rule NO_SERVICE — hard facts first: a mode with no real service on
+  // this route is excluded, with its reason shown.
+  for (const option of options) {
+    if (option.availability === "not_available") {
+      exclusions.set(transportOptionKey(option), { rule: "NO_SERVICE", label: option.reason });
+    }
+  }
+  // Rules TOO_FAR_TO_DRIVE + FLIGHT_ONLY — armed only when the
+  // traveller has NOT explicitly chosen an intercity mode: an explicit
+  // choice is a stated need, and stated needs outrank this suggestion
+  // (rule TRAVELLER_PREFERENCE disarms the pair).
+  const explicitMode = transportModeFromPreference(input.transportationPreference);
+  const drive = options.find((option) => option.mode === "drive");
+  const flight = options.find((option) => option.mode === "flight");
+  const driveHours = drive?.estimated_duration_hours ?? null;
+  let flightOnly = false;
+  if (
+    !explicitMode &&
+    drive &&
+    driveHours != null &&
+    driveHours > DRIVE_TOO_FAR_HOURS &&
+    !exclusions.has(transportOptionKey(drive))
+  ) {
+    exclusions.set(transportOptionKey(drive), {
+      rule: "TOO_FAR_TO_DRIVE",
+      label: `Too far to drive — ${drive.duration_label || `about ${Math.round(driveHours)} hours one way`}. Roamly only suggests flying for a drive this long.`
+    });
+    const flightUsable = Boolean(
+      flight &&
+        flight.realistic &&
+        (flight.availability === "verified" || flight.availability === "search_ready") &&
+        optionAverage(flight) != null
+    );
+    // Rule FLIGHT_ONLY — ONLY IF a usable flight exists; otherwise the
+    // remaining modes stay available and are labelled honestly.
+    if (flightUsable) {
+      flightOnly = true;
+      for (const option of options) {
+        if (option.mode !== "flight" && !exclusions.has(transportOptionKey(option))) {
+          exclusions.set(transportOptionKey(option), {
+            rule: "FLIGHT_ONLY",
+            label: "Not suggested — this trip is too far to drive, so flying is the only practical way."
+          });
+        }
+      }
+    }
+  }
+  return { exclusions, flightOnly };
+}
+
 export function compareTransportOptions(input: TransportBuildInput, config: BuildOptionsConfig = {}): TransportComparison {
   const originPlace = placeFromInput(input, "origin", input.origin || "Origin");
   const destination = destinationPlace(input);
@@ -974,17 +1224,66 @@ export function compareTransportOptions(input: TransportBuildInput, config: Buil
     buildMixedOption(input, originLabel, destinationLabel, config)
   ].filter((option): option is TransportOption => Boolean(option));
 
-  const recommended = pickRecommendedTransportOption(options, {
-    budgetAmount: input.budgetAmount,
-    fixedTripCostCents: config.fixedTripCostCents,
-    transportationPreference: input.transportationPreference
-  });
+  // TRANSPORT LOGIC MAP — the options a traveller sees are the output
+  // of these named rules (TRANSPORT_LOGIC_RULES), never a raw list.
+  const { exclusions, flightOnly } = transportLogicExclusions(options, input);
+  const candidates = options.filter((option) => !exclusions.has(transportOptionKey(option)));
+  const explicitMode = transportModeFromPreference(input.transportationPreference);
+
+  let suggested: TransportOption | null = null;
+  let suggestedRule = "BEST_BALANCE";
+  let suggestedLabel = "Suggested — best balance of price and time for this trip";
+
+  if (flightOnly) {
+    suggested = candidates.find((option) => option.mode === "flight") || null;
+    suggestedRule = "FLIGHT_ONLY";
+    suggestedLabel = "Only option — too far to drive";
+  }
+  if (!suggested && explicitMode) {
+    const preferred = candidates.find((option) => option.mode === explicitMode);
+    if (preferred) {
+      suggested = preferred;
+      suggestedRule = "TRAVELLER_PREFERENCE";
+      suggestedLabel = "Suggested — the way you said you want to travel";
+    }
+  }
+  if (!suggested && input.budgetAmount) {
+    // Rule BUDGET_LOW_DRIVE — "budget low" is read from the trip's own
+    // numbers via the existing fit formula, not a new threshold: the
+    // flight option busts the stated budget while driving still fits.
+    const drive = candidates.find((option) => option.mode === "drive" && option.realistic);
+    const flight = candidates.find((option) => option.mode === "flight" && optionAverage(option) != null);
+    if (
+      drive &&
+      flight &&
+      fitForOption(flight, input.budgetAmount, config.fixedTripCostCents || 0) === "expensive" &&
+      fitForOption(drive, input.budgetAmount, config.fixedTripCostCents || 0) !== "expensive"
+    ) {
+      suggested = drive;
+      suggestedRule = "BUDGET_LOW_DRIVE";
+      suggestedLabel = "Suggested — fits your budget";
+    }
+  }
+  if (!suggested) {
+    suggested = pickRecommendedTransportOption(candidates.length ? candidates : options, {
+      budgetAmount: input.budgetAmount,
+      fixedTripCostCents: config.fixedTripCostCents,
+      transportationPreference: input.transportationPreference
+    });
+    if (suggested && exclusions.has(transportOptionKey(suggested))) suggested = null;
+  }
+
   const updatedOptions = options.map((option) => {
     const fit = fitForOption(option, input.budgetAmount ?? null, config.fixedTripCostCents || 0);
+    const exclusion = exclusions.get(transportOptionKey(option));
+    const isSuggested = Boolean(suggested && option.mode === suggested.mode && option.title === suggested.title);
     return {
       ...option,
-      budget_fit: recommended && option.mode === recommended.mode && option.title === recommended.title ? "best" : option.realistic ? fit : "unknown"
-    };
+      budget_fit: isSuggested ? "best" : option.realistic ? fit : "unknown",
+      presentation: exclusion ? ("excluded" as const) : isSuggested ? ("suggested" as const) : ("available" as const),
+      presentation_label: exclusion ? exclusion.label : isSuggested ? suggestedLabel : null,
+      logic_rule: exclusion ? exclusion.rule : isSuggested ? suggestedRule : null
+    } satisfies TransportOption;
   });
 
   return {
@@ -993,9 +1292,45 @@ export function compareTransportOptions(input: TransportBuildInput, config: Buil
     assumptions: [
       "Driving estimate uses fuel, parking, toll, and overnight-stop assumptions until live maps/gas providers are connected.",
       "Train and bus are not recommended unless route availability is verified or search-ready and the travel time fits the trip.",
-      "Conservative estimates are used when exact live prices are not available; refresh live prices before booking."
+      "Conservative estimates are used when exact live prices are not available; refresh live prices before booking.",
+      "Options are shortlisted by Roamly's transport logic map: no-service and too-far rules beat budget suggestions, and every option shows why it is suggested or excluded."
     ]
   };
+}
+
+/**
+ * One-line price provenance for the selector's tabulation. A figure is
+ * only ever shown with its source and coverage; model figures are
+ * labelled as model figures, never as searched fares.
+ */
+export function transportOptionProvenance(option: TransportOption): string {
+  if (option.availability === "not_available") return option.reason;
+  const coverage = option.return_date
+    ? `Round trip ${option.departure_date} – ${option.return_date}`
+    : `One way ${option.departure_date}`;
+  if (option.mode === "drive") {
+    const breakdown = option.cost_breakdown || {};
+    const rate = breakdown.gas_price_per_liter != null ? `$${breakdown.gas_price_per_liter.toFixed(2)}/L` : "a planning rate";
+    const liters = breakdown.fuel_liters != null ? `${breakdown.fuel_liters} L of fuel` : "fuel";
+    const consumption =
+      breakdown.fuel_consumption_l_per_100km != null
+        ? ` · ${breakdown.vehicle_class || DEFAULT_VEHICLE_CLASS} car at ${breakdown.fuel_consumption_l_per_100km} L/100 km (${breakdown.fuel_consumption_source || FUEL_CONSUMPTION_SOURCE})`
+        : "";
+    return `Estimated gas allowance · ${option.distance_km ?? "?"} km · ${liters} at ${rate}${consumption} · ${breakdown.gas_price_source || "Roamly planning rate"}`;
+  }
+  if (option.mode === "mixed" && option.cost_breakdown?.gas != null) {
+    const breakdown = option.cost_breakdown || {};
+    const rate = breakdown.gas_price_per_liter != null ? `$${breakdown.gas_price_per_liter.toFixed(2)}/L` : "a planning rate";
+    return `Estimate · Roamly model — flight plus a drive-to-airport gas allowance (${breakdown.fuel_liters ?? "?"} L at ${rate}, ${breakdown.vehicle_class || DEFAULT_VEHICLE_CLASS} class at ${breakdown.fuel_consumption_l_per_100km ?? "?"} L/100 km) · ${coverage}`;
+  }
+  if (option.price_confidence === "live_partner") return `Live partner price · ${option.source} · ${coverage}`;
+  if (option.price_confidence === "cached_recent") return `Recently searched price · ${option.source} · ${coverage}`;
+  if (option.price_confidence === "estimated") {
+    return option.availability === "search_ready" || option.availability === "verified"
+      ? `Estimate · Roamly model — not a searched fare · ${coverage}`
+      : `Unverified estimate · Roamly model — no live provider has confirmed this route`;
+  }
+  return "No price yet — search before booking";
 }
 
 export function transportOptionCostCents(option: TransportOption | null | undefined) {
