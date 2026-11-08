@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -52,8 +52,14 @@ import {
 } from "@/lib/roamly/planTripUx";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { GUEST_ITINERARY_PATH } from "@/lib/roamly/guestItineraryView";
-import type { TransportOption } from "@/lib/roamly/transportOptions";
-import type { BudgetCategoryConfidence } from "@/lib/roamly/priceDiscovery";
+import { type TransportOption } from "@/lib/roamly/transportOptions";
+import { Bus, Car, Check, Plane, Route, TrainFront, type LucideIcon } from "lucide-react";
+import {
+  applyTransportOptionSelection,
+  buildBudgetConstraintForItinerary,
+  type BudgetCategoryConfidence,
+  type TripPriceDiscovery
+} from "@/lib/roamly/priceDiscovery";
 import {
   PLAN_DRAFT_KEY,
   browserPlanDraftStorages,
@@ -67,6 +73,8 @@ import { BuiButton } from "@/components/boardui/Button";
 import { BuiCard, BuiSkeleton } from "@/components/boardui/Card";
 import { BuiChip } from "@/components/boardui/Badge";
 import { BuiNotice } from "@/components/boardui/Notice";
+import { BuiClickSpark } from "@/components/boardui/ClickSpark";
+import { BuiEnterContent } from "@/components/boardui/EnterContent";
 
 /**
  * Plan-flow redesign (owner directive 2026-11-03, Airbnb search-flow
@@ -171,6 +179,7 @@ type PriceDiscoveryResult = {
   budgetCurrency: string;
   coverageNote: string;
   recommendedTransportOption?: TransportOption | null;
+  transportSelection?: { mode: TransportOption["mode"]; title: string; selectedBy: "traveler" } | null;
   transportOptions?: TransportOption[];
   transportAssumptions?: string[];
   hotelEstimateNote?: string;
@@ -482,22 +491,60 @@ function formatTransportOption(option: TransportOption | null | undefined, fallb
   return `${option.title}: ${range}. ${option.why_recommended}`;
 }
 
-function transportBadges(option: TransportOption) {
-  const availability =
-    option.availability === "verified"
-      ? "Verified route"
-      : option.availability === "search_ready"
-        ? "Search-ready"
-        : option.availability === "not_available"
-          ? "Not available"
-          : "Unverified";
-  return [
-    availability,
-    option.realistic ? "" : "Not recommended",
-    option.warning?.toLowerCase().includes("too long") ? "Too long for this trip" : "",
-    option.price_confidence === "estimated" || option.price_confidence === "unknown" ? "Needs live price check" : "",
-    option.warning?.toLowerCase().includes("border") ? "Border time buffer" : ""
-  ].filter(Boolean);
+/**
+ * Transport prompt face (owner prompt law, 2026-11-08): the selector is
+ * ONE question + radio-card option boxes. Per box the ceiling is the
+ * mode name, the duration, the price — plus at most ONE short line on
+ * the suggested option. Every internal state (availability, rule ids,
+ * price-confidence tiers) stays in the data model and off the face.
+ * The card recipe is BoardUI's radio-card family (see
+ * components/boardui/Card.tsx): squircle radius, hairline border,
+ * layered soft shadow, press/lift primitives.
+ */
+const TRANSPORT_MODE_FACE: Record<TransportOption["mode"], { label: string; noun: string; Icon: LucideIcon }> = {
+  flight: { label: "Fly", noun: "Flight", Icon: Plane },
+  drive: { label: "Drive", noun: "Drive", Icon: Car },
+  train: { label: "Train", noun: "Train", Icon: TrainFront },
+  bus: { label: "Bus", noun: "Bus", Icon: Bus },
+  mixed: { label: "Drive + fly", noun: "Mixed route", Icon: Route }
+};
+
+function formatTransportDurationFace(option: TransportOption) {
+  if (option.estimated_duration_hours == null || !Number.isFinite(option.estimated_duration_hours)) return "";
+  const totalMinutes = Math.round((option.estimated_duration_hours * 60) / 5) * 5;
+  if (totalMinutes <= 0) return "";
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours} h ${minutes} min` : `${hours} h`;
+}
+
+function formatTransportPriceFace(
+  option: TransportOption,
+  fallbackCurrency: string,
+  locale: Parameters<typeof formatRoamlyNumber>[1]
+) {
+  const currency = option.currency || fallbackCurrency;
+  const min = option.estimated_cost_min;
+  const max = option.estimated_cost_max;
+  if (min != null && max != null && min !== max) {
+    return `${currency} ${formatRoamlyNumber(Math.round(min), locale)}–${formatRoamlyNumber(Math.round(max), locale)}`;
+  }
+  const single = max ?? min;
+  return single != null ? `${currency} ${formatRoamlyNumber(Math.round(single), locale)}` : "";
+}
+
+/** One quiet provenance attribution for the line under the options —
+ *  short form only; the full provenance string stays in the data. */
+function transportProvenanceShort(option: TransportOption) {
+  if (option.mode === "drive" || (option.mode === "mixed" && option.cost_breakdown?.gas != null)) {
+    return "Gas uses Canada's official fuel ratings";
+  }
+  const face = TRANSPORT_MODE_FACE[option.mode];
+  if (option.price_confidence === "live_partner" || option.price_confidence === "cached_recent") {
+    return `${face.noun} price from ${option.source}`;
+  }
+  return `${face.noun} price is a Roamly estimate`;
 }
 
 function confidenceFor(discovery: PriceDiscoveryResult, category: BudgetCategoryConfidence["category"]) {
@@ -1635,6 +1682,26 @@ function TripPlanFormSession({
     setStep((current) => Math.max(current - 1, 0));
   }
 
+  function selectTransportOption(option: TransportOption) {
+    if (!priceDiscovery || option.availability === "not_available" || option.presentation === "excluded") return;
+    const updated = applyTransportOptionSelection(priceDiscovery as unknown as TripPriceDiscovery, option);
+    setPriceDiscovery(updated as unknown as PriceDiscoveryResult);
+    // The budget-constraint text steers generation; rebuild it from the
+    // updated discovery so the itinerary is built around the pick and
+    // the pick's price, not the option it replaced.
+    setBudgetConstraint(buildBudgetConstraintForItinerary(updated));
+    // Generation resolves the leg's mode from the free-text preference
+    // BEFORE it reads the discovery option. If the saved preference
+    // would force a different intercity mode (Drive / Rental car),
+    // neutralise it to Mixed so the traveller's pick is what gets
+    // built. Local-mobility preferences (Walking, Public transit,
+    // Rideshare) never match an intercity mode and are left untouched.
+    if (option.mode !== "drive" && (transportationPreference === "Drive" || transportationPreference === "Rental car")) {
+      setTransportationPreference("Mixed");
+    }
+    notePlanEdit();
+  }
+
   async function runPriceDiscovery() {
 
     setPriceChecking(true);
@@ -2063,6 +2130,33 @@ function TripPlanFormSession({
         [priceBudgetBalance?.label || "Remaining budget", priceBudgetBalance?.value || "Not set"]
       ]
     : [];
+
+  // Transport prompt face prep (presentation only — the logic map's
+  // output is consumed, never recomputed): same option population the
+  // old card stack showed, split into pickable radio cards (the map's
+  // suggestion first) and quiet one-line unavailable entries.
+  const transportFaceOptions = priceDiscovery?.transportOptions?.slice(0, 5) ?? [];
+  const transportPickable = transportFaceOptions
+    .filter((option) => !(option.presentation === "excluded" || option.availability === "not_available"))
+    .sort((a, b) => Number(b.presentation === "suggested") - Number(a.presentation === "suggested"));
+  const transportUnavailable = transportFaceOptions.filter(
+    (option) => option.presentation === "excluded" || option.availability === "not_available"
+  );
+  const transportSelectedOption = transportPickable.find(
+    (option) =>
+      Boolean(priceDiscovery?.transportSelection) &&
+      priceDiscovery?.transportSelection?.mode === option.mode &&
+      priceDiscovery?.transportSelection?.title === option.title
+  );
+  const transportProvenanceLine = transportSelectedOption
+    ? transportProvenanceShort(transportSelectedOption)
+    : [...new Set(transportPickable.map(transportProvenanceShort))].slice(0, 3).join(" · ");
+  const transportQuestion = `How will you get to ${buildDestinationLabel || transportFaceOptions[0]?.destination || "your destination"}?`;
+  // React Bits EnterContent (BoardUI port): the transport block springs
+  // in when it first appears and re-enters when the face itself changes —
+  // the options branched, or a pick landed and the block gained its
+  // "Added to your itinerary and budget." line.
+  const transportEnterKey = `${transportQuestion}|${transportPickable.map((option) => option.mode).join(",")}|${transportSelectedOption?.mode ?? ""}`;
 
   const syncedDates = syncPlanDates(startDate, endDate, daysCount);
   const shownDateErrors =
@@ -2606,34 +2700,96 @@ function TripPlanFormSession({
             ))}
           </div>
           {priceDiscovery.cross_border ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {["Cross-border trip", "Passport check", priceDiscovery.currencyChange ? "Currency change" : "", "Border time buffer", "Roaming reminder", "Customs reminder"]
-                .filter((label): label is string => Boolean(label))
-                .map((label) => (
-                  <span key={label} className="rounded-full border border-corange/30 bg-corange/10 px-3 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-[#8F4512]">
-                    {translateText(label)}
-                  </span>
-                ))}
-            </div>
+            <p className="mt-3 text-xs font-semibold leading-5 text-cgray">
+              {translateText(
+                [
+                  "Cross-border trip",
+                  "Passport check",
+                  priceDiscovery.currencyChange ? "Currency change" : "",
+                  "Border time buffer",
+                  "Roaming reminder",
+                  "Customs reminder"
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              )}
+            </p>
           ) : null}
-          {priceDiscovery.transportOptions?.length ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {priceDiscovery.transportOptions.slice(0, 5).map((option) => (
-                <div key={`${option.mode}-${option.title}`} className="rounded-2xl border border-chair bg-white p-3">
-                  <div className="flex flex-wrap gap-2">
-                    {transportBadges(option).map((badge) => (
-                      <span key={badge} className="rounded-full border border-cblue/15 bg-cblue/5 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-cblue">
-                        {translateText(badge)}
+          {transportFaceOptions.length ? (
+            <BuiEnterContent enterKey={transportEnterKey} className="mt-5">
+              <p className="text-base font-black text-chead">{translateText(transportQuestion)}</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={translateText(transportQuestion)}>
+                {transportPickable.map((option, index) => {
+                  const face = TRANSPORT_MODE_FACE[option.mode];
+                  const ModeIcon = face.Icon;
+                  const selected = Boolean(
+                    priceDiscovery.transportSelection &&
+                      priceDiscovery.transportSelection.mode === option.mode &&
+                      priceDiscovery.transportSelection.title === option.title
+                  );
+                  const priceText = formatTransportPriceFace(option, priceDiscovery.budgetCurrency, locale);
+                  const durationText = formatTransportDurationFace(option);
+                  return (
+                    <BuiClickSpark key={`${option.mode}-${option.title}`} className="h-full">
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => selectTransportOption(option)}
+                      style={{ "--bui-delay": `${index * 70}ms` } as CSSProperties}
+                      className={
+                        "bui-enter bui-press bui-tap bui-squircle flex h-full min-h-[4.25rem] w-full items-center gap-3 rounded-bui-card border bg-white p-4 text-left shadow-bui-card transition-colors " +
+                        (selected
+                          ? "border-cblue bg-cblue/5 ring-1 ring-cblue"
+                          : "border-chair hover:border-cblue/60")
+                      }
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 " +
+                          (selected ? "border-cblue bg-cblue" : "border-chair bg-white")
+                        }
+                      >
+                        {selected ? <Check className="bui-badge-pop h-3.5 w-3.5 text-white" strokeWidth={3.5} /> : null}
                       </span>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-sm font-black text-chead">{option.budget_fit === "best" ? translateText("Recommended") + ": " : ""}{option.title}</p>
-                  <p className="mt-1 text-xs font-bold leading-5 text-cgray">
-                    {formatTransportOption(option, priceDiscovery.budgetCurrency, locale)}
-                  </p>
+                      <ModeIcon className="h-6 w-6 shrink-0 text-cblue" strokeWidth={1.8} aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-base font-black leading-6 text-chead">{translateText(face.label)}</span>
+                        {durationText ? (
+                          <span className="block text-xs font-bold leading-5 text-cgray">{durationText}</span>
+                        ) : null}
+                        {selected ? (
+                          <span className="block text-xs font-bold leading-5 text-cblue">
+                            {translateText("Added to your itinerary and budget.")}
+                          </span>
+                        ) : option.presentation === "suggested" && option.presentation_label ? (
+                          <span className="block text-xs font-bold leading-5 text-cblue">
+                            {translateText(option.presentation_label)}
+                          </span>
+                        ) : null}
+                      </span>
+                      {priceText ? (
+                        <span className="shrink-0 text-base font-black leading-6 text-chead">{priceText}</span>
+                      ) : null}
+                    </button>
+                    </BuiClickSpark>
+                  );
+                })}
+              </div>
+              {transportUnavailable.length ? (
+                <div className="mt-3 space-y-1">
+                  {transportUnavailable.map((option) => (
+                    <p key={`${option.mode}-${option.title}`} className="text-xs font-semibold leading-5 text-cgray">
+                      {translateText(TRANSPORT_MODE_FACE[option.mode].label)} — {translateText(option.presentation_label || option.reason)}
+                    </p>
+                  ))}
                 </div>
-              ))}
-            </div>
+              ) : null}
+              {transportProvenanceLine ? (
+                <p className="mt-3 text-[0.7rem] font-semibold leading-5 text-cgray">{translateText(transportProvenanceLine)}</p>
+              ) : null}
+            </BuiEnterContent>
           ) : null}
           {priceDiscovery.hotelEstimateNote ? (
             <p className="mt-3 text-xs font-bold leading-5 text-cgray">{translateText(priceDiscovery.hotelEstimateNote)}</p>
