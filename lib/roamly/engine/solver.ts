@@ -350,6 +350,18 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     // gondola case — "sulphur mountain" matched, "gondola" fell to
     // the unused tier), yet a candidate naming the head noun itself
     // is exactly the match the must-see wants.
+    // Exact-name preference (Rome landmark defect, 2026-11-09):
+    // among requirement-passing candidates, one whose WHOLE name
+    // is a required pattern — the place's own name, exactly ("a
+    // visit to the Colosseum" -> the candidate named "Colosseum")
+    // — outranks one that merely CONTAINS the pattern ("Colosseum
+    // Apartments", a name-trading building that passes the same
+    // requirement and ties on the needle). Without this the tie
+    // falls to pool order (candidate_key), and the building wins
+    // over the landmark. Scoped to required patterns: ladder-only
+    // matches are unaffected, and a must-see with no requirement
+    // has no required patterns, so exact is false for every
+    // candidate and its ranking is exactly as before.
     const reqPatterns = (ms.requiredPatterns || []).map((p) => normText(p)).filter((n) => n.length > 0);
     const reqKinds = ms.requiredKinds || [];
     const hasRequirement = reqPatterns.length > 0 || reqKinds.length > 0;
@@ -357,7 +369,7 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     const requirementMet = (c: EngineCandidate): boolean =>
       !hasRequirement || reqKinds.includes(c.kind) || reqPatterns.some((p) => normText(c.name).includes(p));
     let relatedOnlyMatch = false;
-    let best: { c: EngineCandidate; longest: number; count: number } | null = null;
+    let best: { c: EngineCandidate; exact: boolean; longest: number; count: number } | null = null;
     for (const c of pools) {
       const nm = normText(c.name);
       let longest = 0;
@@ -373,8 +385,14 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
         relatedOnlyMatch = true;
         continue;
       }
-      if (!best || longest > best.longest || (longest === best.longest && count > best.count)) {
-        best = { c, longest, count };
+      const exact = reqPatterns.some((p) => nm === p);
+      if (
+        !best ||
+        (exact && !best.exact) ||
+        (exact === best.exact &&
+          (longest > best.longest || (longest === best.longest && count > best.count)))
+      ) {
+        best = { c, exact, longest, count };
       }
     }
     let cand: EngineCandidate | null = best?.c ?? null;
