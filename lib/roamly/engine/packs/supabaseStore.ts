@@ -78,6 +78,11 @@ const WEATHER_TABLE = "roamly_destination_weather_snapshots";
 const SETTINGS_TABLE = "roamly_admin_settings";
 
 const CANDIDATE_INSERT_CHUNK = 200;
+/** Page size for candidate READS (getVersionCandidates):
+ *  PostgREST's own max-rows cap — a page request at this size is
+ *  never itself truncated, and the loop ends on the first short
+ *  page. See the Rome landmark note at the read site. */
+const CANDIDATE_READ_PAGE = 1000;
 const CAS_ATTEMPTS = 6;
 
 /**
@@ -908,13 +913,37 @@ export class SupabasePackStore implements PackStore {
     }
     const record = await this.rawVersion(packVersionId);
     if (!record) throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
-    const { data, error } = await this.client
-      .from(CANDIDATES_TABLE)
-      .select("*")
-      .eq("pack_id", record.id)
-      .order("candidate_key", { ascending: true });
-    if (error) throw dbFailure("read pack candidates", error);
-    const candidates = ((data as CandidateRow[] | null) ?? []).map((row) => this.mapCandidate(row));
+    // PAGINATED READ (Rome landmark defect, 2026-11-09): a single
+    // unbounded select is silently capped by PostgREST at 1,000
+    // rows (the server's max-rows default — no error, no marker).
+    // Every pack over 1,000 candidates was therefore read back
+    // TRUNCATED: Rome's extract-built pack holds 29,479 candidates,
+    // and the solver received only the first 1,000 in
+    // candidate_key order — for Overture keys a lexicographic
+    // slice of UUID space holding 206 of 5,438 sight-pool
+    // candidates and NONE of the ten "Colosseum"-named ones, so a
+    // visit to the Colosseum was reported honestly-but-wrongly
+    // unmet (daily test 2026-11-09; every candidate key in that
+    // production itinerary sits inside the truncated page, which
+    // is how the slice was identified). The order is the table's
+    // unique (pack, candidate_key) key, so range pages over it
+    // are exact — no duplicates, no skips. A pack at or under one
+    // page still costs exactly one request, as before; the cache
+    // and disk tiers above this cold read are unchanged.
+    const rows: CandidateRow[] = [];
+    for (let from = 0; ; from += CANDIDATE_READ_PAGE) {
+      const { data, error } = await this.client
+        .from(CANDIDATES_TABLE)
+        .select("*")
+        .eq("pack_id", record.id)
+        .order("candidate_key", { ascending: true })
+        .range(from, from + CANDIDATE_READ_PAGE - 1);
+      if (error) throw dbFailure("read pack candidates", error);
+      const page = (data as CandidateRow[] | null) ?? [];
+      rows.push(...page);
+      if (page.length < CANDIDATE_READ_PAGE) break;
+    }
+    const candidates = rows.map((row) => this.mapCandidate(row));
     candidateCache.set(packVersionId, {
       contentHash: record.content_hash,
       fetchedAtMs: this.now().getTime(),
