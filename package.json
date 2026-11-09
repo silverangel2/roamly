@@ -186,6 +186,7 @@
     "test:pack-kick": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-pack-kick-checks.mjs",
     "test:mustsee-match": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-mustsee-match-checks.mjs",
     "test:europe-findings": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-europe-findings-checks.mjs",
+    "test:rome-landmark": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-rome-landmark-checks.mjs",
     "test:mustdo-preservation": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-mustdo-preservation-checks.mjs",
     "test:mustdo-staged": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-mustdo-staged-checks.mjs",
     "test:manual-booking-save": "node scripts/roamly-manual-booking-save-checks.mjs",
