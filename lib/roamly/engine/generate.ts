@@ -693,7 +693,8 @@ export function deriveMustSees(payload: TripPlannerPayload, extracted: Extracted
       id: `ms-${out.length + 1}`,
       label: clean,
       patterns: mustSeePatterns(clean, pack),
-      ...(requirement.patterns.length ? { requiredPatterns: requirement.patterns, requiredKinds: requirement.kinds } : {})
+      ...(requirement.patterns.length ? { requiredPatterns: requirement.patterns, requiredKinds: requirement.kinds } : {}),
+      ...(requirement.nameAnchor ? { requiredNameAnchor: true } : {})
     });
   };
   for (const req of payload.explicitRequirements || []) {
