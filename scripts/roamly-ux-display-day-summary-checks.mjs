@@ -252,7 +252,14 @@ ok("surfaces: panel renders displaySummary; day card derives from FULL timeline 
   // new call shape instead of the old one.
   assert.match(card, /summaryItems = fullTimelineItems\.map/);
   assert.match(card, /deriveDaySummary\(summaryItems\)/);
-  assert.match(card, /dayRestAndWrap\(summaryItems\)/);
+  // Familiarity redesign (2026-11-09, owner rejection of the
+  // batch-1 face): the rest/wrap sentence no longer renders on
+  // the day card — it was one of the header paragraphs the owner
+  // rejected. The card therefore no longer calls dayRestAndWrap;
+  // the function itself stays in daySummary.ts and its behaviour
+  // stays covered by this suite's direct checks. What must NOT
+  // regress is the summary's source: the full items, above.
+  assert.equal(card.includes("dayRestAndWrap("), false);
 });
 
 // ---- Length bound ----

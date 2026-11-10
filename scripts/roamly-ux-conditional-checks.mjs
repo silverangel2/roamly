@@ -83,12 +83,19 @@ check("item1-home-rows-label-every-clock-time", "STATIC",
   homePanel.includes("provenanceForHomeRow(row)") &&
   homePanel.includes("isClockTime(row.time)"));
 check("item1-day-cards-carry-the-same-discipline", "STATIC",
-  // Repair round: day cards no longer label stored times
-  // "Live-updated" — Confirmed (booking) / Estimated (retimed) /
-  // Planned (stored plan time), and no unconditional live label.
-  dayPlan.includes("Confirmed · booking time") &&
-  dayPlan.includes(">Estimated<") &&
-  dayPlan.includes(">Planned<") &&
+  // Familiarity redesign (2026-11-09) — the owner rejected the
+  // day-list face the repair-round labels produced (a chips row
+  // under every stop) and the day-card half of the label
+  // discipline is superseded BY THE OWNER: the day face shows NO
+  // per-time provenance labels (no Planned / Estimated /
+  // booking-time chips) — a stored time simply renders as a time,
+  // and the only status on the face is "Booked" for a confirmed
+  // booking. Live + Home keep their labels (checks above,
+  // unchanged). No "Live-updated" anywhere, as before.
+  dayPlan.includes("Booked") &&
+  !dayPlan.includes("Confirmed · booking time") &&
+  !dayPlan.includes(">Estimated<") &&
+  !dayPlan.includes(">Planned<") &&
   !dayPlan.includes(">Live-updated<"));
 check("item1-no-bare-time-render-site-remains", "STATIC",
   // Every timed-row render site in Live + Home references a provenance
