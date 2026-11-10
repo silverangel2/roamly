@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ChevronRight, X } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
 import { BackHeader } from "@/components/roamly/BackHeader";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { getRoamlySetupState } from "@/lib/roamly/setupState";
@@ -155,15 +156,17 @@ export default async function TripEventPage({ params }: EventPageProps) {
     .eq("status", "unread")
     .then(() => undefined, () => undefined);
 
+  // Batch 7: the sheet's link rows ride BuiCard (interactive) inside
+  // the anchor — the same recipe the hand-written classes spelled
+  // out; the row's look, label and destination are unchanged.
   const itineraryLink = (
-    <a
-      href={`/trip/${id}`}
-      className="bui-press bui-touch mt-[22px] flex min-h-12 items-center gap-2.5 rounded-bui-card border border-chair bg-cbg px-4 text-[16.5px] font-medium text-chead shadow-bui-card hover:bg-csoft"
-    >
-      See the full itinerary
-      <span aria-hidden className="ml-auto flex items-center text-cchev">
-        <ChevronRight size={20} strokeWidth={2} />
-      </span>
+    <a href={`/trip/${id}`} className="bui-touch mt-[22px] block">
+      <BuiCard interactive className="flex min-h-12 items-center gap-2.5 bg-cbg px-4 text-[16.5px] font-medium text-chead hover:bg-csoft">
+        See the full itinerary
+        <span aria-hidden className="ml-auto flex items-center text-cchev">
+          <ChevronRight size={20} strokeWidth={2} />
+        </span>
+      </BuiCard>
     </a>
   );
 
@@ -315,14 +318,13 @@ export default async function TripEventPage({ params }: EventPageProps) {
           </section>
         ) : null}
         {event.event_type === "country_info" ? (
-          <a
-            href={`/trip/${id}/country-info`}
-            className="bui-press bui-touch mt-5 flex min-h-12 items-center gap-2.5 rounded-bui-card border border-chair bg-cbg px-4 text-[16.5px] font-medium text-chead shadow-bui-card hover:bg-csoft"
-          >
-            Open the full country info page
-            <span aria-hidden className="ml-auto flex items-center text-cchev">
-              <ChevronRight size={20} strokeWidth={2} />
-            </span>
+          <a href={`/trip/${id}/country-info`} className="bui-touch mt-5 block">
+            <BuiCard interactive className="flex min-h-12 items-center gap-2.5 bg-cbg px-4 text-[16.5px] font-medium text-chead hover:bg-csoft">
+              Open the full country info page
+              <span aria-hidden className="ml-auto flex items-center text-cchev">
+                <ChevronRight size={20} strokeWidth={2} />
+              </span>
+            </BuiCard>
           </a>
         ) : null}
         {setupInvitation ? (

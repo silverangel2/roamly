@@ -14,7 +14,7 @@ export default async function TripFeedbackPage({ params }: PageProps) {
   if (!current.configured) {
     return (
       <div className="safe-bottom mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-        <h1 className="text-3xl font-black text-ink">Supabase setup required.</h1>
+        <h1 className="text-3xl font-black text-chead">Supabase setup required.</h1>
       </div>
     );
   }
@@ -40,7 +40,7 @@ export default async function TripFeedbackPage({ params }: PageProps) {
       </div>
       <div className="mb-5">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Feedback</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-ink">{title}</h1>
+        <h1 className="mt-2 text-4xl font-black tracking-tight text-chead">{title}</h1>
       </div>
       <TripFeedbackForm tripId={id} initialFeedback={existingFeedback.error ? [] : existingFeedback.feedback} />
     </div>

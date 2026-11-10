@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
 import { DirectionsScreen } from "@/components/trip/DirectionsScreen";
 import {
   fallbackPlaceId,
@@ -87,8 +88,12 @@ function notFoundPanel(tripId: string, heading: string, body: string) {
       <a href={`/trip/${tripId}`} className="text-[15px] font-medium text-cblue">
         <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="inline-block align-[-2px]" /> Itinerary
       </a>
-      <h1 className="mt-4 text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">{heading}</h1>
-      <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">{body}</p>
+      {/* Batch 7: the not-found state rides BuiCard, the same shell
+          the country-info page's state card uses. Words unchanged. */}
+      <BuiCard className="mt-4 p-5">
+        <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">{heading}</h1>
+        <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">{body}</p>
+      </BuiCard>
     </div>
   );
 }
