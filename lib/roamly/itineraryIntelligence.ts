@@ -24,7 +24,8 @@ import { publicEventTruthForMarketResult } from "@/lib/roamly/publicEventDiscove
 import {
   demoteToDiscoverySuggestion,
   isSearchQueryTitle,
-  isTimelineAdmissibleCandidate
+  isTimelineAdmissibleCandidate,
+  marketResultCoordinates
 } from "@/lib/roamly/timelineGrounding";
 import {
   isGenericStayTitle,
@@ -365,6 +366,10 @@ function applyMarketIdentity(
   }
   usedMarketIds.add(candidate.id);
   const verification = verificationStatus(candidate);
+  // Map-pins fix (2026-11-09): same rule as the staged grounding
+  // writer — the bound item takes the candidate's identity, so it
+  // takes the candidate's own point or no pin at all.
+  const coordinates = marketResultCoordinates(candidate);
   const location = clean(candidate.title) || clean(candidate.city) || clean(candidate.destination) || clean(item.location_name);
   const factualStatus: RoamlyActivitySeed["factualStatus"] =
     verification === "verified" || verification === "native_verified"
@@ -393,7 +398,10 @@ function applyMarketIdentity(
     booking_label: undefined,
     booking: undefined,
     affiliate_category: undefined,
-    coordinates: null,
+    coordinates,
+    ...(coordinates
+      ? { coordinateSource: "candidate" as const, coordinatePrecision: "place" as const }
+      : { coordinateSource: undefined, coordinatePrecision: undefined }),
     timing_status: "PLANNED" as const,
     description: boundMarketDescription(item, candidate, verification)
   };
