@@ -3,10 +3,25 @@
  * 2026-11-04; owner micro-interaction set: "icons MOVE between
  * states, never swap pictures").
  *
- * Six state morphs, each built so the SAME elements travel between
+ * State morphs, each built so the SAME elements travel between
  * the two states — paths retarget their `d`, groups rotate/scale
  * on the spring curve, strokes draw themselves in. Nothing here
  * crossfades between two different pictures and calls it a morph.
+ *
+ * Batch 10 trim (2026-11-10): the set shipped six morphs; three
+ * had no honest customer surface and were removed rather than
+ * left as decoration — the download ring (no download control
+ * anywhere carries an idle/active/done state), the theme morph
+ * (the product is light-only; no theme toggle exists), and the
+ * search/close morph (no search control toggles between search
+ * and close — the finds search opens a panel, it is not an
+ * icon toggle). What remains is exactly what real surfaces use:
+ * send (TripShareActions), unlock (ActivateTripButton), and
+ * play/pause (the home hero's rotation control, wired batch 10 —
+ * it previously swapped two Lucide pictures, the precise habit
+ * this file exists to replace). If a removed morph's surface
+ * ever honestly arrives, the morph is rebuilt from the owner's
+ * set-1 spec in ~/AGENTS.md, not resurrected from memory.
  *
  * Icon geometry is the Lucide set's (24×24, stroke currentColor,
  * round caps — the branch's adopted icon source), drawn as inline
@@ -74,119 +89,6 @@ export function BuiPlayPauseIcon({ playing, className }: { playing: boolean; cla
 /* ------------------------------------------------------------------ */
 /* Download — arrow sinks into the tray; a ring fills around it;     */
 /* a tick draws itself when the download lands.                      */
-/* ------------------------------------------------------------------ */
-export function BuiDownloadIcon({
-  state,
-  className
-}: {
-  state: "idle" | "active" | "done";
-  className?: string;
-}) {
-  const RING_C = 2 * Math.PI * 9; // r=9 → ≈56.5
-  return (
-    <SvgShell className={className}>
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        strokeDasharray={RING_C}
-        strokeDashoffset={state === "idle" ? RING_C : 0}
-        opacity={state === "idle" ? 0 : 1}
-        style={{ transition: "stroke-dashoffset 700ms var(--bui-ease), opacity 200ms var(--bui-ease)" }}
-      />
-      <g
-        opacity={state === "done" ? 0 : 1}
-        style={{
-          transform: state === "active" ? "translateY(2.5px)" : "translateY(0)",
-          transition: "transform 320ms var(--bui-spring-ease), opacity 180ms var(--bui-ease)"
-        }}
-      >
-        <path d="M12 3v10" />
-        <path d="m6.5 10.5 5.5 5.5 5.5-5.5" />
-      </g>
-      <path
-        d="M4 19h16"
-        opacity={state === "idle" ? 1 : 0}
-        style={{ transition: "opacity 200ms var(--bui-ease)" }}
-      />
-      <path
-        d="m8 12.5 2.8 2.8L16 9.8"
-        strokeDasharray={13}
-        strokeDashoffset={state === "done" ? 0 : 13}
-        style={{ transition: "stroke-dashoffset 320ms var(--bui-ease) 60ms" }}
-      />
-    </SvgShell>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Theme — the sun's rays rotate away and shrink as the crescent     */
-/* draws itself in; the centre disc persists through both states.    */
-/* ------------------------------------------------------------------ */
-export function BuiThemeIcon({ dark, className }: { dark: boolean; className?: string }) {
-  const rays = [0, 45, 90, 135, 180, 225, 270, 315];
-  return (
-    <SvgShell className={className}>
-      <g
-        style={{
-          transform: dark ? "rotate(50deg) scale(0.55)" : "rotate(0deg) scale(1)",
-          transformOrigin: "12px 12px",
-          opacity: dark ? 0 : 1,
-          transition: "transform 420ms var(--bui-spring-ease), opacity 260ms var(--bui-ease)"
-        }}
-      >
-        {rays.map((deg) => (
-          <line key={deg} x1="12" y1="2.5" x2="12" y2="4.8" transform={`rotate(${deg} 12 12)`} />
-        ))}
-      </g>
-      <circle
-        cx="12"
-        cy="12"
-        r={dark ? 0.1 : 4}
-        opacity={dark ? 0 : 1}
-        style={{ transition: "opacity 200ms var(--bui-ease)" }}
-      />
-      <path
-        d="M20 13.5A8.1 8.1 0 1 1 10.5 4a6.6 6.6 0 0 0 9.5 9.5Z"
-        strokeDasharray={48}
-        strokeDashoffset={dark ? 0 : 48}
-        opacity={dark ? 1 : 0}
-        style={{ transition: "stroke-dashoffset 460ms var(--bui-ease), opacity 160ms var(--bui-ease)" }}
-      />
-    </SvgShell>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Search / close — the magnifier's handle stretches into one arm    */
-/* of the X while its twin (stacked invisibly on the handle) sweeps  */
-/* into the other; the lens dissolves as they cross.                 */
-/* ------------------------------------------------------------------ */
-export function BuiSearchXIcon({ open, className }: { open: boolean; className?: string }) {
-  const arm = { transition: "d 300ms var(--bui-spring-ease)" } as const;
-  return (
-    <SvgShell className={className}>
-      <circle
-        cx="11"
-        cy="11"
-        r="7"
-        opacity={open ? 0 : 1}
-        style={{
-          transform: open ? "scale(0.55)" : "scale(1)",
-          transformOrigin: "11px 11px",
-          transition: "transform 300ms var(--bui-spring-ease), opacity 220ms var(--bui-ease)"
-        }}
-      />
-      <path d={open ? "M11 11 L21 21" : "M13.5 13.5 L20.5 20.5"} style={arm} />
-      <path d={open ? "M21 11 L11 21" : "M13.5 13.5 L20.5 20.5"} style={arm} />
-    </SvgShell>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Send — the plane flies off on an arc; a new plane springs in      */
-/* from the lower left (one element, one flight: the re-entry is     */
-/* the spring-eased second half of the same keyframe run).           */
 /* ------------------------------------------------------------------ */
 export function BuiSendIcon({ sent, className }: { sent: boolean; className?: string }) {
   return (

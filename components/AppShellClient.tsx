@@ -9,7 +9,7 @@ import { I18nProvider, useI18n } from "@/components/i18n/I18nProvider";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { TranslatedTextBoundary } from "@/components/i18n/TranslatedTextBoundary";
 import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker";
-import { ToastProvider } from "@/components/roamly/Toast";
+import { BuiToastProvider } from "@/components/boardui/Toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { shouldLoadShellState } from "@/lib/roamly/appShellState";
 import { countAlertsBadgeNotifications } from "@/lib/roamly/alertsBadge";
@@ -915,12 +915,14 @@ export function AppShellClient({
   return (
     <I18nProvider>
       {/* Jakob round (2026-11-03, C4): the global toast system
-          (components/roamly/Toast.tsx) mounts around the whole
-          shell so every surface — Delete Trip's Undo first — can
-          raise one. */}
-      <ToastProvider>
+          mounts around the whole shell so every surface — Delete
+          Trip's Undo first — can raise one. Batch 7 (2026-11-09):
+          the provider is now BoardUI's BuiToastProvider — the ONE
+          toast system; the Jakob round's components/roamly/Toast.tsx
+          is retired (see components/boardui/Toast.tsx). */}
+      <BuiToastProvider>
         <AppShellContent initialAuth={initialAuth}>{children}</AppShellContent>
-      </ToastProvider>
+      </BuiToastProvider>
     </I18nProvider>
   );
 }

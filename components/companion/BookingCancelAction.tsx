@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
 
 /**
  * Cancel action for one active tracked booking. Two taps, never one: the
@@ -40,29 +42,19 @@ export function BookingCancelAction({ tripId, bookingId }: { tripId: string; boo
 
   if (step === "confirm" || step === "busy") {
     return (
-      <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3">
+      <div className="mt-3 rounded-bui-card border border-cred/40 bg-cred/10 px-3 py-3">
         <p className="text-sm font-bold leading-6 text-ink">Stop tracking this booking?</p>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
           Roamly will remove it from your active bookings and budget. This does not cancel with the
           provider and does not refund anything — contact the provider for that.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={step === "busy"}
-            onClick={confirm}
-            className="inline-flex min-h-11 items-center rounded-xl bg-rose-700 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
-          >
+          <BuiButton type="button" variant="danger" busy={step === "busy"} onClick={confirm}>
             {step === "busy" ? "Removing…" : "Yes, stop tracking"}
-          </button>
-          <button
-            type="button"
-            disabled={step === "busy"}
-            onClick={() => setStep("idle")}
-            className="inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700 disabled:opacity-60"
-          >
+          </BuiButton>
+          <BuiButton type="button" variant="secondary" disabled={step === "busy"} onClick={() => setStep("idle")}>
             Keep booking
-          </button>
+          </BuiButton>
         </div>
       </div>
     );
@@ -71,25 +63,17 @@ export function BookingCancelAction({ tripId, bookingId }: { tripId: string; boo
   if (step === "error") {
     return (
       <div className="mt-3">
-        <p className="text-sm font-bold text-rose-800">Could not remove this booking. Please try again.</p>
-        <button
-          type="button"
-          onClick={() => setStep("idle")}
-          className="mt-2 inline-flex min-h-11 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-black text-slate-700"
-        >
+        <BuiNotice tone="error" title="Could not remove this booking. Please try again." />
+        <BuiButton type="button" variant="secondary" onClick={() => setStep("idle")} className="mt-2">
           Try again
-        </button>
+        </BuiButton>
       </div>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => setStep("confirm")}
-      className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-black text-rose-800"
-    >
+    <BuiButton type="button" variant="secondary" onClick={() => setStep("confirm")} className="mt-3">
       Cancel booking
-    </button>
+    </BuiButton>
   );
 }

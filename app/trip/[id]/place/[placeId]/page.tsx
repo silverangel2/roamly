@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
 import { PlaceDetailPanel } from "@/components/roamly/PlaceDetailPanel";
+import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
+import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
+import { buildDisplayTimelineItems } from "@/components/trip/ItineraryDayPlan";
 import {
   buildPlaceDetail,
   fallbackPlaceId,
@@ -61,8 +65,12 @@ function notFoundPanel(tripId: string, heading: string, body: string) {
       <a href={`/trip/${tripId}`} className="text-[15px] font-medium text-cblue">
         <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="inline-block align-[-2px]" /> Itinerary
       </a>
-      <h1 className="mt-4 text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">{heading}</h1>
-      <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">{body}</p>
+      {/* Batch 7: the not-found state rides BuiCard, the same shell
+          the country-info page's state card uses. Words unchanged. */}
+      <BuiCard className="mt-4 p-5">
+        <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.018em] text-chead">{heading}</h1>
+        <p className="mt-3 text-[16.5px] font-normal leading-[1.5] text-cink">{body}</p>
+      </BuiCard>
     </div>
   );
 }
@@ -233,6 +241,22 @@ export default async function TripPlaceDetailPage({ params }: PlacePageProps) {
     );
   }
 
+  // Familiarity redesign (2026-11-09): the day row's remove /
+  // replace controls live HERE now — the row itself is a clean tap
+  // target. The gate is the row's exact old gate (a flexible
+  // activity with a stable item id, on a day with an id), evaluated
+  // on the day's own display items so it can never drift from what
+  // the day card derived. Uncapped build: a stop beyond the day
+  // card's row cap keeps its controls.
+  const fullDay = itinerary.daily_itinerary.find((candidate) => candidate.day_number === day.day_number) ?? null;
+  const displayItem =
+    fullDay?.day_id && selfId
+      ? buildDisplayTimelineItems(fullDay, bookings, { maxRows: null }).items.find((candidate) => candidate.itemId === selfId)
+      : undefined;
+  const showItemControls = Boolean(
+    displayItem && displayItem.authority === "flexible" && displayItem.itemType === "activity" && displayItem.itemId
+  );
+
   return (
     <div className="min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] bg-cbg">
       <PlaceDetailPanel
@@ -240,6 +264,12 @@ export default async function TripPlaceDetailPage({ params }: PlacePageProps) {
         tripId={id}
         directionsScreenHref={`/trip/${id}/directions/${placeId}?from=place`}
       />
+      {showItemControls && displayItem && fullDay?.day_id ? (
+        <div className="mx-auto w-full max-w-2xl px-4 pb-10 sm:px-6">
+          <CustomerActivityRemoval tripId={id} dayId={fullDay.day_id} itemId={displayItem.itemId} title={displayItem.title} />
+          <CustomerActivityReplacement tripId={id} dayId={fullDay.day_id} itemId={displayItem.itemId} title={displayItem.title} />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -23,19 +23,44 @@
  * Adoption is per-surface and provider-free (this branch's
  * convention): the surface holds toast state with useBuiToast and
  * renders <BuiToast key={toast.id} ... /> so each new toast remounts
- * with a fresh timer. The Nov 5 tree carries a global ToastProvider
- * from its own Jakob round; reconciling the two systems (one toast
- * system at the shell) is a re-base seam, recorded in
- * BOARDUI-REPORT-R2.md — the call sites here are few and named.
+ * with a fresh timer.
+ *
+ * ONE TOAST SYSTEM (batch 7, 2026-11-09): the Jakob round's second,
+ * non-BoardUI toast (components/roamly/Toast.tsx) is retired — this
+ * file is now the only toast in the app. Surfaces deep inside the
+ * shell (DeleteTripButton's deferred-commit Undo) cannot hold
+ * per-surface state, so the shell mounts <BuiToastProvider> once
+ * (AppShellClient) and consumers call useBuiToastOptional() /
+ * useBuiToastContext() for the same showToast vocabulary, carried
+ * on this component. Two recorded carry-overs from the retired
+ * system: the "warning" tone (the SAME cred dot the legacy warning
+ * carried — a failed delete has nothing for the traveller to fix,
+ * the trip is untouched, so its failure is a transient notice, not
+ * a form error that must stay) and per-toast durationMs / action /
+ * onAction options on the toast state. What the retired system had
+ * and this one deliberately does not: stacking (one toast at a
+ * time — the container rule's one-panel discipline, already this
+ * component's convention) and a close button (dismissal is by
+ * timer or by the action, per the contract above).
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode
+} from "react";
 import { cx } from "./cx";
 
-export type BuiToastTone = "success" | "info";
+export type BuiToastTone = "success" | "info" | "warning";
 
 const dotClasses: Record<BuiToastTone, string> = {
   success: "bg-cgreen",
-  info: "bg-cblue"
+  info: "bg-cblue",
+  warning: "bg-cred"
 };
 
 export interface BuiToastProps {
@@ -108,23 +133,130 @@ export interface BuiToastState {
   id: number;
   message: string;
   tone: BuiToastTone;
+  /** Per-toast auto-dismiss override (e.g. the Undo window). */
+  durationMs?: number;
+  actionLabel?: string;
+  onAction?: () => void;
+}
+
+export interface BuiToastOptions {
+  message: string;
+  tone?: BuiToastTone;
+  durationMs?: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 /**
  * Surface-side toast state: showToast replaces any current toast
  * (one toast at a time — the container rule's one-panel discipline,
- * applied to toasts) and remounts it via the id key.
+ * applied to toasts) and remounts it via the id key. The optional
+ * third argument carries a per-toast duration / action (batch 7:
+ * the shell provider's Undo toast needs both); existing two-argument
+ * callers are unchanged.
  */
 export function useBuiToast() {
   const [toast, setToast] = useState<BuiToastState | null>(null);
   const nextIdRef = useRef(0);
 
-  const showToast = useCallback((message: string, tone: BuiToastTone = "success") => {
-    nextIdRef.current += 1;
-    setToast({ id: nextIdRef.current, message, tone });
-  }, []);
+  const showToast = useCallback(
+    (
+      message: string,
+      tone: BuiToastTone = "success",
+      options?: { durationMs?: number; actionLabel?: string; onAction?: () => void }
+    ) => {
+      nextIdRef.current += 1;
+      setToast({
+        id: nextIdRef.current,
+        message,
+        tone,
+        durationMs: options?.durationMs,
+        actionLabel: options?.actionLabel,
+        onAction: options?.onAction
+      });
+    },
+    []
+  );
 
   const clearToast = useCallback(() => setToast(null), []);
 
-  return { toast, showToast, clearToast };
+  /**
+   * Dismiss ONLY the toast with this id (batch 7 fix): a stale
+   * dismiss — an expired toast's timer landing after its successor
+   * was raised — must never clear the current toast. The shell's
+   * delete flow chains exactly this way: the Undo toast expires at
+   * the same moment the deferred commit resolves and raises the
+   * failure toast.
+   */
+  const dismissToast = useCallback((id: number) => {
+    setToast((current) => (current && current.id === id ? null : current));
+  }, []);
+
+  return { toast, showToast, clearToast, dismissToast };
+}
+
+/* ------------------------------------------------------------------ */
+/* Shell provider (batch 7): the ONE toast, mounted once by the app   */
+/* shell so any component below it can raise a toast. The default     */
+/* tone for the options-object call is "info" — the retired system's  */
+/* default (blue dot) under this system's name.                       */
+/* ------------------------------------------------------------------ */
+
+type BuiToastContextValue = {
+  toast: (options: BuiToastOptions) => void;
+};
+
+const BuiToastContext = createContext<BuiToastContextValue | null>(null);
+
+export function BuiToastProvider({ children }: { children: ReactNode }) {
+  const { toast, showToast, dismissToast } = useBuiToast();
+
+  const value = useMemo<BuiToastContextValue>(
+    () => ({
+      toast: (options: BuiToastOptions) =>
+        showToast(options.message, options.tone ?? "info", {
+          durationMs: options.durationMs,
+          actionLabel: options.actionLabel,
+          onAction: options.onAction
+        })
+    }),
+    [showToast]
+  );
+
+  return (
+    <BuiToastContext.Provider value={value}>
+      {children}
+      {toast ? (
+        <BuiToast
+          key={toast.id}
+          message={toast.message}
+          tone={toast.tone}
+          durationMs={toast.durationMs}
+          actionLabel={toast.actionLabel}
+          onAction={toast.onAction}
+          onDismiss={() => dismissToast(toast.id)}
+        />
+      ) : null}
+    </BuiToastContext.Provider>
+  );
+}
+
+/**
+ * Returns the shell toast API, or null when no BuiToastProvider is
+ * mounted above this component. Callers that must work with or
+ * without the provider (e.g. DeleteTripButton) use this and fall
+ * back gracefully on null — the same contract the retired system's
+ * optional hook carried.
+ */
+export function useBuiToastOptional(): BuiToastContextValue | null {
+  return useContext(BuiToastContext);
+}
+
+/** Returns the shell toast API. Throws when no provider is mounted. */
+export function useBuiToastContext(): BuiToastContextValue {
+  const context = useContext(BuiToastContext);
+  if (!context) {
+    throw new Error("useBuiToastContext must be used inside <BuiToastProvider>. Mount BuiToastProvider in the app shell.");
+  }
+  return context;
 }

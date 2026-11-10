@@ -68,6 +68,14 @@
  * - Continuous corners (iPhone-feel rule 6): the panel carries
  *   `.bui-squircle` — squircle corner-shape where supported, plain
  *   radius elsewhere.
+ * - Batch 10 retint (2026-11-10): the scrim and both shadows were
+ *   green-tinted rgba values left over from a pre-token palette
+ *   (exact pre-retint values in the batch-10 before-src snapshot);
+ *   they are now the navy recipe — rgba(7,30,85,·) is
+ *   #071E55 (cnavy) — at identical alphas and geometry, matching
+ *   the finds scrims' navy family (batch 5) and the token shadows
+ *   in tokens.ts. The header comment above always said "navy-slate
+ *   scrim"; the values finally agree with it.
  * - Momentum scrolling (rule 3 of the physics set): the panel is a
  *   `.bui-momentum` scroll surface — native touch momentum on,
  *   overscroll contained at the sheet.
@@ -115,7 +123,7 @@ const snapClasses: Record<BuiSheetSnap, string> = {
  * panel edge, shadow cast leftward. Applies over every snap: on
  * desktop a sheet IS a drawer. */
 const drawerClasses =
-  "lg:inset-x-auto lg:left-auto lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto lg:max-h-none lg:w-[40vw] lg:min-w-[320px] lg:max-w-[560px] lg:rounded-none lg:rounded-l-bui-panel lg:border-y-0 lg:border-r-0 lg:shadow-[-12px_0_34px_rgba(8,44,32,0.22)]";
+  "lg:inset-x-auto lg:left-auto lg:right-0 lg:top-0 lg:bottom-0 lg:h-auto lg:max-h-none lg:w-[40vw] lg:min-w-[320px] lg:max-w-[560px] lg:rounded-none lg:rounded-l-bui-panel lg:border-y-0 lg:border-r-0 lg:shadow-[-12px_0_34px_rgba(7,30,85,0.22)]";
 
 export interface BuiSheetProps {
   /** Accessible name for the dialog (use `labelledBy` when a visible
@@ -297,7 +305,7 @@ export function BuiSheet({
       <div
         aria-hidden="true"
         onClick={canDismiss ? onClose : undefined}
-        className={cx("absolute inset-0 bg-[rgba(10,28,21,0.34)]", backdropClassName)}
+        className={cx("absolute inset-0 bg-[rgba(7,30,85,0.34)]", backdropClassName)}
       />
       <section
         ref={panelRef}
@@ -307,7 +315,7 @@ export function BuiSheet({
         data-bui-sheet-dragging={dragging ? "true" : undefined}
         className={cx(
           interacted ? undefined : "bui-enter",
-          "bui-squircle bui-momentum absolute inset-x-0 bottom-0 overflow-y-auto border border-chair bg-white shadow-[0_-12px_34px_rgba(8,44,32,0.22)]",
+          "bui-squircle bui-momentum absolute inset-x-0 bottom-0 overflow-y-auto border border-chair bg-white shadow-[0_-12px_34px_rgba(7,30,85,0.22)]",
           snapClasses[snap],
           drawerClasses,
           className
