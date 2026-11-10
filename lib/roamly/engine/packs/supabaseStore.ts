@@ -83,6 +83,19 @@ const CANDIDATE_INSERT_CHUNK = 200;
  *  never itself truncated, and the loop ends on the first short
  *  page. See the Rome landmark note at the read site. */
 const CANDIDATE_READ_PAGE = 1000;
+/** Pages of the paginated candidate read fetched in one parallel
+ *  wave: the windows are disjoint ranges over the unique
+ *  candidate_key order, so a wave's pages cannot overlap or skip.
+ *  Termination is still proven by the data (a short page ends the
+ *  read) — the wave only overlaps the round trips. */
+const CANDIDATE_READ_CONCURRENCY = 6;
+/** The exact column list candidate reads select — the fields
+ *  mapCandidate consumes. The pre-2026-11-09 read selected *,
+ *  paying egress for the row's uuid id, its pack_id (already the
+ *  query filter) and created_at on every row of a big pack:
+ *  ~476 B/row against ~365 B/row projected (Rome fixture). */
+const CANDIDATE_SELECT_COLUMNS =
+  "candidate_key,osm_key,kind,name,name_en,lat,lon,hours_raw,tags,url,enrichment";
 const CAS_ATTEMPTS = 6;
 
 /**
@@ -182,6 +195,135 @@ function deletePackDiskEntry(dir: string | null, packVersionId: string): void {
     // Already gone or unremovable — the hash+TTL validation on the
     // read side bounds any stale entry this leaves behind.
   }
+}
+
+/**
+ * SOLVER PROJECTION TIER (pack-read perf, 2026-11-09) — a compact
+ * per-version encoding of the candidate BASE layer, riding the
+ * house settings table under `pack_projection:v1:<packVersionId>`
+ * (the pins/registry durability mechanism — no new table).
+ *
+ * Why it exists: the Rome fix (PR #116) made the candidate read
+ * whole, and a big pack's whole set is heavy — Rome's 29,479 rows
+ * cost 30 sequential PostgREST page reads and ~14 MB of egress
+ * PER PULL, and staged generation pulls once per stage wake
+ * (outline, one batch per day, finalization — eight pulls for a
+ * five-day trip) because wakes are separate invocations and the
+ * memory/disk tiers only serve wakes landing in a warm process
+ * inside the TTL. Measured on the Rome fixture, a five-day
+ * generation paid 260 candidate selects / ~92 MB cold and 80 /
+ * ~23 MB warm. The projection is the same base layer
+ * tuple-encoded (no per-row JSON key names, no row id / pack_id /
+ * created_at): ~260 B/row against ~476 B/row for select *, and
+ * ONE settings read per wake instead of thirty page reads.
+ *
+ * Correctness law: the tier is a cache, held to the standard of
+ * the tiers above it — it serves only when its stored content
+ * hash equals the version's current content_hash, and that hash
+ * (candidateContentHash) is BY CONSTRUCTION a hash of the base
+ * layer alone, enrichment excluded. A published version's base
+ * fields never mutate (I1); the one post-publish writer,
+ * putCandidateEnrichment, moves only the enrichment column,
+ * which the projection never carries — enrichment is overlaid at
+ * serve time from a targeted `enrichment IS NOT NULL` read (a
+ * handful of finalist rows in practice). Any doubt — missing,
+ * malformed, hash-moved, overlay unreadable — refuses the tier,
+ * and the paginated table read serves the truth exactly as it
+ * did before this tier existed. Materialization is best-effort
+ * in both writers (publishVersion, and a backfill after a
+ * paginated pull — the disk tier's read-path write precedent):
+ * a failed write degrades to the paginated read, never to a
+ * failed publish or generation.
+ *
+ * Tuple layout (fixed by the key's :v1:):
+ *   [candidateKey, osmKey, kind, name, nameEn,
+ *    lat, lon, hoursRaw, tags, url]
+ * — exactly StoredCandidate minus pos (split into lat/lon, the
+ * mapCandidate both-or-null rule applied at decode) and minus
+ * enrichment (the overlay's domain, always null here).
+ */
+type CandidateProjectionTuple = [
+  string,
+  string,
+  string,
+  string,
+  string | null,
+  number | null,
+  number | null,
+  string | null,
+  Record<string, string>,
+  string
+];
+
+type CandidateProjection = {
+  v: 1;
+  contentHash: string;
+  rows: CandidateProjectionTuple[];
+};
+
+function compareCandidateKeys(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function encodeCandidateProjection(candidates: readonly StoredCandidate[]): CandidateProjectionTuple[] {
+  return [...candidates]
+    .sort((a, b) => compareCandidateKeys(a.candidateKey, b.candidateKey))
+    .map(
+      (c): CandidateProjectionTuple => [
+        c.candidateKey,
+        c.osmKey,
+        c.kind,
+        c.name,
+        c.nameEn,
+        c.pos ? c.pos.lat : null,
+        c.pos ? c.pos.lon : null,
+        c.hoursRaw,
+        c.tags,
+        c.url
+      ]
+    );
+}
+
+function decodeCandidateProjection(value: unknown, expectedHash: string): StoredCandidate[] | null {
+  const root =
+    value && typeof value === "object" ? (value as Partial<CandidateProjection>) : null;
+  if (!root || root.v !== 1 || root.contentHash !== expectedHash || !Array.isArray(root.rows)) {
+    return null;
+  }
+  const out: StoredCandidate[] = [];
+  for (const entry of root.rows) {
+    if (!Array.isArray(entry) || entry.length !== 10) return null;
+    const [candidateKey, osmKey, kind, name, nameEn, lat, lon, hoursRaw, tags, url] = entry;
+    if (
+      typeof candidateKey !== "string" ||
+      typeof osmKey !== "string" ||
+      typeof kind !== "string" ||
+      typeof name !== "string" ||
+      (nameEn !== null && typeof nameEn !== "string") ||
+      (lat !== null && typeof lat !== "number") ||
+      (lon !== null && typeof lon !== "number") ||
+      (hoursRaw !== null && typeof hoursRaw !== "string") ||
+      !tags ||
+      typeof tags !== "object" ||
+      Array.isArray(tags) ||
+      typeof url !== "string"
+    ) {
+      return null;
+    }
+    out.push({
+      candidateKey,
+      osmKey,
+      kind,
+      name,
+      nameEn: nameEn as string | null,
+      pos: lat !== null && lon !== null ? { lat: lat as number, lon: lon as number } : null,
+      hoursRaw: hoursRaw as string | null,
+      tags: tags as Record<string, string>,
+      url: url as string,
+      enrichment: null
+    });
+  }
+  return out;
 }
 
 interface BuildRow {
@@ -842,6 +984,12 @@ export class SupabasePackStore implements PackStore {
     if (!((jobRows as BuildRow[] | null) ?? [])[0]) {
       throw new PackStoreError("LEASE_LOST", `job ${jobId} is no longer held by lease ${leaseId}`);
     }
+    // PROJECTION TIER: materialize the compact base-layer
+    // projection beside the published set (best-effort — see the
+    // tier note at the helpers). Written only now that the
+    // version is flipped ready and the job completed, so a
+    // projection never exists for a version that failed to land.
+    await this.writeProjection(packVersionId, candidateContentHash(stored), stored);
     return this.mapVersion(flippedRows[0]);
   }
 
@@ -913,6 +1061,31 @@ export class SupabasePackStore implements PackStore {
     }
     const record = await this.rawVersion(packVersionId);
     if (!record) throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
+    // PROJECTION TIER (pack-read perf, 2026-11-09): the compact
+    // settings-row encoding of this version's base layer, hash-
+    // validated against the version row just read, with the
+    // enrichment overlay applied — see the tier note at the
+    // helpers. One settings read serves what the paginated read
+    // below needs thirty page reads for on a Rome-sized pack.
+    // A tier hit populates the memory/disk tiers exactly as a
+    // table pull does, so in-process wakes after the first are
+    // served by the tiers above, unchanged.
+    const projected = await this.readProjectionTier(record);
+    if (projected) {
+      candidateCache.set(packVersionId, {
+        contentHash: record.content_hash,
+        fetchedAtMs: this.now().getTime(),
+        candidates: clone(projected)
+      });
+      if (diskDir) {
+        writePackDiskEntry(diskDir, packVersionId, {
+          contentHash: record.content_hash,
+          fetchedAtMs: this.now().getTime(),
+          candidates: clone(projected)
+        });
+      }
+      return projected;
+    }
     // PAGINATED READ (Rome landmark defect, 2026-11-09): a single
     // unbounded select is silently capped by PostgREST at 1,000
     // rows (the server's max-rows default — no error, no marker).
@@ -930,19 +1103,7 @@ export class SupabasePackStore implements PackStore {
     // are exact — no duplicates, no skips. A pack at or under one
     // page still costs exactly one request, as before; the cache
     // and disk tiers above this cold read are unchanged.
-    const rows: CandidateRow[] = [];
-    for (let from = 0; ; from += CANDIDATE_READ_PAGE) {
-      const { data, error } = await this.client
-        .from(CANDIDATES_TABLE)
-        .select("*")
-        .eq("pack_id", record.id)
-        .order("candidate_key", { ascending: true })
-        .range(from, from + CANDIDATE_READ_PAGE - 1);
-      if (error) throw dbFailure("read pack candidates", error);
-      const page = (data as CandidateRow[] | null) ?? [];
-      rows.push(...page);
-      if (page.length < CANDIDATE_READ_PAGE) break;
-    }
+    const rows = await this.readAllCandidateRows(record);
     const candidates = rows.map((row) => this.mapCandidate(row));
     candidateCache.set(packVersionId, {
       contentHash: record.content_hash,
@@ -956,7 +1117,143 @@ export class SupabasePackStore implements PackStore {
         candidates: clone(candidates)
       });
     }
+    // PROJECTION BACKFILL (best-effort): packs published before
+    // the tier existed gain their projection from the set just
+    // pulled, so their next cold wake serves one settings read
+    // instead of the paginated pull. A failed write degrades to
+    // today's behaviour on the next read, never to an error.
+    await this.writeProjection(packVersionId, record.content_hash, candidates);
     return candidates;
+  }
+
+  /** The paginated candidate pull behind the cache/projection
+   *  tiers: column-projected (CANDIDATE_SELECT_COLUMNS) and read
+   *  in parallel waves planned from the version row's stored
+   *  candidate_count (written at publish from the exact stored
+   *  set). The plan only sizes the waves — termination is proven
+   *  by the data, as the sequential read proved it: a short page
+   *  ends the read, and a full page beyond the plan keeps it
+   *  going one page at a time, so a stale count can cost empty
+   *  pages, never rows. Pages within a wave are disjoint ranges
+   *  over the unique candidate_key order; flattening in window
+   *  order reproduces the sequential read's row order exactly. */
+  private async readAllCandidateRows(record: PackRow): Promise<CandidateRow[]> {
+    const fetchPage = async (from: number): Promise<CandidateRow[]> => {
+      const { data, error } = await this.client
+        .from(CANDIDATES_TABLE)
+        .select(CANDIDATE_SELECT_COLUMNS)
+        .eq("pack_id", record.id)
+        .order("candidate_key", { ascending: true })
+        .range(from, from + CANDIDATE_READ_PAGE - 1);
+      if (error) throw dbFailure("read pack candidates", error);
+      return (data as CandidateRow[] | null) ?? [];
+    };
+    const plannedPages = Math.max(1, Math.ceil((record.candidate_count || 0) / CANDIDATE_READ_PAGE));
+    const pages: CandidateRow[][] = [];
+    let pageIndex = 0;
+    let exhausted = false;
+    while (!exhausted) {
+      const waveCount =
+        pageIndex < plannedPages
+          ? Math.min(CANDIDATE_READ_CONCURRENCY, plannedPages - pageIndex)
+          : 1;
+      const wave = await Promise.all(
+        Array.from({ length: waveCount }, (_, i) => fetchPage((pageIndex + i) * CANDIDATE_READ_PAGE))
+      );
+      for (const page of wave) {
+        pages.push(page);
+        if (page.length < CANDIDATE_READ_PAGE) exhausted = true;
+      }
+      pageIndex += wave.length;
+    }
+    return pages.flat();
+  }
+
+  private projectionKey(packVersionId: string): string {
+    return `pack_projection:v1:${packVersionId}`;
+  }
+
+  /** Serve the projection tier for a version row, or null to
+   *  refuse it (missing, malformed, hash-moved, overlay
+   *  unreadable — the paginated read then serves the truth).
+   *  The returned set is the decoded base layer with the live
+   *  enrichment overlay merged over it, in candidate_key order:
+   *  field-for-field the set the paginated read returns. */
+  private async readProjectionTier(record: PackRow): Promise<StoredCandidate[] | null> {
+    if (!record.content_hash) return null;
+    let value: unknown = null;
+    try {
+      const { data, error } = await this.client
+        .from(SETTINGS_TABLE)
+        .select("value")
+        .eq("key", this.projectionKey(record.pack_version_id))
+        .maybeSingle();
+      if (error || !data) return null;
+      value = (data as { value: unknown }).value;
+    } catch {
+      return null;
+    }
+    const decoded = decodeCandidateProjection(value, record.content_hash);
+    if (!decoded) return null;
+    let overlay: StoredCandidate[];
+    try {
+      overlay = await this.readEnrichmentOverlay(record.id);
+    } catch {
+      return null;
+    }
+    if (!overlay.length) return decoded;
+    const byKey = new Map(decoded.map((c) => [c.candidateKey, c]));
+    for (const row of overlay) byKey.set(row.candidateKey, row);
+    return [...byKey.values()].sort((a, b) => compareCandidateKeys(a.candidateKey, b.candidateKey));
+  }
+
+  /** Every candidate of the pack whose enrichment column is
+   *  non-null — the overlay the projection tier merges at serve
+   *  time. Enrichment is written only by putCandidateEnrichment
+   *  (finalists of a generation's first pass), so this set is a
+   *  handful of rows in practice; the read is paginated over the
+   *  same unique key order regardless, so it stays exact if a
+   *  version ever accumulates more than a page of them. */
+  private async readEnrichmentOverlay(packRowId: string): Promise<StoredCandidate[]> {
+    const rows: CandidateRow[] = [];
+    for (let from = 0; ; from += CANDIDATE_READ_PAGE) {
+      const { data, error } = await this.client
+        .from(CANDIDATES_TABLE)
+        .select(CANDIDATE_SELECT_COLUMNS)
+        .eq("pack_id", packRowId)
+        .not("enrichment", "is", null)
+        .order("candidate_key", { ascending: true })
+        .range(from, from + CANDIDATE_READ_PAGE - 1);
+      if (error) throw dbFailure("read enriched pack candidates", error);
+      const page = (data as CandidateRow[] | null) ?? [];
+      rows.push(...page);
+      if (page.length < CANDIDATE_READ_PAGE) break;
+    }
+    return rows.map((row) => this.mapCandidate(row));
+  }
+
+  /** Best-effort materialization of the projection tier (see
+   *  the tier note at the helpers): a failed write is swallowed
+   *  by design — the paginated read remains the always-correct
+   *  fallback, and the next pull retries the write. */
+  private async writeProjection(
+    packVersionId: string,
+    contentHash: string | null,
+    candidates: readonly StoredCandidate[]
+  ): Promise<void> {
+    if (!contentHash) return;
+    try {
+      const value: CandidateProjection = {
+        v: 1,
+        contentHash,
+        rows: encodeCandidateProjection(candidates)
+      };
+      await this.client
+        .from(SETTINGS_TABLE)
+        .upsert({ key: this.projectionKey(packVersionId), value }, { onConflict: "key" });
+    } catch {
+      // Best-effort by law — see the tier note.
+    }
   }
 
   async getReadyVersion(destinationId: string): Promise<PackVersionRecord | null> {
