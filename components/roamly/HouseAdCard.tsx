@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
 import { HouseAdImage } from "@/components/roamly/HouseAdImage";
 import {
   houseAdCandidates,
@@ -124,9 +125,10 @@ export function HouseAdCard({
   focusable?: boolean;
 }) {
   return (
-    <aside
+    <BuiCard
+      role="complementary"
       aria-label={`Sponsored: ${creative.sponsorLabel}`}
-      className="relative h-full overflow-hidden rounded-[1.75rem] bg-white shadow-[0_24px_60px_rgba(39,88,80,0.10)] ring-1 ring-[#d8e5dd]"
+      className="relative h-full overflow-hidden"
       data-house-ad={creative.id}
     >
       <a
@@ -143,19 +145,19 @@ export function HouseAdCard({
           />
         </span>
         <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 p-3.5 pe-11 sm:gap-1.5 sm:p-6">
-          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#087BFF]">
+          <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-cblue">
             {creative.sponsorLabel}
           </span>
-          <span className="line-clamp-2 text-base font-bold leading-snug text-ink sm:line-clamp-none sm:text-xl">
+          <span className="line-clamp-2 text-base font-bold leading-snug text-chead sm:line-clamp-none sm:text-xl">
             {creative.headline}
           </span>
-          <span className="line-clamp-1 text-[13px] leading-snug text-slate-600 sm:line-clamp-none sm:text-sm sm:leading-relaxed">{creative.body}</span>
-          <span className="mt-1.5 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full bg-[#087BFF] px-3 py-1.5 text-[13px] font-bold text-white transition group-hover:bg-[#0e605a] sm:mt-2 sm:px-4 sm:py-2 sm:text-sm">
+          <span className="line-clamp-1 text-[13px] leading-snug text-cgray sm:line-clamp-none sm:text-sm sm:leading-relaxed">{creative.body}</span>
+          <span className="mt-1.5 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full bg-cblue px-3 py-1.5 text-[13px] font-bold text-white transition group-hover:bg-[#0A6FE0] sm:mt-2 sm:px-4 sm:py-2 sm:text-sm">
             {creative.ctaLabel}
             <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} />
           </span>
           {creative.imageCredit ? (
-            <span className="block text-[10px] leading-snug text-slate-400">
+            <span className="block text-[10px] leading-snug text-cgray2">
               Photo: {creative.imageCredit}
             </span>
           ) : null}
@@ -163,7 +165,7 @@ export function HouseAdCard({
       </a>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-2 top-2 whitespace-nowrap rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur-sm sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]"
+        className="pointer-events-none absolute left-2 top-2 whitespace-nowrap rounded-full bg-cnavy/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur-sm sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]"
       >
         Sponsored
       </span>
@@ -172,11 +174,11 @@ export function HouseAdCard({
         onClick={onDismiss}
         tabIndex={focusable ? undefined : -1}
         aria-label="Hide this sponsored card"
-        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-base leading-none text-white backdrop-blur-sm transition hover:bg-black/65"
+        className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-cnavy/55 text-base leading-none text-white backdrop-blur-sm transition hover:bg-cnavy/75"
       >
         <X aria-hidden="true" size={16} strokeWidth={2.5} />
       </button>
-    </aside>
+    </BuiCard>
   );
 }
 
