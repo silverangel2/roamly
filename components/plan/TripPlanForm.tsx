@@ -75,6 +75,8 @@ import { BuiChip } from "@/components/boardui/Badge";
 import { BuiNotice } from "@/components/boardui/Notice";
 import { BuiClickSpark } from "@/components/boardui/ClickSpark";
 import { BuiEnterContent } from "@/components/boardui/EnterContent";
+import { BuiFieldError, useBuiField, type BuiField } from "@/components/boardui/Field";
+import { BuiMorphButton } from "@/components/boardui/MorphButton";
 
 /**
  * Plan-flow redesign (owner directive 2026-11-03, Airbnb search-flow
@@ -576,7 +578,11 @@ function TextInput({
   ariaLabel,
   type = "text",
   min,
-  disabled
+  disabled,
+  id,
+  field,
+  inputMode,
+  onBlurExtra
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -584,17 +590,32 @@ function TextInput({
   type?: "text" | "date" | "number";
   min?: string | number;
   disabled?: boolean;
+  id?: string;
+  field?: BuiField;
+  inputMode?: "decimal" | "numeric" | "text";
+  onBlurExtra?: () => void;
 }) {
 
 return (
     <input
+      id={id}
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={(event) => {
+        onChange(event.target.value);
+        field?.onChange(event.target.value);
+      }}
+      onBlur={() => {
+        field?.onBlur(value);
+        onBlurExtra?.();
+      }}
       type={type}
       min={min ?? (type === "date" ? todayIsoDate() : undefined)}
+      inputMode={inputMode}
       aria-label={ariaLabel}
+      aria-invalid={field?.error ? true : undefined}
+      aria-describedby={field?.error && id ? `${id}-error` : undefined}
       disabled={disabled}
-      className={`bui-input mt-2 min-h-12 w-full rounded-xl border border-chair bg-white px-4 py-3 text-base font-semibold text-cink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/15${disabled ? " cursor-not-allowed opacity-60" : ""}`}
+      className={`bui-input mt-2 min-h-12 w-full rounded-2xl border bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${field?.error ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"}${disabled ? " cursor-not-allowed opacity-60" : ""}`}
     />
   );
 }
@@ -616,7 +637,7 @@ function SelectField({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="bui-input mt-2 min-h-12 w-full rounded-xl border border-chair bg-white px-4 py-3 text-base font-semibold text-cink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/15"
+      className="bui-input mt-2 min-h-12 w-full rounded-2xl border border-chair bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
     >
       {options.map((option) => (
         <option key={option} value={option}>
@@ -628,21 +649,138 @@ function SelectField({
   );
 }
 
-function FieldError({ id, message }: { id: string; message: string }) {
+/**
+ * Batch 6 (BoardUI hard-apply — plan flow): one labelled field on
+ * the BoardUI form pattern, wired exactly like batch 3's
+ * BookingField and batch 4's PackageField. A real visible label
+ * that never leaves (never placeholder-as-label), the foundation
+ * `bui-input` recipe (16px text, styled autofill), and — for
+ * fields with a validator — the reserved BuiFieldError slot under
+ * the input, so an error appearing never pushes the layout or the
+ * footer buttons down. Validation runs on blur via useBuiField;
+ * once a field has errored, every keystroke re-checks so the
+ * error clears the moment it is fixed. Callers key the field by
+ * `field.shakeKey` so a new error shakes (form rule: wrong input
+ * shakes). The plan form's slots reserve TWO lines
+ * (reserveLines={2}): its messages are full sentences ("Please
+ * enter a realistic trip budget (at least 100 CAD).") that wrap
+ * to two lines at phone width — measured 2026-11-03, when a
+ * one-line slot still let the block below shift by one line
+ * (20px). That reservation used to live in a local FieldError;
+ * it now lives in the primitive. The historical slot ids
+ * (plan-start-date-error, plan-end-date-error, plan-days-error,
+ * plan-budget-error) are preserved verbatim.
+ */
+function PlanField({
+  label,
+  value,
+  onChange,
+  ariaLabel,
+  type = "text",
+  min,
+  disabled,
+  id,
+  field,
+  errorId,
+  inputMode,
+  onBlurExtra,
+  className,
+  children
+}: {
+  label: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  type?: "text" | "date" | "number";
+  min?: string | number;
+  disabled?: boolean;
+  id?: string;
+  field?: BuiField;
+  errorId?: string;
+  inputMode?: "decimal" | "numeric" | "text";
+  onBlurExtra?: () => void;
+  className?: string;
+  children?: React.ReactNode;
+}) {
   const { translateText } = useI18n();
-  /* Form Rules pass (2026-11-03), rule 3: the slot is ALWAYS
-     rendered — it used to return null when empty, so an error
-     appearing pushed everything below the field (including the
-     step's Continue button) down. The reservation is TWO lines
-     (min-h-10): this form's messages are full sentences ("Please
-     enter a realistic trip budget (at least 100 CAD).") and wrap
-     to two lines at phone width — measured in the pass's captures:
-     a one-line slot still let the block below shift by exactly
-     one line (20px) when the budget error landed. */
   return (
-    <p id={id} aria-live="polite" className="mt-1.5 min-h-10 text-sm font-semibold leading-5 text-coral">
-      {message ? translateText(message) : ""}
-    </p>
+    <label className={(field && field.shakeKey > 0 ? "bui-shake block" : "block") + (className ? ` ${className}` : "")}>
+      <FieldLabel>{label}</FieldLabel>
+      <TextInput
+        id={id}
+        value={value}
+        onChange={onChange}
+        ariaLabel={ariaLabel}
+        type={type}
+        min={min}
+        disabled={disabled}
+        field={field}
+        inputMode={inputMode}
+        onBlurExtra={onBlurExtra}
+      />
+      {field && errorId ? (
+        <BuiFieldError id={errorId} message={field.error ? translateText(field.error) : ""} reserveLines={2} />
+      ) : null}
+      {children}
+    </label>
+  );
+}
+
+/** A labelled select on the same pattern. Selects carry no
+ *  validators on this form, so there is no error slot — the label
+ *  and the input recipe are the BoardUI surface here. */
+function PlanSelectField({
+  label,
+  value,
+  onChange,
+  options,
+  defaultValue,
+  className
+}: {
+  label: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  defaultValue?: string;
+  className?: string;
+}) {
+  return (
+    <label className={"block" + (className ? ` ${className}` : "")}>
+      <FieldLabel>{label}</FieldLabel>
+      <SelectField value={value} onChange={onChange} options={options} defaultValue={defaultValue} />
+    </label>
+  );
+}
+
+/** The labelled textarea (Special notes) on the same pattern,
+ *  with its calm helper line under the field. */
+function PlanAreaField({
+  label,
+  value,
+  onChange,
+  ariaLabel,
+  helper,
+  className
+}: {
+  label: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  helper?: string;
+  className?: string;
+}) {
+  return (
+    <label className={"block" + (className ? ` ${className}` : "")}>
+      <FieldLabel>{label}</FieldLabel>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={4}
+        aria-label={ariaLabel}
+        className="bui-input mt-2 w-full rounded-2xl border border-chair bg-white px-4 py-3 text-base font-bold leading-7 text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
+      />
+      {helper ? <p className="mt-2 text-xs leading-5 text-cgray">{helper}</p> : null}
+    </label>
   );
 }
 
@@ -1062,6 +1200,58 @@ function TripPlanFormSession({
       ? positiveDayCount(daysCount)
       : null;
   const progress = Math.round(((step + 1) / steps.length) * 100);
+
+  /* Batch 6 (BoardUI hard-apply — plan flow): the When dates and
+     the Budget amount carry useBuiField state on the batch 3/4
+     pattern — validate on blur, re-check per keystroke once
+     errored, the message in the field's own reserved slot. The
+     validators reproduce validateStep's own messages verbatim and
+     the checks themselves are unchanged: validateStep + the step
+     error string still gate Continue exactly as before. The date
+     validators mirror tripDateValidationMessage's synced
+     computation with the field's own value swapped in, so a
+     field's message is always the step check's message for that
+     field. */
+  const startDateField = useBuiField((value) => {
+    const synced = syncPlanDates(value, endDate, daysCount);
+    return planDateFieldErrors(synced.startDate, synced.endDate, daysCount).start;
+  });
+  const endDateField = useBuiField((value) => {
+    const synced = syncPlanDates(startDate, value, daysCount);
+    return planDateFieldErrors(synced.startDate, synced.endDate, daysCount).end;
+  });
+  const daysField = useBuiField((value) => {
+    const synced = syncPlanDates(startDate, endDate, value);
+    return planDateFieldErrors(synced.startDate, synced.endDate, value).days;
+  });
+  const budgetField = useBuiField((value) => {
+    const amount = toNumberOrNull(value);
+    if (amount == null || amount <= 0) return "Add an estimated budget.";
+    if (amount < 100) return `Please enter a realistic trip budget (at least 100 ${budgetCurrency}).`;
+    return "";
+  });
+
+  function validateDateFields() {
+    startDateField.runValidation(startDate);
+    endDateField.runValidation(endDate);
+    daysField.runValidation(daysCount);
+  }
+
+  /* The When card is ONE composite field: editing either date can
+     create or clear a sibling's message (updateStartDate also
+     moves the end date). While any date field is being watched,
+     settled state re-runs all three validators, so no slot ever
+     shows a stale message — the same freshness the old render-time
+     derivation had, kept now that the errors are field-owned. */
+  useEffect(() => {
+    if (!startDateField.watching && !endDateField.watching && !daysField.watching) return;
+    startDateField.runValidation(startDate);
+    endDateField.runValidation(endDate);
+    daysField.runValidation(daysCount);
+    // The field objects are re-created every render; the effect is
+    // keyed on the settled date state only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, daysCount]);
 
   function resetDiscovery() {
     setPriceDiscovery(null);
@@ -1627,6 +1817,8 @@ function TripPlanFormSession({
   }
 
   function validateBeforeGenerate() {
+    validateDateFields();
+    budgetField.runValidation(budgetAmount);
     for (let index = 0; index < steps.length - 1; index += 1) {
       const validation = validateStep(index);
       if (validation) return validation;
@@ -1652,6 +1844,8 @@ function TripPlanFormSession({
       if (synced.endDate !== endDate) setEndDate(synced.endDate);
       if (synced.days && String(synced.days) !== daysCount) setDaysCount(String(synced.days));
     }
+    if (step === 1) validateDateFields();
+    if (step === 3) budgetField.runValidation(budgetAmount);
     const validation = validateStep(step);
     setError(validation);
     if (validation) return;
@@ -2158,16 +2352,13 @@ function TripPlanFormSession({
   // "Added to your itinerary and budget." line.
   const transportEnterKey = `${transportQuestion}|${transportPickable.map((option) => option.mode).join(",")}|${transportSelectedOption?.mode ?? ""}`;
 
-  const syncedDates = syncPlanDates(startDate, endDate, daysCount);
-  const shownDateErrors =
-    step === 1 && error
-      ? planDateFieldErrors(syncedDates.startDate, syncedDates.endDate, daysCount)
-      : { start: "", end: "", days: "" };
-  const budgetFieldError =
-    step === 3 && (error.startsWith("Add an estimated budget") || error.startsWith("Please enter a realistic trip budget"))
-      ? error
-      : "";
-  const dateErrorActive = Boolean(shownDateErrors.start || shownDateErrors.end || shownDateErrors.days);
+  /* Batch 6: the date and budget messages are field-owned now
+     (useBuiField above) rather than derived from the step error
+     string at render time. Same messages, same step-notice
+     suppression: while a field carries the message, the step
+     notice stays quiet so the sentence never renders twice. */
+  const budgetFieldError = budgetField.error;
+  const dateErrorActive = Boolean(startDateField.error || endDateField.error || daysField.error);
   const lengthHint =
     tripDateRange.ok && tripDateRange.days
       ? tripLengthCopy(tripDateRange.days)
@@ -2282,21 +2473,25 @@ function TripPlanFormSession({
                 </p>
                 <div className="mt-3 grid gap-2">
                   {recentSearches.map((recent) => (
-                    <button
+                    <BuiClickSpark
                       key={`${recent.destinationLabel}-${recent.startDate}-${recent.endDate}-${recent.savedAt}`}
-                      type="button"
-                      onClick={() => refillFromRecent(recent)}
-                      className="bui-press w-full text-left"
+                      className="block"
                     >
-                      <BuiCard interactive className="px-4 py-3">
-                        <span className="block text-sm font-black text-chead">{recent.destinationLabel}</span>
-                        <span className="mt-0.5 block text-xs font-semibold text-cgray">
-                          {[recent.originLabel ? `${translateText("From")} ${recent.originLabel}` : "", recent.startDate && recent.endDate ? `${recent.startDate} to ${recent.endDate}` : "", recent.adults ? `${recent.adults} adult${recent.adults === "1" ? "" : "s"}` : ""]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      </BuiCard>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => refillFromRecent(recent)}
+                        className="bui-press w-full text-left"
+                      >
+                        <BuiCard interactive className="px-4 py-3">
+                          <span className="block text-sm font-black text-chead">{recent.destinationLabel}</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-cgray">
+                            {[recent.originLabel ? `${translateText("From")} ${recent.originLabel}` : "", recent.startDate && recent.endDate ? `${recent.startDate} to ${recent.endDate}` : "", recent.adults ? `${recent.adults} adult${recent.adults === "1" ? "" : "s"}` : ""]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        </BuiCard>
+                      </button>
+                    </BuiClickSpark>
                   ))}
                 </div>
               </div>
@@ -2315,21 +2510,22 @@ function TripPlanFormSession({
                 ["single_destination", "Single destination"],
                 ["multi_city", "Multi-city trip"]
               ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    setTripType(value as TripType);
-                    if (value === "multi_city") trackPlanEvent("multi_city_selected");
-                    resetDiscovery();
-                  }}
-                  className={classNames(
-        "min-h-12 rounded-xl border px-4 py-3 text-left text-sm font-bold transition",
-                    tripType === value ? selectedOptionClass(label) : unselectedOptionClass
-                  )}
-                >
-                  {translateText(label)}
-                </button>
+                <BuiClickSpark key={value} className="block h-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTripType(value as TripType);
+                      if (value === "multi_city") trackPlanEvent("multi_city_selected");
+                      resetDiscovery();
+                    }}
+                    className={classNames(
+          "h-full min-h-12 w-full rounded-xl border px-4 py-3 text-left text-sm font-bold transition",
+                      tripType === value ? selectedOptionClass(label) : unselectedOptionClass
+                    )}
+                  >
+                    {translateText(label)}
+                  </button>
+                </BuiClickSpark>
               ))}
             </div>
 
@@ -2416,32 +2612,36 @@ function TripPlanFormSession({
             <BuiCard className="p-4">
               <FieldLabel>{translateText("Trip dates")}</FieldLabel>
               <div className="mt-1 grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-bold text-cgray">{translateText("Start date")}</span>
-                  <TextInput
-                    value={startDate}
-                    onChange={updateStartDate}
-                    type="date"
-                    ariaLabel="Start date"
-                  />
-                  <FieldError id="plan-start-date-error" message={shownDateErrors.start} />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-bold text-cgray">{translateText("End date")}</span>
-                  <TextInput
-                    value={endDate}
-                    onChange={updateEndDate}
-                    type="date"
-                    min={startDate || undefined}
-                    ariaLabel="End date"
-                  />
-                  <FieldError id="plan-end-date-error" message={shownDateErrors.end} />
-                </label>
+                <PlanField
+                  key={`plan-start-date-${startDateField.shakeKey}`}
+                  id="plan-start-date"
+                  errorId="plan-start-date-error"
+                  label={translateText("Start date")}
+                  value={startDate}
+                  onChange={updateStartDate}
+                  type="date"
+                  ariaLabel="Start date"
+                  field={startDateField}
+                  onBlurExtra={validateDateFields}
+                />
+                <PlanField
+                  key={`plan-end-date-${endDateField.shakeKey}`}
+                  id="plan-end-date"
+                  errorId="plan-end-date-error"
+                  label={translateText("End date")}
+                  value={endDate}
+                  onChange={updateEndDate}
+                  type="date"
+                  min={startDate || undefined}
+                  ariaLabel="End date"
+                  field={endDateField}
+                  onBlurExtra={validateDateFields}
+                />
               </div>
               <p className="mt-3 text-sm font-bold text-chead" aria-live="polite">
                 {translateText(lengthHint)}
               </p>
-              <FieldError id="plan-days-error" message={shownDateErrors.days} />
+              <BuiFieldError id="plan-days-error" message={daysField.error ? translateText(daysField.error) : ""} reserveLines={2} />
             </BuiCard>
             {dateErrorActive ? null : <StepError error={translateText(error)} />}
           </div>
@@ -2458,7 +2658,7 @@ function TripPlanFormSession({
                 {translateText("Stay details")}
                 <span className="float-right text-cgray transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
-              <label className="mt-3 block"><FieldLabel>{translateText("Bed preference")}</FieldLabel><SelectField value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} /></label>
+              <PlanSelectField className="mt-3" label={translateText("Bed preference")} value={bedPreference} onChange={(value) => setBedPreference(value as typeof bedPreference)} options={bedPreferenceOptions} />
             </details>
             <StepError error={translateText(error)} />
           </div>
@@ -2467,35 +2667,35 @@ function TripPlanFormSession({
         {step === 3 ? (
           <div className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_0.55fr]">
-              <label className="block">
-                <FieldLabel>{translateText("Budget amount")}</FieldLabel>
-                <TextInput
-                  value={budgetAmount}
-                  onChange={(value) => {
-                    notePlanEdit();
-                    setBudgetAmount(value);
-                    const amount = toNumberOrNull(value);
-                    setError((current) => {
-                      if (current.startsWith("Add an estimated budget") && amount != null && amount > 0) return "";
-                      if (current.startsWith("Please enter a realistic trip budget") && amount != null && amount >= 100) return "";
-                      return current;
-                    });
-                  }}
-                  type="number"
-                  min={1}
-                  ariaLabel="Budget amount"
-                />
-                <FieldError id="plan-budget-error" message={budgetFieldError} />
+              <PlanField
+                key={`plan-budget-${budgetField.shakeKey}`}
+                id="plan-budget"
+                errorId="plan-budget-error"
+                label={translateText("Budget amount")}
+                value={budgetAmount}
+                onChange={(value) => {
+                  notePlanEdit();
+                  setBudgetAmount(value);
+                  const amount = toNumberOrNull(value);
+                  setError((current) => {
+                    if (current.startsWith("Add an estimated budget") && amount != null && amount > 0) return "";
+                    if (current.startsWith("Please enter a realistic trip budget") && amount != null && amount >= 100) return "";
+                    return current;
+                  });
+                }}
+                type="number"
+                inputMode="decimal"
+                min={1}
+                ariaLabel="Budget amount"
+                field={budgetField}
+              >
                 {budgetAmount.trim() || budgetFieldError ? null : (
                   <p className="mt-1.5 text-xs font-semibold leading-5 text-cgray">
                     {translateText("A rough total is enough. Roamly will not fill this in for you.")}
                   </p>
                 )}
-              </label>
-              <label className="block">
-                <FieldLabel>{translateText("Currency")}</FieldLabel>
-                <SelectField value={budgetCurrency} onChange={(value) => setBudgetCurrency(value as typeof budgetCurrency)} options={currencyOptions} />
-              </label>
+              </PlanField>
+              <PlanSelectField label={translateText("Currency")} value={budgetCurrency} onChange={(value) => setBudgetCurrency(value as typeof budgetCurrency)} options={currencyOptions} />
             </div>
             <details className="group border-y border-chair/80 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/15">
@@ -2556,37 +2756,23 @@ function TripPlanFormSession({
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block">
-                <FieldLabel>
-                  {translateText("Pace")}
-                  {pace === PLAN_PREFERENCE_DEFAULTS.pace ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
-                </FieldLabel>
-                <SelectField value={pace} onChange={(value) => { notePlanEdit(); setPace(value as typeof pace); }} options={planningPaces} defaultValue={PLAN_PREFERENCE_DEFAULTS.pace} />
-              </label>
-              <label className="block">
-                <FieldLabel>
-                  {translateText("Walking tolerance")}
-                  {walkingTolerance === PLAN_PREFERENCE_DEFAULTS.walkingTolerance ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
-                </FieldLabel>
-                <SelectField
-                  value={walkingTolerance}
-                  onChange={(value) => { notePlanEdit(); setWalkingTolerance(value as typeof walkingTolerance); }}
-                  options={walkingToleranceOptions}
-                  defaultValue={PLAN_PREFERENCE_DEFAULTS.walkingTolerance}
-                />
-              </label>
-              <label className="block">
-                <FieldLabel>
-                  {translateText("Transportation")}
-                  {transportationPreference === PLAN_PREFERENCE_DEFAULTS.transportation ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
-                </FieldLabel>
-                <SelectField
-                  value={transportationPreference}
-                  onChange={(value) => { notePlanEdit(); setTransportationPreference(value as typeof transportationPreference); }}
-                  options={transportationOptions}
-                  defaultValue={PLAN_PREFERENCE_DEFAULTS.transportation}
-                />
-              </label>
+              <PlanSelectField
+                label={<>{translateText("Pace")}{pace === PLAN_PREFERENCE_DEFAULTS.pace ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}</>}
+                value={pace} onChange={(value) => { notePlanEdit(); setPace(value as typeof pace); }} options={planningPaces} defaultValue={PLAN_PREFERENCE_DEFAULTS.pace} />
+              <PlanSelectField
+                label={<>{translateText("Walking tolerance")}{walkingTolerance === PLAN_PREFERENCE_DEFAULTS.walkingTolerance ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}</>}
+                value={walkingTolerance}
+                onChange={(value) => { notePlanEdit(); setWalkingTolerance(value as typeof walkingTolerance); }}
+                options={walkingToleranceOptions}
+                defaultValue={PLAN_PREFERENCE_DEFAULTS.walkingTolerance}
+              />
+              <PlanSelectField
+                label={<>{translateText("Transportation")}{transportationPreference === PLAN_PREFERENCE_DEFAULTS.transportation ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}</>}
+                value={transportationPreference}
+                onChange={(value) => { notePlanEdit(); setTransportationPreference(value as typeof transportationPreference); }}
+                options={transportationOptions}
+                defaultValue={PLAN_PREFERENCE_DEFAULTS.transportation}
+              />
             </div>
             <details className="group border-y border-chair/80 py-3">
               <summary className="cursor-pointer list-none text-sm font-bold text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/15">
@@ -2594,18 +2780,13 @@ function TripPlanFormSession({
                 <span className="float-right text-cink transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
               <div className="mt-3 grid gap-4">
-                <label className="block">
-                  <FieldLabel>
-                    {translateText("Accommodation")}
-                    {accommodationPreference === PLAN_PREFERENCE_DEFAULTS.accommodation ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}
-                  </FieldLabel>
-                  <SelectField
-                    value={accommodationPreference}
-                    onChange={(value) => setAccommodationPreference(value as typeof accommodationPreference)}
-                    options={accommodationOptions}
-                    defaultValue={PLAN_PREFERENCE_DEFAULTS.accommodation}
-                  />
-                </label>
+                <PlanSelectField
+                  label={<>{translateText("Accommodation")}{accommodationPreference === PLAN_PREFERENCE_DEFAULTS.accommodation ? <span className="ml-2 text-xs font-semibold text-cgray">{translateText("Default")}</span> : null}</>}
+                  value={accommodationPreference}
+                  onChange={(value) => setAccommodationPreference(value as typeof accommodationPreference)}
+                  options={accommodationOptions}
+                  defaultValue={PLAN_PREFERENCE_DEFAULTS.accommodation}
+                />
                 <div className="border-t border-chair/70 pt-3">
                   <p className="text-xs font-black text-chead">{translateText("Not plan inputs")}</p>
                   <p className="mt-1 text-xs font-bold leading-5 text-cgray">
@@ -2620,14 +2801,17 @@ function TripPlanFormSession({
                 <span className="float-right text-cink transition group-open:rotate-45 motion-reduce:transition-none">+</span>
               </summary>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <label className="block"><FieldLabel>{translateText("Accessibility needs")}</FieldLabel><TextInput value={accessibilityNeeds} onChange={setAccessibilityNeeds} ariaLabel="Accessibility needs" /></label>
-                <label className="block"><FieldLabel>{translateText("Dietary preference")}</FieldLabel><TextInput value={dietaryPreference} onChange={setDietaryPreference} ariaLabel="Dietary preference" /></label>
+                <PlanField label={translateText("Accessibility needs")} value={accessibilityNeeds} onChange={setAccessibilityNeeds} ariaLabel="Accessibility needs" />
+                <PlanField label={translateText("Dietary preference")} value={dietaryPreference} onChange={setDietaryPreference} ariaLabel="Dietary preference" />
               </div>
-              <label className="mt-3 block">
-                <FieldLabel>{translateText("Special notes")}</FieldLabel>
-                <textarea value={specialNotes} onChange={(event) => setSpecialNotes(event.target.value)} rows={4} aria-label="Special trip notes" className="bui-input mt-2 w-full rounded-xl border border-chair bg-white px-4 py-3 text-base font-semibold leading-7 text-cink outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/15" />
-                <p className="mt-2 text-xs leading-5 text-cgray">{translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}</p>
-              </label>
+              <PlanAreaField
+                className="mt-3"
+                label={translateText("Special notes")}
+                value={specialNotes}
+                onChange={setSpecialNotes}
+                ariaLabel="Special trip notes"
+                helper={translateText("Add mobility needs, must-see spots, food restrictions, celebrations, weather backup plans, or anything Roamly should consider.")}
+              />
             </details>
             {/* A12 (merge, 2026-11-05): interests are optional and
                 never produce a field error, so there is no field
@@ -2807,12 +2991,29 @@ function TripPlanFormSession({
             {translateText(nextStepLabel)}
           </BuiButton>
         ) : (
-          <BuiButton
+          /* Batch 6: the submit is the BoardUI morph — pill →
+             spinner as ONE shape (Smooth-Details set). The phase
+             is wired to the form's existing busy state only: busy
+             while costs are checked or generation/checkout starts.
+             There is deliberately no "done" phase: this flow's
+             success leaves the page (the notice + navigation are
+             the success surface), and a tick hold would delay the
+             navigation — a behaviour change, not a look change.
+             The morph disables itself whenever the phase is not
+             idle, which preserves the old busy-disable coverage;
+             the generationInFlight ref + openFinalConfirmation's
+             early return remain the real double-submit guards.
+             The flex slot flips with the phase for a mechanical
+             reason: flex-1's grow overrides the morph's animated
+             width, so while busy the button is flex-none and the
+             spring can actually shrink the shape; at rest flex-1
+             keeps the full-width pill the footer has always had. */
+          <BuiMorphButton
             type="button"
-            className="min-w-0 flex-1 !whitespace-normal text-center leading-snug"
+            phase={loading || priceChecking ? "busy" : "idle"}
+            className={`min-w-0 !whitespace-normal bg-cblue px-5 py-3 text-center text-sm font-black leading-snug text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)] hover:bg-[#0A6FE0] ${loading || priceChecking ? "flex-none" : "flex-1"}`}
             onClick={openFinalConfirmation}
-            disabled={priceChecking || (isCheckingSession && !sessionUser)}
-            busy={loading || priceChecking}
+            disabled={isCheckingSession && !sessionUser}
             aria-live="polite"
           >
             {loading && requiresPaidUnlock
@@ -2822,7 +3023,7 @@ function TripPlanFormSession({
               : priceChecking
               ? translateText("Checking costs...")
               : translateText(buildButtonLabel)}
-          </BuiButton>
+          </BuiMorphButton>
         )}
       </div>
       {step === steps.length - 1 && buildButtonLabel !== entitlement.cta ? (
