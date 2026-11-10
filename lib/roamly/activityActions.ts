@@ -209,7 +209,8 @@ async function transitionActivityAtomically(
   loaded: LoadedActivity,
   action: RoamlyActivityAction,
   update: Record<string, unknown>,
-  userId?: string | null
+  userId?: string | null,
+  activityTransition: "authenticated" | "service" = "authenticated"
 ) {
   if (actionAlreadyApplied(loaded, action)) return { ok: true as const, transitioned: false, loaded };
   if (actionConflict(loaded, action)) return { ok: false as const, error: "Activity is already in a different terminal state." };
@@ -221,7 +222,22 @@ async function transitionActivityAtomically(
   // one view and planned in another after a reconnect). The RPC keeps the same
   // compare-and-swap semantics (only from the action's eligible statuses) and
   // the same re-check/conflict handling below.
-  const rpc = await supabase.rpc("roamly_transition_activity_status", {
+  //
+  // S1 (Stage 1 identity binding): the RPC is chosen by caller context,
+  // mirroring createTripBooking's segmentReplacement dispatch.
+  // "authenticated" (default) is the session-bound function: it raises
+  // unless p_user_id = auth.uid(), so traveller flows keep working with
+  // their own id. "service" is the service-role-only twin for trusted
+  // server contexts (field-test sessions on the admin client, the admin
+  // live-test simulators) that act without a traveller session. Never
+  // pass "service" from a user-session flow: the twin is unreachable
+  // from one, so the call would fail closed instead of silently taking
+  // the trusted path.
+  const transitionRpc =
+    activityTransition === "service"
+      ? "roamly_transition_activity_status_service"
+      : "roamly_transition_activity_status";
+  const rpc = await supabase.rpc(transitionRpc, {
     p_trip_id: tripId,
     p_user_id: userId || null,
     p_tracking_activity_id: loaded.trackingActivity?.id || null,
@@ -361,6 +377,11 @@ export async function performActivityAction(
      *  panel tap flushing late). The M2 ledger records this time,
      *  never the flush time. Defaults to now. */
     occurredAt?: string | null;
+    /** S1: which transition RPC context applies — see
+     *  transitionActivityAtomically. Defaults to the session-bound
+     *  function; trusted server contexts on the admin client (field-test
+     *  sessions, admin live-test simulators) pass "service". */
+    activityTransition?: "authenticated" | "service";
   }
 ) {
   const tripResult = await getTripForAction(supabase, params.tripId, params.userId);
@@ -405,7 +426,7 @@ export async function performActivityAction(
   }
 
   const update = cleanUpdate(buildActionUpdate(params.action));
-  const transition = await transitionActivityAtomically(supabase, params.tripId, loaded, params.action, update, params.userId || null);
+  const transition = await transitionActivityAtomically(supabase, params.tripId, loaded, params.action, update, params.userId || null, params.activityTransition || "authenticated");
   if (!transition.ok) return transition;
   const current = transition.loaded;
 

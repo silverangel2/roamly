@@ -4,13 +4,18 @@
  * Stay selector — the hotel half of the selector law (owner order,
  * 2026-11-08: the detailed itinerary "does not use BoardUI or even a
  * selector for hotel"). Same face as the transport selector in
- * TripPlanForm: ONE question, radio cards on the BoardUI card recipe
- * (bui-squircle, selected = border-cblue ring bg-cblue/5), photo +
- * name + whole-stay price per card with the per-night figure small,
- * at most ONE calm line on the suggested card, the picked card reads
- * "Added to your itinerary and budget.", a stay with no displayable
- * price is one quiet grey line (never a card, never an invented
- * price), and provenance is one quiet line.
+ * TripPlanForm: ONE question, radio cards built on the REAL BoardUI
+ * primitives (BuiCard interactive + BuiClickSpark — batch 4,
+ * 2026-11-09; the card recipe used to be hand-copied in raw classes
+ * here and could drift from it), selected = the primitive's hairline
+ * plus ring-1 ring-cblue over bg-cblue/5, photo + name + whole-stay
+ * price per card with the per-night figure small, at most ONE calm
+ * line on the suggested card, the picked card reads "Added to your
+ * itinerary and budget.", a stay with no displayable price is one
+ * quiet grey line (never a card, never an invented price), and
+ * provenance is one quiet line. The card carries role="radio" on the
+ * BuiCard itself: click, Enter and Space all run the same pick() —
+ * the save contract below is unchanged from the button construction.
  *
  * Picking a stay re-tabulates the trip's stay line and total with
  * the engine's own formula (retabulateStayTotals in
@@ -27,9 +32,12 @@
  * these dates; nothing here claims a booking.
  */
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, Check } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiClickSpark } from "@/components/boardui/ClickSpark";
+import { cx } from "@/components/boardui/cx";
 import {
   retabulateStayTotals,
   stayOptionCostCents,
@@ -122,6 +130,16 @@ export function StaySelector({
     }
   }
 
+  // The radio card is a BuiCard (a div), so Enter / Space run the
+  // same pick() a click runs — pick() itself still refuses while a
+  // save is in flight or when the card is already the pick.
+  function onCardKeyDown(event: KeyboardEvent<HTMLDivElement>, option: StayOption) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      void pick(option);
+    }
+  }
+
   const selectable = options.filter((option) => stayOptionCostCents(option) != null);
   const quiet = options.filter((option) => stayOptionCostCents(option) == null);
   const selected = selectable.find((option) => option.id === selectedId) || null;
@@ -151,19 +169,21 @@ export function StaySelector({
           const totalText = rangeLabel(option.totalMin, option.totalMax, option.currency);
           const nightlyText = rangeLabel(option.nightlyMin, option.nightlyMax, option.currency);
           return (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              disabled={saving}
-              onClick={() => void pick(option)}
-              style={{ "--bui-delay": `${index * 70}ms` } as CSSProperties}
-              className={
-                "bui-enter bui-press bui-tap bui-squircle block w-full overflow-hidden rounded-bui-card border bg-white text-left shadow-bui-card transition-colors " +
-                (isSelected ? "border-cblue bg-cblue/5 ring-1 ring-cblue" : "border-chair hover:border-cblue/60")
-              }
-            >
+            <BuiClickSpark key={option.id}>
+              <BuiCard
+                interactive
+                role="radio"
+                aria-checked={isSelected}
+                aria-disabled={saving || undefined}
+                tabIndex={saving ? -1 : 0}
+                onClick={() => void pick(option)}
+                onKeyDown={(event) => onCardKeyDown(event, option)}
+                style={{ "--bui-delay": `${index * 70}ms` } as CSSProperties}
+                className={cx(
+                  "bui-enter relative text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25",
+                  isSelected && "bg-cblue/5 ring-1 ring-cblue"
+                )}
+              >
               {option.photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={option.photoUrl} alt="" loading="lazy" className="h-28 w-full object-cover" />
@@ -207,7 +227,8 @@ export function StaySelector({
                   </span>
                 ) : null}
               </span>
-            </button>
+              </BuiCard>
+            </BuiClickSpark>
           );
         })}
       </div>

@@ -353,14 +353,48 @@ export function dayRestAndWrap(items: readonly DaySummaryItemInput[]): {
   };
 }
 
+/** Machine boilerplate is not traveller information (owner walk,
+ *  2026-11-09): the generation writers stamp the same evidence-tier
+ *  sentences onto every day's stored uncertainty ("Only
+ *  evidence-backed items are shown…", "Timeline placement is
+ *  planned…", "This is a planning suggestion, not verified
+ *  inventory."), and the row status texts are generic categories
+ *  ("Price not available", "Route details to confirm", "Details to
+ *  confirm") that already render on their own rows as chips. Joined
+ *  into the day header they became a wordy machine paragraph — a
+ *  PROMPT FACE LAW violation (internal tier language never renders
+ *  on a customer surface). The filter lives here, in the display
+ *  derivation, so stored plans heal on render; the stored text is
+ *  never touched. A SPECIFIC note ("Hotel check-in time
+ *  unconfirmed", a ferry schedule warning) is traveller information
+ *  and always passes. */
+const MACHINE_UNCERTAINTY_NOTES: ReadonlySet<string> = new Set(
+  [
+    "Only evidence-backed items are shown; missing timing, price, availability, or routing remains unknown.",
+    "Timeline placement is planned; verify exact hours, availability, and route before relying on it.",
+    "This is a planning suggestion, not verified inventory.",
+    "Price not available",
+    "Route details to confirm",
+    "Details to confirm",
+    "Day headings need confirmation",
+    "Day plan needs confirmation"
+  ].map((note) => note.toLowerCase().replace(/\s+/g, " ").replace(/\.+$/, "").trim())
+);
+
+function isMachineUncertaintyNote(value: string): boolean {
+  const normalized = value.toLowerCase().replace(/\s+/g, " ").replace(/\.+$/, "").trim();
+  return MACHINE_UNCERTAINTY_NOTES.has(normalized);
+}
+
 /** What is actually unconfirmed about a day (audit D4, 2026-10-28:
  *  the day card printed the content-free "Some details still need
  *  confirmation." without naming anything). Sources, in order: the
- *  day's own uncertainty notes, the timeline rows' status texts
- *  ("Route details to confirm", "Price not available",
- *  "Details to confirm"), an unconfident day-heading join, and an
- *  uncertain plan status. Empty when nothing specific is unconfirmed
- *  — the caller then renders no line, instead of a vague warning. */
+ *  day's own uncertainty notes and the timeline rows' status texts.
+ *  Machine boilerplate and generic status categories are filtered
+ *  out (see MACHINE_UNCERTAINTY_NOTES above) — what survives is a
+ *  SPECIFIC traveller-facing fact, or nothing. Empty when nothing
+ *  specific is unconfirmed — the caller then renders no line (or
+ *  its one calm estimates line), instead of a vague warning. */
 export function dayUncertaintyNotes(input: {
   headingKind?: string | null;
   planStatus?: string | null;
@@ -372,13 +406,12 @@ export function dayUncertaintyNotes(input: {
   const push = (value: unknown) => {
     const clean = typeof value === "string" ? value.trim() : "";
     if (!clean || seen.has(clean)) return;
+    if (isMachineUncertaintyNote(clean)) return;
     seen.add(clean);
     notes.push(clean);
   };
   for (const item of input.uncertainty || []) push(item);
   for (const item of input.statusTexts || []) push(item);
-  if (text(input.headingKind).toLowerCase() === "uncertain") push("Day headings need confirmation");
-  if (text(input.planStatus).toLowerCase() === "uncertain") push("Day plan needs confirmation");
   return notes;
 }
 

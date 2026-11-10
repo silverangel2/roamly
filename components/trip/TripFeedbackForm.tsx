@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { localizeCustomerError } from "@/lib/i18n";
 import type { TripFeedbackRecord } from "@/lib/roamly/tripFeedback";
 
@@ -15,31 +18,101 @@ function csv(value: string) {
     .filter(Boolean);
 }
 
+/*
+ * Batch 7 (2026-11-09): the feedback fields ride the BoardUI form
+ * pattern (batches 3/4/6 wiring) — a real visible label that never
+ * leaves and the foundation `bui-input` recipe. This form has no
+ * field-level validators (every field is optional; the save is the
+ * only gate), so there are no useBuiField hooks here: the pattern's
+ * label + input half applies, and the save outcome renders through
+ * BuiNotice below. "Trip day" keeps type="number": it is a quantity
+ * (a day count), not a code — the same house exception the plan
+ * form's budget carries; inputMode="numeric" is added.
+ */
+const feedbackInputClass =
+  "bui-input mt-2 w-full rounded-2xl border border-chair bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10";
+
+function FeedbackField({
+  id,
+  label,
+  value,
+  onChange,
+  type = "text",
+  inputMode,
+  min
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  inputMode?: "numeric" | "decimal" | "text";
+  min?: number;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-chead">{label}</span>
+      <input
+        id={id}
+        type={type}
+        inputMode={inputMode}
+        min={min}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={feedbackInputClass}
+      />
+    </label>
+  );
+}
+
+function FeedbackSelectField({
+  id,
+  label,
+  value,
+  onChange,
+  children
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-chead">{label}</span>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className={feedbackInputClass}>
+        {children}
+      </select>
+    </label>
+  );
+}
+
 function ScoreSelect({
+  id,
   label,
   value,
   onChange
 }: {
+  id: string;
   label: string;
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
   return (
-    <label className="grid gap-2 text-sm font-bold text-slate-700">
-      <span>{label}</span>
-      <select
-        value={value ?? ""}
-        onChange={(event) => onChange(event.target.value ? Number(event.target.value) : null)}
-        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
-      >
-        <option value="">Not rated</option>
-        {[1, 2, 3, 4, 5].map((score) => (
-          <option key={score} value={score}>
-            {score}
-          </option>
-        ))}
-      </select>
-    </label>
+    <FeedbackSelectField
+      id={id}
+      label={label}
+      value={String(value ?? "")}
+      onChange={(next) => onChange(next ? Number(next) : null)}
+    >
+      <option value="">Not rated</option>
+      {[1, 2, 3, 4, 5].map((score) => (
+        <option key={score} value={score}>
+          {score}
+        </option>
+      ))}
+    </FeedbackSelectField>
   );
 }
 
@@ -140,18 +213,19 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+    <BuiCard className="p-5">
       <div className="flex flex-wrap gap-2">
         {(["post_trip", "in_trip"] as const).map((nextMode) => (
           <button
             key={nextMode}
             type="button"
+            aria-pressed={mode === nextMode}
             onClick={() => {
               setMode(nextMode);
               restoreFeedback(nextMode);
             }}
-            className={`rounded-full px-4 py-2 text-sm font-black ${
-              mode === nextMode ? "bg-cblue text-white" : "bg-slate-100 text-slate-700"
+            className={`bui-press bui-touch inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold transition-colors duration-200 ease-bui focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 ${
+              mode === nextMode ? "bg-cblue text-white" : "bg-csoft text-cink hover:text-chead"
             }`}
           >
             {nextMode === "post_trip" ? "Trip feedback" : "Today"}
@@ -161,99 +235,71 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {mode === "in_trip" ? (
-          <label className="grid gap-2 text-sm font-bold text-slate-700">
-            <span>Trip day</span>
-            <input
-              type="number"
-              min={1}
-              value={tripDay}
-              onChange={(event) => setTripDay(event.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm"
-            />
-          </label>
+          <FeedbackField id="feedback-trip-day" label="Trip day" type="number" inputMode="numeric" min={1} value={tripDay} onChange={setTripDay} />
         ) : null}
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          <span>Pace</span>
-          <select
-            value={pace}
-            onChange={(event) => setPace(event.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
-          >
-            <option value="too_busy">Too busy</option>
-            <option value="right">Right</option>
-            <option value="too_slow">Too slow</option>
-          </select>
-        </label>
-        <ScoreSelect label="Overall satisfaction" value={overallSatisfaction} onChange={setOverallSatisfaction} />
-        <ScoreSelect label="Transportation" value={transportationSatisfaction} onChange={setTransportationSatisfaction} />
-        <ScoreSelect label="Hotel location" value={hotelLocationSatisfaction} onChange={setHotelLocationSatisfaction} />
-        <ScoreSelect label="Hotel quality" value={hotelQualitySatisfaction} onChange={setHotelQualitySatisfaction} />
-        <ScoreSelect label="Budget accuracy" value={budgetAccuracy} onChange={setBudgetAccuracy} />
-        <ScoreSelect label="Schedule realism" value={scheduleRealism} onChange={setScheduleRealism} />
-        <ScoreSelect label="Recommendation usefulness" value={recommendationUsefulness} onChange={setRecommendationUsefulness} />
+        <FeedbackSelectField id="feedback-pace" label="Pace" value={pace} onChange={setPace}>
+          <option value="too_busy">Too busy</option>
+          <option value="right">Right</option>
+          <option value="too_slow">Too slow</option>
+        </FeedbackSelectField>
+        <ScoreSelect id="feedback-score-overall" label="Overall satisfaction" value={overallSatisfaction} onChange={setOverallSatisfaction} />
+        <ScoreSelect id="feedback-score-transportation" label="Transportation" value={transportationSatisfaction} onChange={setTransportationSatisfaction} />
+        <ScoreSelect id="feedback-score-hotel-location" label="Hotel location" value={hotelLocationSatisfaction} onChange={setHotelLocationSatisfaction} />
+        <ScoreSelect id="feedback-score-hotel-quality" label="Hotel quality" value={hotelQualitySatisfaction} onChange={setHotelQualitySatisfaction} />
+        <ScoreSelect id="feedback-score-budget" label="Budget accuracy" value={budgetAccuracy} onChange={setBudgetAccuracy} />
+        <ScoreSelect id="feedback-score-schedule" label="Schedule realism" value={scheduleRealism} onChange={setScheduleRealism} />
+        <ScoreSelect id="feedback-score-recommendations" label="Recommendation usefulness" value={recommendationUsefulness} onChange={setRecommendationUsefulness} />
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          <span>Favourite activities</span>
-          <input value={favourites} onChange={(event) => setFavourites(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm" />
-        </label>
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          <span>Disappointing activities</span>
-          <input value={disappointments} onChange={(event) => setDisappointments(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm" />
-        </label>
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          <span>Skipped activities</span>
-          <input value={skipped} onChange={(event) => setSkipped(event.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm" />
-        </label>
+        <FeedbackField id="feedback-favourites" label="Favourite activities" value={favourites} onChange={setFavourites} />
+        <FeedbackField id="feedback-disappointments" label="Disappointing activities" value={disappointments} onChange={setDisappointments} />
+        <FeedbackField id="feedback-skipped" label="Skipped activities" value={skipped} onChange={setSkipped} />
       </div>
 
       <div className="mt-4 grid gap-3">
-        <label className="grid gap-2 text-sm font-bold text-slate-700">
-          <span>Notes</span>
+        <label className="block">
+          <span className="text-sm font-black text-chead">Notes</span>
           <textarea
+            id="feedback-notes"
             value={freeText}
             onChange={(event) => setFreeText(event.target.value)}
             rows={4}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink shadow-sm"
+            className={feedbackInputClass}
           />
         </label>
-        <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-          <input type="checkbox" checked={transportDifficult} onChange={(event) => setTransportDifficult(event.target.checked)} />
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-chead">
+          <input type="checkbox" checked={transportDifficult} onChange={(event) => setTransportDifficult(event.target.checked)} className="h-5 w-5 shrink-0 accent-cblue" />
           Transportation was difficult
         </label>
         {mode === "in_trip" ? (
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
-            <input type="checkbox" checked={adjustTomorrow} onChange={(event) => setAdjustTomorrow(event.target.checked)} />
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-chead">
+            <input type="checkbox" checked={adjustTomorrow} onChange={(event) => setAdjustTomorrow(event.target.checked)} className="h-5 w-5 shrink-0 accent-cblue" />
             Adjust tomorrow
           </label>
         ) : (
-          <label className="flex items-center gap-2 text-sm font-bold text-slate-700">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-chead">
             <input
               type="checkbox"
               checked={wouldUseAgain === true}
               onChange={(event) => setWouldUseAgain(event.target.checked ? true : null)}
+              className="h-5 w-5 shrink-0 accent-cblue"
             />
             Would use Roamly again
           </label>
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={saving}
-        className="mt-5 rounded-full bg-cblue px-5 py-3 text-sm font-black text-white shadow-soft disabled:opacity-60"
-      >
+      <BuiButton type="button" onClick={submit} disabled={saving} busy={saving} className="mt-5">
         {saving ? "Saving..." : "Save feedback"}
-      </button>
+      </BuiButton>
 
-      {error ? <p className="mt-3 text-sm font-black text-red-600">{error}</p> : null}
-      {message ? <p className="mt-3 text-sm font-black text-ink">{message}</p> : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-3" /> : null}
+      {message ? <BuiNotice tone="success" title={message} className="mt-3" /> : null}
       {learned.length ? (
-        <div className="mt-4 rounded-xl bg-slate-50 p-4">
-          <p className="text-sm font-black text-ink">Here is what Roamly learned from your trip.</p>
-          <ul className="mt-2 grid gap-2 text-sm font-bold text-slate-600">
+        <div className="mt-4 rounded-bui-card bg-cbg px-4 py-4">
+          <p className="text-sm font-black text-chead">Here is what Roamly learned from your trip.</p>
+          <ul className="mt-2 grid gap-2 text-sm font-bold text-cink">
             {learned.map((item, index) => (
               <li key={`${item.preference_key}-${index}`}>
                 {item.preference_key}: {typeof item.proposed_value === "string" ? item.proposed_value : JSON.stringify(item.proposed_value)}
@@ -262,6 +308,6 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
           </ul>
         </div>
       ) : null}
-    </div>
+    </BuiCard>
   );
 }

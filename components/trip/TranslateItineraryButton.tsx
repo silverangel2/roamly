@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { BuiButton } from "@/components/boardui/Button";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import type { RoamlyLocale } from "@/lib/i18n";
 
@@ -10,9 +11,6 @@ type TranslateItineraryButtonProps = {
   tripId: string;
   displayedLanguage: RoamlyLocale;
 };
-
-const buttonClass =
-  "inline-flex min-h-11 items-center text-sm font-medium text-slate-500 transition hover:text-ink disabled:pointer-events-none disabled:opacity-60";
 
 export function TranslateItineraryButton({ tripId, displayedLanguage }: TranslateItineraryButtonProps) {
   const router = useRouter();
@@ -48,9 +46,9 @@ export function TranslateItineraryButton({ tripId, displayedLanguage }: Translat
 
   return (
     <div className="roamly-no-print flex flex-col gap-2">
-      <button type="button" onClick={() => void translate()} disabled={busy} className={buttonClass}>
+      <BuiButton variant="ghost" onClick={() => void translate()} busy={busy} className="w-fit">
         {busy ? t("ui.status.translating", "Translating...") : t("ui.actions.translateItinerary", "Translate itinerary")}
-      </button>
+      </BuiButton>
       {message ? <p className="text-xs font-bold leading-5 text-cblue">{message}</p> : null}
       {error ? <p className="text-xs font-bold leading-5 text-coral">{error}</p> : null}
     </div>

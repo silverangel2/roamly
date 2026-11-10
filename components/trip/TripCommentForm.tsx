@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { BuiButton } from "@/components/boardui/Button";
 import { PLAN_COMMENT_BODY_MAX } from "@/lib/roamly/planComments";
 
 type PostedComment = {
@@ -66,13 +67,13 @@ export function TripCommentForm({ tripId }: { tripId: string }) {
       {posted.length ? (
         <ul className="grid gap-2">
           {posted.map((comment) => (
-            <li key={comment.id} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700">
+            <li key={comment.id} className="rounded-2xl bg-csoft px-4 py-3 text-sm leading-6 text-ink">
               {comment.body}
             </li>
           ))}
         </ul>
       ) : null}
-      <label htmlFor={`trip-note-${tripId}`} className="sr-only">
+      <label htmlFor={`trip-note-${tripId}`} className="mt-3 block text-sm font-black text-chead">
         Add a note for your trip
       </label>
       <textarea
@@ -82,17 +83,12 @@ export function TripCommentForm({ tripId }: { tripId: string }) {
         maxLength={PLAN_COMMENT_BODY_MAX}
         rows={3}
         placeholder="e.g. No early mornings, more seafood, wheelchair access for mom…"
-        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base leading-6 text-ink placeholder:text-slate-400 focus:border-cblue focus:outline-none"
+        className="bui-input mt-2 w-full rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold leading-6 text-ink outline-none placeholder:text-cgray2 focus:border-cblue focus:ring-4 focus:ring-cblue/10"
       />
-      {error ? <p className="mt-2 text-sm font-medium text-coral">{error}</p> : null}
-      <button
-        type="button"
-        onClick={submit}
-        disabled={sending}
-        className="mt-3 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-bold text-white transition disabled:opacity-50"
-      >
+      {error ? <p role="alert" className="mt-2 text-sm font-medium text-coral">{error}</p> : null}
+      <BuiButton onClick={submit} busy={sending} className="mt-3">
         {sending ? "Saving…" : "Save note"}
-      </button>
+      </BuiButton>
     </div>
   );
 }
