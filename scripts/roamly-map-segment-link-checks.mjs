@@ -21,12 +21,18 @@
 //   * it carries stored coordinates (the link targets the point), or
 //   * it is an identified place row: not unverified, its query is
 //     not a bare generic placeholder (isGenericStopText), it is not
-//     an unbooked generic stay placeholder, and — for segment kinds
-//     (travel / arrival) — its query carries a place its own label
-//     does not (a stored map query / location distinct from the
-//     title, e.g. the engine arrival leg's destination city), or it
-//     is a hotel check-in whose title IS the property.
+//     an unbooked generic stay placeholder, and it is not a
+//     non-place label (isNonPlaceMapLabel).
 // Rows stay in the List view untouched; only the map list changes.
+//
+// RULE RESTATED (owner walk, 2026-11-09 — BoardUI day/map pass):
+// the 2026-11-08 version let a segment row through when its query
+// named the destination city; the owner's Montreal map still
+// showed that card ("Montreal, Canada") and he named it the same
+// defect. Segment rows (travel / arrival) now NEVER join the map
+// list — an area is not a place card — with one exception: a hotel
+// check-in row, whose title IS the property. B1 below pins the
+// reversal; A1–A6 and B2/B3 are unchanged from 2026-11-08.
 //
 // These checks compose the REAL chain end to end: stored records ->
 // buildDisplayTimelineItems (home options) -> buildHomeDayView ->
@@ -107,7 +113,12 @@ const dayPlanModule = loadTsxWithMocks("components/trip/ItineraryDayPlan.tsx", {
   "@/lib/roamly/daySummary": await import("@/lib/roamly/daySummary.ts"),
   "@/lib/roamly/activityDescription": await import("@/lib/roamly/activityDescription.ts"),
   "@/lib/roamly/marketStopDescription": await import("@/lib/roamly/marketStopDescription.ts"),
-  "@/lib/roamly/planStayRow": await import("@/lib/roamly/planStayRow.ts")
+  "@/lib/roamly/planStayRow": await import("@/lib/roamly/planStayRow.ts"),
+  // BoardUI day pass (2026-11-09): the day card now imports the
+  // BoardUI accordion + chip primitives; the display-chain tests
+  // never render, so inert stand-ins are the whole contract.
+  "@/components/boardui/Accordion": { BuiAccordion: () => null },
+  "@/components/boardui/Badge": { BuiChip: () => null, BuiBadge: () => null }
 });
 const { buildDisplayTimelineItems } = dayPlanModule;
 
@@ -238,10 +249,12 @@ ok(
 );
 
 /* ------------------------------------------------------------------ */
-/* Day B — survival: engine-shaped rows whose queries name places.    */
+/* Day B — survival: rows whose titles name places. The stay        */
+/* check-in keeps its map stop (its title IS the property); the     */
+/* arrival leg's bare-city query does NOT (owner walk, 2026-11-09). */
 /* ------------------------------------------------------------------ */
 
-console.log("(B) place-carrying segment and stay rows keep their map stops");
+console.log("(B) the named stay keeps its map stop; a bare city is an area, not a place");
 
 const dayB = {
   day_number: 2,
@@ -249,7 +262,10 @@ const dayB = {
   live_timeline: [
     {
       // The engine's arrival leg: its stored map query IS the
-      // destination city — a place the label itself does not carry.
+      // destination city. Under the 2026-11-08 rule this kept a
+      // map stop; the owner's 2026-11-09 screenshot shows exactly
+      // this card ("Montreal, Canada") as the defect — an AREA is
+      // not a place card. B1 below pins the reversed rule.
       item_type: "travel",
       category: "Travel",
       title: "Travel from Origin City to Destination City",
@@ -284,7 +300,10 @@ const dayB = {
 const viewB = homeViewFor(dayB);
 const queriesB = viewB.mapStopDetails.map((detail) => detail.query);
 
-ok(queriesB.includes("Destination City"), "B1: the engine arrival leg's city query keeps its map stop");
+ok(
+  !queriesB.includes("Destination City"),
+  "B1 (reversed 2026-11-09): the engine arrival leg's bare-city query gets NO map stop — an area is not a place card (owner walk; was: keeps its map stop)"
+);
 ok(queriesB.includes("Harbor Hotel"), "B2: the booked stay check-in keeps its map stop");
 const harbor = viewB.mapStopDetails.find((detail) => detail.query === "Harbor Hotel");
 eq(harbor?.searchOnly, false, "B2: the booked stay's links stay ordinary (PR #112 behaviour preserved)");

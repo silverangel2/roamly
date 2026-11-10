@@ -8,7 +8,12 @@ const [findsPage, magazine, curatedSource, creatorsSource] = await Promise.all([
 ]);
 const illustrations = await readdir(new URL("../public/images/finds", import.meta.url));
 
-assert.match(curatedSource, /ROAMLY_AMAZON_CURATED_TAG\s*=\s*"roamly060-20"/, "Roamly uses its dedicated Amazon Associates tag");
+// R-1 RESOLUTION (2026-11-10, owner's own records — ASSESSMENT-B addendum): the unified
+// INTERNATIONAL Amazon Associates tag is roamly02e-20 (amazon.com; Junel's 2026-10-14
+// switch — US + Philippines clicks earn, Canadians redirect to .ca under the same ID).
+// This check previously pinned roamly060-20, the older Canada-only tag, contradicting
+// the module below and the owner's records; the pin is corrected, not the module.
+assert.match(curatedSource, /ROAMLY_AMAZON_CURATED_TAG\s*=\s*"roamly02e-20"/, "Roamly uses its dedicated Amazon Associates tag");
 const searchQueries = [
   "universal travel adapter",
   "packing cubes travel organizer",
@@ -22,12 +27,15 @@ const searchQueries = [
 assert.equal(searchQueries.length, 8, "Worth Packing has a bounded curated travel-essential edit");
 
 for (const searchQuery of searchQueries) {
-  const url = new URL("https://amazon.ca/s");
+  // Same R-1 correction as the tag pin above: curated links are built on the
+  // international storefront (the module passes marketplace "amazon.com" to
+  // buildAmazonSearchUrl, which emits the bare amazon.com host).
+  const url = new URL("https://amazon.com/s");
   url.searchParams.set("k", searchQuery);
-  url.searchParams.set("tag", "roamly060-20");
-  assert.equal(url.hostname, "amazon.ca", "curated links use the Canadian Amazon marketplace");
+  url.searchParams.set("tag", "roamly02e-20");
+  assert.equal(url.hostname, "amazon.com", "curated links use the international Amazon marketplace");
   assert.equal(url.pathname, "/s", "curated links use relevant Amazon search destinations");
-  assert.equal(url.searchParams.get("tag"), "roamly060-20", "curated links use Roamly attribution");
+  assert.equal(url.searchParams.get("tag"), "roamly02e-20", "curated links use Roamly attribution");
   assert.ok(url.searchParams.get("k"), "each curated link has a relevant search query");
 }
 

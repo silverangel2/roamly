@@ -134,7 +134,12 @@ const tripPage = read("app/trip/[id]/page.tsx");
 check("D4 booking details line keeps its spaces", tripPage.includes("Start with your") && tripPage.includes("details below"));
 const dayPlan = read("components/trip/ItineraryDayPlan.tsx");
 check("D4 vague line 'Some details still need confirmation.' is gone", !dayPlan.includes("Some details still need confirmation."));
-check("D4 replacement names specifics ('Still to confirm:')", dayPlan.includes("Still to confirm:"));
+// Familiarity redesign (2026-11-09): the specifics still render
+// under a "Still to confirm" heading, but inside the day-level
+// Planning notes section — the old header-line form
+// ("Still to confirm: …" as a card-top sentence) was part of the
+// preamble stack the owner rejected. Same protection, new home.
+check("D4 replacement names specifics ('Still to confirm' inside Planning notes)", dayPlan.includes("Still to confirm") && dayPlan.indexOf("Still to confirm") > dayPlan.indexOf('title="Planning notes"'));
 
 // ---------- D5: Live falls back to the itinerary JSON ----------
 const fallbackDays = itineraryDaysFromDailyItinerary([

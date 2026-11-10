@@ -22,7 +22,13 @@ assert.match(magazine, /rel="noopener noreferrer"/, "external partner links are 
 assert.match(magazine, /Curated travel essentials/i, "the magazine labels curated categories without implying live listings");
 assert.match(magazine, /w-\[calc\(100%_-_3rem\)\]/, "curated Worth Packing cards use a readable mobile rail width");
 assert.match(magazine, /md:grid-cols-3[\s\S]*lg:grid-cols-4/, "Worth Packing restores the complete desktop grid at larger breakpoints");
-assert.match(magazine, /<details open=\{open\}[\s\S]*Need a car\?/, "rental options use an accessible progressive-disclosure control");
+// RE-PIN (BoardUI hard-apply batch 5, 2026-11-09): the old pin
+// ("<details open={open}>") encoded the pre-BoardUI native details
+// element. Batch 5 replaced it with the BoardUI accordion in
+// controlled mode per the owner's hard-apply law; the pin now asserts
+// the accordion carries the same disclosure, and the media-query pin
+// below still proves the same responsive open behaviour.
+assert.match(magazine, /<BuiAccordion[\s\S]*Need a car\?/, "rental options use an accessible progressive-disclosure control");
 assert.match(magazine, /max-width: 1023px/, "rental disclosure defaults closed at mobile widths and remains open on desktop");
 assert.match(magazine, /FindsWidgetSection config=\{findsWidgets\.cars\}/, "the legitimate rental widget remains inside the disclosure");
 assert.match(tabs, /No unverified offers are shown/i, "empty shelves do not imply inventory that is not connected");

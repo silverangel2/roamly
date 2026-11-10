@@ -36,5 +36,12 @@ assert.match(disconnect, /revocationConfirmed/);
 const component = await readFile(new URL("../components/account/EmailConnectionSettings.tsx", import.meta.url), "utf8");
 assert.match(component, /Google could not confirm access revocation/);
 assert.match(component, /ui\.email\.importGmailOnly/);
-assert.match(component, /role="status"/);
+// Batch 7 re-pin: the outcome notice's role="status" live region now
+// comes from the BuiNotice primitive (tone="info" → role="status")
+// instead of a literal attribute on a hand-rolled <p>. The pin moves
+// to the adoption + the primitive's own role contract — stronger:
+// it now fails if either side of the guarantee regresses.
+assert.match(component, /<BuiNotice tone="info" title=\{notice\} \/>/);
+const noticePrimitive = await readFile(new URL("../components/boardui/Notice.tsx", import.meta.url), "utf8");
+assert.match(noticePrimitive, /role=\{tone === "error" \? "alert" : "status"\}/);
 console.log("Roamly Gmail disconnect privacy checks passed.");
