@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 
 type ReviewInitial = {
   title: string;
@@ -89,51 +92,62 @@ export function BookingReviewActions({ tripId, bookingId, initial }: { tripId: s
     router.refresh();
   }
 
-  const inputClass = "mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink outline-none focus:border-cblue";
+  const inputClass = "bui-input mt-2 w-full rounded-2xl border border-chair bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10";
+  const labelClass = "block text-sm font-black text-chead";
 
   if (mode === "done") {
-    return <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">{doneMessage}</p>;
+    return (
+      <div className="mt-3">
+        <BuiNotice tone="success" title={doneMessage} />
+      </div>
+    );
   }
 
   return (
     <div className="mt-3">
       {mode === "idle" ? (
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => void assertBooking()} disabled={busy} className="min-h-11 rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">
+          <BuiButton type="button" onClick={() => void assertBooking()} busy={busy}>
             This is my booking
-          </button>
-          <button type="button" onClick={() => setMode("correcting")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">
+          </BuiButton>
+          <BuiButton type="button" variant="secondary" onClick={() => setMode("correcting")} disabled={busy}>
             Correct details
-          </button>
-          <button type="button" onClick={() => setMode("dismissing")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">
+          </BuiButton>
+          <BuiButton type="button" variant="secondary" onClick={() => setMode("dismissing")} disabled={busy}>
             Dismiss
-          </button>
+          </BuiButton>
         </div>
       ) : null}
       {mode === "correcting" ? (
-        <div className="grid gap-3 rounded-xl bg-white p-3 sm:grid-cols-2">
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Title<input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Provider<input value={provider} onChange={(e) => setProvider(e.target.value)} className={inputClass} /></label>
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Confirmation<input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} /></label>
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Amount<input value={amount} type="number" inputMode="decimal" onChange={(e) => setAmount(e.target.value)} className={inputClass} /></label>
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Currency<input value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputClass} /></label>
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Start date<input value={startDate} type="date" onChange={(e) => setStartDate(e.target.value)} className={inputClass} /></label>
-          <div className="flex gap-2 sm:col-span-2">
-            <button type="button" onClick={() => void saveCorrections()} disabled={busy} className="min-h-11 rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">Save corrections for review</button>
-            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">Cancel</button>
+        <BuiCard className="p-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className={labelClass}>Title<input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Provider<input value={provider} onChange={(e) => setProvider(e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Confirmation<input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Amount<input value={amount} type="number" inputMode="decimal" onChange={(e) => setAmount(e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Currency<input value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputClass} /></label>
+            <label className={labelClass}>Start date<input value={startDate} type="date" onChange={(e) => setStartDate(e.target.value)} className={inputClass} /></label>
+            <div className="flex gap-2 sm:col-span-2">
+              <BuiButton type="button" onClick={() => void saveCorrections()} busy={busy}>Save corrections for review</BuiButton>
+              <BuiButton type="button" variant="secondary" onClick={() => setMode("idle")} disabled={busy}>Cancel</BuiButton>
+            </div>
           </div>
-        </div>
+        </BuiCard>
       ) : null}
       {mode === "dismissing" ? (
-        <div className="rounded-xl bg-white p-3">
-          <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Reason (optional)<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Not my booking" className={inputClass} /></label>
+        <BuiCard className="p-3">
+          <label className={labelClass}>Reason (optional)<input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Not my booking" className={inputClass} /></label>
           <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => void dismissBooking()} disabled={busy} className="min-h-11 rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">Dismiss this item</button>
-            <button type="button" onClick={() => setMode("idle")} disabled={busy} className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-black text-ink disabled:opacity-60">Cancel</button>
+            <BuiButton type="button" onClick={() => void dismissBooking()} busy={busy}>Dismiss this item</BuiButton>
+            <BuiButton type="button" variant="secondary" onClick={() => setMode("idle")} disabled={busy}>Cancel</BuiButton>
           </div>
+        </BuiCard>
+      ) : null}
+      {error ? (
+        <div className="mt-2">
+          <BuiNotice tone="error" title={error} />
         </div>
       ) : null}
-      {error ? <p className="mt-2 text-sm font-bold text-rose-700">{error}</p> : null}
     </div>
   );
 }
