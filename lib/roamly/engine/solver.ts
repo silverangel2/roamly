@@ -19,6 +19,7 @@ import type {
   EnginePos,
   EngineWeatherDay
 } from "@/lib/roamly/engine/util";
+import { fuzzyPlaceWinner } from "@/lib/roamly/engine/placeNameMatch";
 import { BASE_PROFILE, buildArrival, buildDeparture } from "@/lib/roamly/engine/journey";
 import type { JourneyEnvelopeSpec, PartyProfile } from "@/lib/roamly/engine/journey";
 import { buildTripArc } from "@/lib/roamly/engine/continuity";
@@ -148,6 +149,11 @@ export interface MustSeeSpec {
    *  for. Absent = the historical behaviour, unchanged. */
   requiredPatterns?: string[];
   requiredKinds?: string[];
+  /** Pure named-place anchor (mustSeeRequirement's nameAnchor):
+   *  the required patterns are the place's own name. Only this
+   *  shape may use the typo-tolerance tier when every exact tier
+   *  has failed — see placeNameMatch.ts. */
+  requiredNameAnchor?: boolean;
 }
 
 export interface RestSpec {
@@ -399,6 +405,20 @@ export function solveTrip(pack: EnginePack, spec: SolveSpec): SolveResult {
     if (!cand) {
       const kinds = [...new Set(ms.patterns.map((p) => KIND_BY_PATTERN[normText(p)]).filter(Boolean))];
       cand = pools.find((c) => kinds.includes(c.kind) && requirementMet(c)) || null;
+    }
+    if (!cand && ms.requiredNameAnchor && reqKinds.length === 0 && reqPatterns.length > 0) {
+      // Typo tolerance (owner requirement, 2026-11-09): the exact
+      // tiers above found nothing — the traveller's spelling of a
+      // named place ("Coloseum", "Versaills") matches no record
+      // exactly, so before the must-see goes honestly unmet, the
+      // ONE fuzzy tier (placeNameMatch.ts) may land the ask on
+      // the nearest genuine place: high similarity, a unique
+      // clear winner, never a name-trading shell. Anything less
+      // certain returns null and the unmet verdict below stands
+      // — a wrong landing is worse than the honest gap. Scoped
+      // to pure name-anchor asks: head-noun / kind requirements
+      // never fuzz.
+      cand = fuzzyPlaceWinner(reqPatterns, pools);
     }
     if (!cand) {
       mustSeeResults.push({
