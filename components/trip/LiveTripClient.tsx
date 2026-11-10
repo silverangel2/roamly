@@ -56,6 +56,11 @@ import { formatTripDateRange, tripClockState, tripDayDateLabel } from "@/lib/roa
 import { UNKNOWN_TZ_LABEL } from "@/lib/roamly/tripTimezone";
 import type { DayTimelineRow } from "@/lib/roamly/liveDayTimeline";
 import { TripHeroCard, type TripHeroPhoto } from "@/components/roamly/TripHeroCard";
+import { BuiAccordion } from "@/components/boardui/Accordion";
+import { BuiBadge, BuiChip } from "@/components/boardui/Badge";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { DESIGN_TOKENS } from "@/lib/roamly/designTokens";
 import { buildAppleMapsUrl, buildGoogleMapsUrl } from "@/lib/roamly/navigationLinks";
 
@@ -2043,7 +2048,7 @@ export function LiveTripClient({
   };
 
   return (
-    <div className="calm-enter mx-auto w-full max-w-5xl">
+    <div className="bui-enter mx-auto w-full max-w-5xl">
       {/* Round 2 panel header (composite structure, real data): page
           title row, photo hero with the trip-state badge computed from
           the same clock as the Today tab, then the four tabs. */}
@@ -2098,7 +2103,7 @@ export function LiveTripClient({
           dismissInstallBanner above). Conditional only: it never
           renders in standalone and never after dismissal. */}
       {!isStandalone && !installBannerDismissed ? (
-        <section aria-label="Install Roamly" className="relative mt-3 rounded-2xl bg-white p-4 shadow-calm">
+        <BuiCard aria-label="Install Roamly" className="relative mt-3 p-4">
           <button
             type="button"
             onClick={dismissInstallBanner}
@@ -2141,24 +2146,22 @@ export function LiveTripClient({
                   )}
                 </p>
               )}
-              <button
-                type="button"
+              <BuiButton
                 onClick={() => setInstallGuideOpen(false)}
-                className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cblue px-4 py-3 text-sm font-black text-white"
+                className="mt-4 w-full"
               >
                 {t("ui.companionInstall.iveAddedIt", "I've added it — continue")}
-              </button>
+              </BuiButton>
             </div>
           ) : (
-            <button
-              type="button"
+            <BuiButton
               onClick={() => void startInstall()}
-              className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-cblue px-4 py-3 text-sm font-black text-white sm:w-auto"
+              className="mt-3 w-full sm:w-auto"
             >
               {t("ui.companionInstall.addToHomeScreen", "Add Roamly to your Home Screen")}
-            </button>
+            </BuiButton>
           )}
-        </section>
+        </BuiCard>
       ) : null}
       {/* Picture 4 — Live Companion, Today tab. Closed state, top to
           bottom, exactly the picture: banner · Day heading + subtitle ·
@@ -2178,19 +2181,11 @@ export function LiveTripClient({
           extracted from this same timeline state — see the C7 block. */}
       {preTrip ? (
         <>
-          <div className="mt-3 flex items-start gap-3 rounded-2xl bg-cblue/10 px-4 py-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-cblue/15 text-cblue" aria-hidden="true">
-              <Send size={20} strokeWidth={2} />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[17px] font-semibold leading-[1.3] text-chead">Trip hasn&apos;t started yet</span>
-              <span className="mt-0.5 block text-[15px] font-normal leading-[1.45] text-cink">
-                These are your planned activities for Day {eyebrowDay?.idx || 1}
-                {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
-                You&apos;ll get trip messages on your travel days once the trip begins.
-              </span>
-            </span>
-          </div>
+          <BuiNotice tone="info" className="mt-3" title="Trip hasn&apos;t started yet">
+            These are your planned activities for Day {eyebrowDay?.idx || 1}
+            {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
+            You&apos;ll get trip messages on your travel days once the trip begins.
+          </BuiNotice>
           <h2 className="mx-1 mb-1 mt-5 text-[22px] font-bold leading-[1.25] tracking-[-0.018em] text-chead">
             Day {eyebrowDay?.idx || 1}
             {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` · ${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)}` : ""}
@@ -2232,7 +2227,7 @@ export function LiveTripClient({
                     <span className="min-w-0 flex-1">
                       <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{displayTitle}</span>
                       {row.kind === "travel" && row.planned ? (
-                        <span className="mt-1 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Planned</span>
+                        <BuiChip tone="neutral" className="mt-1">Planned</BuiChip>
                       ) : null}
                       {displayDetail ? (
                         <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">{displayDetail}</span>
@@ -2243,43 +2238,43 @@ export function LiveTripClient({
                 );
               })
             ) : (
-              <p className="rounded-2xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray shadow-calm">
+              <BuiCard className="px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray">
                 Day plan details are not available yet.
-              </p>
+              </BuiCard>
             )}
           </section>
           {directionsHref || mapsHref ? (
             <div className="mt-3 grid grid-cols-2 gap-3">
               {hasDirectionLinks && directionsHref ? (
-                <button
-                  type="button"
+                <BuiButton
+                  variant="secondary"
                   onClick={() => setShowDirectionsPanel((value) => !value)}
                   aria-expanded={showDirectionsPanel}
                   aria-label="Getting to your next stop"
-                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm"
+                  className="w-full"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
                     <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" />
-                  </span>Directions</button>
+                  </span>Directions</BuiButton>
               ) : null}
               {mapsHref ? (
-                <a href={mapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm">
+                <BuiButtonLink href={mapsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
                     <MapPin size={15} strokeWidth={2.2} color="#2E7D32" />
                   </span>
                   Open in Maps
-                </a>
+                </BuiButtonLink>
               ) : null}
             </div>
           ) : null}
         </>
       ) : tripCompleted ? (
-        <div className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+        <BuiCard className="mt-3 px-4 py-3">
           <p className="text-[17px] font-semibold text-chead">Trip complete</p>
           <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
             Live Companion is closed for this trip. The saved plan stays here to review.
           </p>
-        </div>
+        </BuiCard>
       ) : (
         <>
           {/* Repair round P3: the banner title "Trip in progress"
@@ -2287,16 +2282,13 @@ export function LiveTripClient({
               The hero above is the Live view's ONE destination/state
               header; this banner keeps only its day context + the
               timing-truth line. */}
-          <div className="mt-3 flex items-start gap-3 rounded-2xl bg-cblue/10 px-4 py-3">
-            <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-cgreen" aria-hidden="true" />
-            <span className="min-w-0">
-              <span className="block text-[15px] font-normal leading-[1.45] text-cink">
-                Live updates for Day {eyebrowDay?.idx || 1}
-                {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
-                Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a booking with confirmation evidence on file. Check in as you go.
-              </span>
-            </span>
-          </div>
+          <BuiNotice
+            tone="info"
+            className="mt-3"
+            title={`Live updates for Day ${eyebrowDay?.idx || 1}${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.`}
+          >
+            Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a booking with confirmation evidence on file. Check in as you go.
+          </BuiNotice>
           {/* C7 — standalone NOW card at the top of Live Today.
               Display/extraction only (see nowCard* values above):
               the current activity is model.now, its window is the
@@ -2304,11 +2296,11 @@ export function LiveTripClient({
               runAction handler with the same guards as the Stop
               actions block below, and the next item is model.next. */}
           {currentActivity || nextActivity ? (
-            <section aria-label="Now and next" className="mt-3 rounded-2xl border-2 border-cblue/30 bg-white p-4 shadow-calm">
+            <BuiCard aria-label="Now and next" className="mt-3 p-4" style={{ borderWidth: 2, borderColor: "rgba(8,123,255,0.3)" }}>
               {currentActivity ? (
                 <>
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-md bg-cblue px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-white">Now</span>
+                    <BuiBadge tone="primary" bold>Now</BuiBadge>
                     {nowCardWindow ? <span className="text-[15px] font-semibold text-chead">{nowCardWindow}</span> : null}
                     {nowCardWindow ? <TimeProvenanceLabel kind={liveDayProvenanceFor(currentActivity)} /> : null}
                   </span>
@@ -2323,31 +2315,30 @@ export function LiveTripClient({
                     </span>
                   )}
                   <div className="mt-3 grid gap-2">
-                    <button
-                      type="button"
+                    <BuiButton
                       onClick={() => void runAction(currentActivity.id, "check-in", location)}
                       disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
-                      className="min-h-[50px] w-full rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-45"
+                      className="min-h-[50px] w-full text-[17px]"
                     >
                       {t("ui.actions.checkIn")}
-                    </button>
+                    </BuiButton>
                     <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
+                      <BuiButton
+                        variant="secondary"
                         onClick={() => void runAction(currentActivity.id, "complete")}
                         disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                        className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-4 py-2.5 text-[15px] font-semibold text-cink disabled:opacity-45"
+                        className="w-full"
                       >
                         Complete
-                      </button>
-                      <button
-                        type="button"
+                      </BuiButton>
+                      <BuiButton
+                        variant="secondary"
                         onClick={() => void runAction(currentActivity.id, "skip")}
                         disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                        className="flex min-h-11 items-center justify-center rounded-xl border border-chair bg-white px-4 py-2.5 text-[15px] font-semibold text-cink disabled:opacity-45"
+                        className="w-full"
                       >
                         Skip this activity
-                      </button>
+                      </BuiButton>
                     </div>
                   </div>
                 </>
@@ -2357,66 +2348,64 @@ export function LiveTripClient({
               {nextActivity ? (
                 <div className={currentActivity ? "mt-4 border-t border-chair pt-3" : "mt-3"}>
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-chead">Up next</span>
+                    <BuiBadge tone="neutral">Up next</BuiBadge>
                     {upNextCardTime ? <span className="text-[15px] font-semibold text-chead">{upNextCardTime}</span> : null}
                   </span>
                   <span className="mt-1 block break-words text-[17px] font-semibold leading-[1.3] text-chead">{upNextCardTitle}</span>
                 </div>
               ) : null}
-            </section>
+            </BuiCard>
           ) : null}
           {error ? (
-            <p role="alert" className="mt-3 rounded-xl bg-cred/10 px-3.5 py-[11px] text-sm font-semibold leading-[1.35] text-cred">{error}</p>
+            <BuiNotice tone="error" className="mt-3" title={error} />
           ) : null}
           {notice ? (
-            <p role="status" aria-live="polite" className="mt-3 rounded-xl bg-cblue/10 px-3.5 py-[11px] text-sm font-medium leading-[1.35] text-cink">{notice}</p>
+            <BuiNotice tone="info" className="mt-3" title={notice} />
           ) : null}
           {!trackingEnabled ? (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+            <BuiCard className="mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <p className="min-w-0 text-sm font-normal leading-6 text-cink">
                 Location is off — Live Companion can&apos;t follow along.
               </p>
-              <button
-                type="button"
+              <BuiButton
+                size="small"
                 onClick={() => enableLocation()}
-                className="min-h-11 shrink-0 px-1 text-[15px] font-semibold text-cblue"
+                className="shrink-0"
               >
                 Turn on location
-              </button>
-            </div>
+              </BuiButton>
+            </BuiCard>
           ) : permission === "denied" ? (
             /* Owner-10 item 6: permission recovery stays reachable
                but renders as ONE compact control — the full
                step-by-step recovery sits behind the tap, not as a
                wall of text on the Live screen. */
-            <details className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
-              <summary className="cursor-pointer text-[15px] font-semibold text-chead">Location is off — fix it</summary>
-              <div className="mt-2">
+            <BuiCard className="mt-3 px-4 py-3">
+              <BuiAccordion title="Location is off — fix it" buttonClassName="text-[15px] font-semibold text-chead">
                 <LocationPermissionRecovery
                   permission="denied"
                   onRetry={enableLocation}
                   onRecheck={() => void recheckLocationPermission()}
                 />
-              </div>
-            </details>
+              </BuiAccordion>
+            </BuiCard>
           ) : permission !== "granted" ? (
-            <details className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
-              <summary className="cursor-pointer text-[15px] font-semibold text-chead">Location is off — fix it</summary>
-              <div className="mt-2">
+            <BuiCard className="mt-3 px-4 py-3">
+              <BuiAccordion title="Location is off — fix it" buttonClassName="text-[15px] font-semibold text-chead">
                 <LocationPermissionRecovery
                   permission="prompt"
                   onRetry={enableLocation}
                   onRecheck={() => void recheckLocationPermission()}
                 />
-              </div>
-            </details>
+              </BuiAccordion>
+            </BuiCard>
           ) : null}
           {/* Owner-10 item 6: the Today tab is now the status banner
               (above) + ONE featured card + a compact upcoming list.
               The full walk-inserted timeline still lives on the Full
               Itinerary tab; nothing was deleted, only restructured. */}
           {featuredActivity ? (
-            <section className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
+            <BuiCard className="mt-5 p-4">
               <span className="text-[13px] font-semibold uppercase tracking-wide text-cgray">Next relevant activity</span>
               <span className="mt-1 block break-words text-[19px] font-bold leading-[1.3] text-chead">
                 {featuredUnverified ? "Unverified stop" : featuredRawTitle}
@@ -2431,7 +2420,7 @@ export function LiveTripClient({
                   <TimeProvenanceLabel kind={liveDayProvenanceFor(featuredActivity)} />
                 ) : null}
                 {featuredPill ? (
-                  <span className="rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">{featuredPill}</span>
+                  <BuiChip tone="neutral">{featuredPill}</BuiChip>
                 ) : null}
               </span>
               {featuredUnverified && featuredRawTitle ? (
@@ -2442,7 +2431,7 @@ export function LiveTripClient({
                   {activityDisplayDescription(featuredActivity, featuredActivity.category || "")}
                 </span>
               ) : null}
-            </section>
+            </BuiCard>
           ) : null}
           <section className="mt-3">
             {upcomingActivities.length ? (
@@ -2471,7 +2460,7 @@ export function LiveTripClient({
                         <span className="mt-0.5 block break-words text-[13px] font-normal text-cgray">Plan title: {rawTitle}</span>
                       ) : null}
                       {isUpNext ? (
-                        <span className="mt-1 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Up next</span>
+                        <BuiChip tone="neutral" className="mt-1">Up next</BuiChip>
                       ) : null}
                     </span>
                   </div>
@@ -2500,7 +2489,7 @@ export function LiveTripClient({
                       <span className="min-w-0 flex-1">
                         <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{displayTitle}</span>
                         {row.kind === "travel" && row.planned ? (
-                          <span className="mt-1 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Planned</span>
+                          <BuiChip tone="neutral" className="mt-1">Planned</BuiChip>
                         ) : null}
                         {displayDetail ? (
                           <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">{displayDetail}</span>
@@ -2511,71 +2500,71 @@ export function LiveTripClient({
                 })}
               </div>
             ) : (
-              <p className="rounded-2xl bg-white px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray shadow-calm">
+              <BuiCard className="px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray">
                 Today&apos;s plan is not available yet.
-              </p>
+              </BuiCard>
             )}
           </section>
-          {!tripCompleted ? <section className="mt-3 rounded-2xl bg-white shadow-calm">
+          {!tripCompleted ? <BuiCard className="mt-3 px-1 pb-1">
             {currentActivity && !tripCompleted ? (
               /* Owner-10 item 6: Check in / Complete / Skip stay
                  reachable, behind the featured card — one tap on
                  "Stop actions" — instead of a standing action block. */
-              <details className="px-1 pb-1">
-                <summary className="cursor-pointer px-3 py-2.5 text-[15px] font-semibold text-chead">Stop actions</summary>
-                <button
-                  type="button"
-                  onClick={() => void runAction(currentActivity.id, "check-in", location)}
-                  disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
-                  className="min-h-[50px] w-full rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white disabled:opacity-45"
-                >
-                  {t("ui.actions.checkIn")}
-                </button>
-                <div className="divide-y divide-chair">
-                  <button
-                    type="button"
-                    onClick={() => void runAction(currentActivity.id, "complete")}
-                    disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                    className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink disabled:opacity-45"
+              <BuiAccordion title="Stop actions" buttonClassName="px-3 text-[15px] font-semibold text-chead">
+                <div className="grid gap-2 px-3 pb-2">
+                  <BuiButton
+                    onClick={() => void runAction(currentActivity.id, "check-in", location)}
+                    disabled={Boolean(busy) || ["checked_in", "completed", "skipped"].includes(String(currentActivity.status))}
+                    className="min-h-[50px] w-full text-[17px]"
                   >
-                    Complete
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void runAction(currentActivity.id, "skip")}
-                    disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
-                    className="flex min-h-11 w-full items-center px-4 py-2.5 text-left text-[17px] font-normal text-cink disabled:opacity-45"
-                  >
-                    Skip this activity
-                  </button>
+                    {t("ui.actions.checkIn")}
+                  </BuiButton>
+                  <div className="grid grid-cols-2 gap-2">
+                    <BuiButton
+                      variant="secondary"
+                      onClick={() => void runAction(currentActivity.id, "complete")}
+                      disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                      className="w-full"
+                    >
+                      Complete
+                    </BuiButton>
+                    <BuiButton
+                      variant="secondary"
+                      onClick={() => void runAction(currentActivity.id, "skip")}
+                      disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
+                      className="w-full"
+                    >
+                      Skip this activity
+                    </BuiButton>
+                  </div>
                 </div>
-              </details>
+              </BuiAccordion>
             ) : null}
             <p className="px-4 py-2.5 text-[13px] font-normal leading-[1.4] text-cgray">
               {!currentActivity ? "Review the plan and confirm anything still suggested." : "Skip or complete this stop. The rest of today's times stay as labeled."}
             </p>
-          </section> : null}
+          </BuiCard> : null}
           {directionsHref || mapsHref ? (
             <div className="mt-3 grid grid-cols-2 gap-3">
               {hasDirectionLinks && directionsHref ? (
-                <button
-                  type="button"
+                <BuiButton
+                  variant="secondary"
                   onClick={() => setShowDirectionsPanel((value) => !value)}
                   aria-expanded={showDirectionsPanel}
                   aria-label="Getting to your next stop"
-                  className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm"
+                  className="w-full"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
                     <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" />
-                  </span>Directions</button>
+                  </span>Directions</BuiButton>
               ) : null}
               {mapsHref ? (
-                <a href={mapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 text-[15px] font-semibold text-chead shadow-calm">
+                <BuiButtonLink href={mapsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
                     <MapPin size={15} strokeWidth={2.2} color="#2E7D32" />
                   </span>
                   Open in Maps
-                </a>
+                </BuiButtonLink>
               ) : null}
             </div>
           ) : null}
@@ -2589,7 +2578,7 @@ export function LiveTripClient({
           panel's mount props are otherwise unchanged. */}
       {nextActivity ? (
         showDirectionsPanel ? (
-          <div className="mt-3 overflow-hidden rounded-2xl shadow-calm">
+          <BuiCard className="mt-3 overflow-hidden">
             <DirectionsPanel
               tripId={tripId}
               destination={{
@@ -2620,12 +2609,12 @@ export function LiveTripClient({
               planTitle={nextUnverified ? nextActivity.title : null}
               standaloneHref={`/trip/${tripId}/directions/${nextActivity.id}?from=live`}
             />
-          </div>
+          </BuiCard>
         ) : null
       ) : null}
 
       {fieldTestMode && showSetupCard ? (
-      <section className="mt-5 rounded-2xl bg-white p-4 shadow-calm">
+      <BuiCard className="mt-5 p-4">
         <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
         {!mobileRuntime ? (
           <div className="mt-3 rounded-xl bg-cbg p-4">
@@ -2637,21 +2626,20 @@ export function LiveTripClient({
                   <QRCodeSVG value={liveTripUrl} size={168} />
                 </div>
                 <div className="mt-4 grid w-full gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
+                  <BuiButton
+                    variant="secondary"
                     onClick={() => void copyTripLink()}
-                    className="min-h-12 rounded-xl border border-chair bg-white px-4 py-3 text-sm font-semibold text-chead"
+                    className="w-full"
                   >
                     {tripLinkCopied ? "Link copied ✓" : "Copy trip link"}
-                  </button>
+                  </BuiButton>
                   {canNativeShare ? (
-                    <button
-                      type="button"
+                    <BuiButton
                       onClick={() => void shareTripLink()}
-                      className="min-h-12 rounded-xl bg-cblue px-4 py-3 text-sm font-semibold text-white"
+                      className="w-full"
                     >
                       Send to my phone
-                    </button>
+                    </BuiButton>
                   ) : null}
                 </div>
               </div>
@@ -2664,20 +2652,20 @@ export function LiveTripClient({
               Without the app, Roamly can&apos;t reach you in the moment — this trip still follows its
               schedule here. Adding the app is step 2 of setup, done once, in Settings.
             </p>
-            <a
+            <BuiButtonLink
               href="/account#setup-step-2"
-              className="mt-3 flex min-h-[50px] w-full items-center justify-center rounded-xl bg-cblue px-5 text-[15px] font-semibold text-white"
+              className="mt-3 w-full"
             >
               Finish setup in Settings
-            </a>
+            </BuiButtonLink>
           </div>
         ) : fieldTestMode && notificationPermission === "default" ? (
           <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
             <h3 className="text-xl font-semibold text-amber-900">Notifications need your permission</h3>
             <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Allow notifications so this phone can receive the field-test alert.</p>
-            <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
+            <BuiButton variant="secondary" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 w-full">
               {busy === "notifications" ? "Enabling…" : "Enable notifications"}
-            </button>
+            </BuiButton>
           </div>
         ) : fieldTestMode && notificationPermission === "denied" ? (
           <div className="mt-3 rounded-xl bg-coral/20 p-4">
@@ -2688,18 +2676,18 @@ export function LiveTripClient({
           <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
             <h3 className="text-xl font-semibold text-amber-900">Register this phone</h3>
             <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Permission is granted, but the phone is not registered with Roamly yet.</p>
-            <button type="button" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
+            <BuiButton variant="secondary" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 w-full">
               {busy === "notifications" ? "Registering…" : "Retry registration"}
-            </button>
+            </BuiButton>
           </div>
         ) : fieldTestMode && pushReady && !setupComplete ? (
           <div className="mt-3 rounded-xl bg-cblue/20 p-4">
             <h3 className="text-xl font-semibold text-chead">Notifications ready</h3>
             <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">This phone is registered. Continue with location setup for the field test.</p>
             {!watching ? (
-              <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
+              <BuiButton variant="secondary" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 w-full">
                 {busy === "setup" ? "Setting up…" : permission !== "granted" ? "Allow location" : "Open Live Companion"}
-              </button>
+              </BuiButton>
             ) : null}
           </div>
         ) : fieldTestMode && setupComplete ? (
@@ -2716,9 +2704,9 @@ export function LiveTripClient({
               <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right font-normal text-cgray">{trackingEnabled || permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
               <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
             </div>
-            <button type="button" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 min-h-12 w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-chead disabled:opacity-50">
+            <BuiButton variant="secondary" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 w-full">
               {busy === "setup" ? "Setting up…" : fieldTestMode ? permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
-            </button>
+            </BuiButton>
           </>
         ) : setupGap ? (
           <p className="mt-3 text-sm font-normal leading-[1.45] text-cink">
@@ -2733,7 +2721,7 @@ export function LiveTripClient({
           {watching ? "Live Companion is active while Roamly is open." : notificationPermission === "denied" ? "Notifications are blocked. Allow them for Roamly in your phone settings, then return here." : !pushReady ? "Roamly will register this phone for OS notifications." : permission === "denied" ? "Location is blocked. In your phone settings, allow location for Roamly, then return here." : backgroundLocationEnabled ? "Location access is ready for Live while Roamly is open." : permission === "granted" ? "Location is ready. Continue to turn on Live Companion." : trackingEnabled ? "Location is on — Live Companion will follow along while Roamly is open." : "Your choices are saved to your account when you continue."}
         </p>
         ) : null}
-      </section>
+      </BuiCard>
       ) : null}
 
       {liveDemoEnabled ? (
@@ -2786,12 +2774,12 @@ export function LiveTripClient({
           ? liveActivities.filter((activity) => activity.id === deepLinkedActivityId)
           : liveActivities.slice(0, 6)
         ).map((activity) => (
-          <article
+          <BuiCard
             key={activity.id}
             id={`live-activity-${activity.id}`}
             tabIndex={deepLinkedActivityId === activity.id ? -1 : undefined}
             className={classNames(
-              "rounded-2xl border bg-white p-4 shadow-calm transition-shadow",
+              "p-4 transition-shadow",
               deepLinkedActivityId === activity.id
                 ? "border-cblue/40 bg-cblue/5 shadow-[0_0_0_3px_rgba(0,122,255,0.15)]"
                 : activity.id === currentActivity?.id ? "border-cblue/40" : "border-chair"
@@ -2805,37 +2793,37 @@ export function LiveTripClient({
                 <h3 className="mt-1 text-[17px] font-semibold text-chead">{timelineRowTitle(activity, nextRowTitle, activeDestinationLabel, suppressFlightFraming, originLabel || "")}</h3>
                 <p className="mt-1 line-clamp-2 text-sm font-normal leading-[1.45] text-cink">{activity.shortDescription}</p>
               </div>
-              <button
-                type="button"
+              <BuiButton
+                size="small"
                 onClick={() => void runAction(activity.id, "check-in")}
                 disabled={Boolean(busy) || activity.id !== actionableActivityId || ["checked_in", "completed", "skipped"].includes(String(activity.status))}
-                className="min-h-11 shrink-0 rounded-xl bg-cblue px-3 py-2 text-xs font-semibold text-white disabled:opacity-45"
+                className="shrink-0"
               >
                 {t("ui.actions.checkIn")}
-              </button>
+              </BuiButton>
             </div>
-            <details className="mt-3 rounded-xl bg-cbg px-3 py-3">
-              <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">More</summary>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => void runAction(activity.id, "complete")}
-                  disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
-                  className="min-h-11 rounded-xl bg-cblue px-3 py-2 text-xs font-semibold text-white disabled:opacity-45"
-                >
-                  {t("ui.actions.markDone")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void runAction(activity.id, "skip")}
-                  disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
-                  className="min-h-11 rounded-xl border border-chair bg-white px-3 py-2 text-xs font-semibold text-cink disabled:opacity-45"
-                >
-                  {t("ui.actions.skip")}
-                </button>
-              </div>
-            </details>
-          </article>
+            <div className="mt-3 rounded-xl bg-cbg px-3 py-1">
+              <BuiAccordion title="More" buttonClassName="text-xs font-medium uppercase tracking-[0.06em] text-cgray">
+                <div className="grid gap-2 pb-2 sm:grid-cols-2">
+                  <BuiButton
+                    size="small"
+                    onClick={() => void runAction(activity.id, "complete")}
+                    disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
+                  >
+                    {t("ui.actions.markDone")}
+                  </BuiButton>
+                  <BuiButton
+                    variant="secondary"
+                    size="small"
+                    onClick={() => void runAction(activity.id, "skip")}
+                    disabled={Boolean(busy) || activity.id !== actionableActivityId || ["completed", "skipped"].includes(String(activity.status))}
+                  >
+                    {t("ui.actions.skip")}
+                  </BuiButton>
+                </div>
+              </BuiAccordion>
+            </div>
+          </BuiCard>
         ))}
       </section>
 
@@ -2851,7 +2839,7 @@ export function LiveTripClient({
           {itineraryDays.length ? (
             <div className="grid gap-4">
               {itineraryDays.map((day) => (
-                <div key={day.dayNumber} className="rounded-2xl bg-white p-4 shadow-calm">
+                <BuiCard key={day.dayNumber} className="p-4">
                   <p className="text-[17px] font-semibold text-chead">
                     Day {day.dayNumber}{day.dateLabel ? ` · ${day.dateLabel}` : ""}
                   </p>
@@ -2866,17 +2854,17 @@ export function LiveTripClient({
                       </div>
                     ))}
                   </div>
-                </div>
+                </BuiCard>
               ))}
             </div>
           ) : (
-            <p className="rounded-2xl bg-white p-4 text-[15px] font-normal leading-[1.45] text-cgray shadow-calm">
+            <BuiCard className="p-4 text-[15px] font-normal leading-[1.45] text-cgray">
               The full itinerary for this trip is not available here yet.
-            </p>
+            </BuiCard>
           )}
-          <a href={`/trip/${tripId}`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-cblue px-5 text-[15px] font-semibold text-white">
+          <BuiButtonLink href={`/trip/${tripId}`} className="mt-4">
             See the full itinerary
-          </a>
+          </BuiButtonLink>
         </section>
       ) : null}
       {/* Picture 4, Map tab — the embedded TripDayMap renders above
@@ -2885,7 +2873,7 @@ export function LiveTripClient({
           links for the current/next stop remain as the way to see
           the stops on a map. */}
       {liveTab === "map" ? (
-        <section className="mt-4 rounded-2xl bg-white p-4 shadow-calm">
+        <BuiCard className="mt-4 p-4">
           <p className="text-[17px] font-semibold text-chead">Map</p>
           {mapStopsForDay.length ? (
             <div className="mt-3">
@@ -2903,14 +2891,14 @@ export function LiveTripClient({
               </p>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 {mapDirectionsHref ? (
-                  <a href={mapDirectionsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cbg px-4 text-[15px] font-semibold text-chead">
+                  <BuiButtonLink href={mapDirectionsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
                     Directions
-                  </a>
+                  </BuiButtonLink>
                 ) : null}
                 {mapMapsHref ? (
-                  <a href={mapMapsHref} target="_blank" rel="noreferrer" className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-cbg px-4 text-[15px] font-semibold text-chead">
+                  <BuiButtonLink href={mapMapsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
                     Open in Maps
-                  </a>
+                  </BuiButtonLink>
                 ) : null}
               </div>
             </>
@@ -2919,10 +2907,10 @@ export function LiveTripClient({
               Maps links are not available for this trip yet.
             </p>
           )}
-        </section>
+        </BuiCard>
       ) : null}
       {liveTab === "essentials" ? (
-        <section className="mt-4 rounded-2xl bg-white p-4 shadow-calm">
+        <BuiCard className="mt-4 p-4">
           <p className="text-[17px] font-semibold text-chead">
             Essentials · {essentialsDone} of {checklist.length}
           </p>
@@ -2939,13 +2927,13 @@ export function LiveTripClient({
               No essentials for this trip yet.
             </p>
           )}
-        </section>
+        </BuiCard>
       ) : null}
 
       {canSimulateLocation ? (
-        <details className="rounded-2xl border border-chair bg-white p-4 shadow-calm">
-          <summary className="cursor-pointer text-sm font-semibold text-chead">Tester location tools</summary>
-          <div className="mt-4 grid gap-3">
+        <BuiCard className="p-4">
+          <BuiAccordion title="Tester location tools" buttonClassName="text-sm font-semibold text-chead">
+          <div className="mt-2 grid gap-3">
             <select
               value={selectedPlaceId}
               onChange={(event) => setSelectedPlaceId(event.target.value)}
@@ -2957,22 +2945,24 @@ export function LiveTripClient({
             </select>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               {qaActions.map((action) => (
-                <button
+                <BuiButton
                   key={action.label}
-                  type="button"
+                  variant="secondary"
+                  size="small"
                   disabled={Boolean(qaBusy)}
                   onClick={() => {
                     const coords = action.custom ? action.custom() : resolvePlace(action.place, action.label);
                     void activateSimulatedLocation({ latitude: coords.latitude, longitude: coords.longitude, label: coords.label || action.label, target: coords.target });
                   }}
-                  className="min-h-11 rounded-xl border border-chair bg-cbg px-3 py-2 text-xs font-semibold text-chead disabled:opacity-60"
+                  className="w-full"
                 >
                   {qaBusy === action.label ? "Running" : action.label}
-                </button>
+                </BuiButton>
               ))}
             </div>
           </div>
-        </details>
+          </BuiAccordion>
+        </BuiCard>
       ) : null}
     </div>
   );
