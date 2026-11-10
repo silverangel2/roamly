@@ -28,6 +28,8 @@
  */
 
 import { useMemo, useState, type ReactNode } from "react";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { ArrowUpRight, ChevronLeft, Map } from "lucide-react";
 import { calculateDistanceMeters } from "@/lib/roamly/location";
 import type {
@@ -334,7 +336,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
           the Route row below is the screen's ONE routing
           explanation. */}
       <div className="px-4">
-        <div className="rounded-2xl bg-white px-4 py-4 shadow-calm">
+        <BuiCard className="px-4 py-4">
           <div className="grid gap-2">
             <p className="text-sm font-normal leading-6 text-cink">
               <span className="font-semibold text-chead">From: </span>
@@ -355,13 +357,13 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               {summaryLine}
             </p>
           </div>
-        </div>
+        </BuiCard>
       </div>
 
       {/* Walk summary — mock line, real values only. Terrain and
           sidewalk claims have no source and are never asserted. */}
       <div className="mt-3 px-4">
-        <div className="flex items-start gap-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+        <BuiCard className="flex items-start gap-3 px-4 py-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-cbg">
             <WalkIcon />
           </span>
@@ -380,30 +382,30 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               Terrain and sidewalk details aren&apos;t available for this stop.
             </p>
           </div>
-        </div>
+        </BuiCard>
       </div>
 
       {/* Open in Maps — built from this trip's real destination; the
           origin parameter is present only when the gate verified it. */}
       <div className="mt-3 px-4">
         {mapsLinks.available && mapsLinks.primary ? (
-          <a
+          <BuiButtonLink
             href={mapsLinks.primary}
             target="_blank"
             rel="noreferrer"
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-cblue px-4 text-[17px] font-semibold text-white"
+            className="min-h-12 w-full text-[17px]"
           >
             Open in Maps
             <ExternalIcon />
-          </a>
+          </BuiButtonLink>
         ) : (
-          <button
-            type="button"
+          <BuiButton
+            variant="secondary"
             disabled
-            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-[12px] bg-cbg px-4 text-[17px] font-semibold text-cgray"
+            className="min-h-12 w-full text-[17px]"
           >
             Open in Maps
-          </button>
+          </BuiButton>
         )}
         {!mapsLinks.available ? (
           <p className="mt-2 text-center text-[13px] font-normal leading-5 text-cgray">
@@ -433,7 +435,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
       <div className="mt-5 px-4">
         <h3 className="text-[17px] font-bold text-chead">Step-by-step directions</h3>
         {stepsState.state === "location_needed" ? (
-          <div className="mt-3 rounded-2xl bg-white px-4 py-4 shadow-calm">
+          <BuiCard className="mt-3 px-4 py-4">
             <p className="text-[15px] font-semibold leading-6 text-chead">Location needed for directions from here</p>
             <p className="mt-1 text-sm font-normal leading-6 text-cink">
               {stepsState.gate.state === "location_needed" ? stepsState.gate.detail : "Your current location is unavailable right now."}{" "}
@@ -450,17 +452,18 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
             >
               {locationRequesting ? "Checking location…" : "Use my current location"}
             </button>
-          </div>
+          </BuiCard>
         ) : stepsState.state === "steps_unavailable" ? (
-          <div className="mt-3 rounded-2xl bg-white px-4 py-4 shadow-calm">
+          <BuiCard className="mt-3 px-4 py-4">
             <p className="text-[15px] font-semibold leading-6 text-chead">Step-by-step directions aren&apos;t available yet</p>
             <p className="mt-1 text-sm font-normal leading-6 text-cink">
               Your current location is verified for this trip, but Roamly doesn&apos;t have a step-by-step routing source for
               this stop yet. Open in Maps above for turn-by-turn directions — no street names or distances are guessed here.
             </p>
-          </div>
+          </BuiCard>
         ) : (
-          <ol className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-calm">
+          <BuiCard className="mt-3 px-4 py-3">
+          <ol>
             <li className="flex items-start gap-3 py-2">
               <span aria-hidden="true" className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-cblue ring-4 ring-cbg" />
               <span className="text-[15px] font-normal leading-6 text-cink">Start from your current location</span>
@@ -481,6 +484,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               <span className="text-[15px] font-normal leading-6 text-cink">Arrive at {displayTitle}</span>
             </li>
           </ol>
+          </BuiCard>
         )}
 
         {/* Photo strip — mock position, between the steps and the

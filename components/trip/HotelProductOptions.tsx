@@ -1,5 +1,6 @@
 import type { HotelProductPresentation } from "@/lib/roamly/hotelProductPresentation";
 import { HotelProductChoicePicker } from "@/components/trip/HotelProductChoicePicker";
+import { BuiCard } from "@/components/boardui/Card";
 
 type PendingHotelProductChoice = {
   tripId: string;
@@ -36,12 +37,12 @@ export function HotelProductOptions({ presentation, tripId, pendingChoice }: { p
   const secondaryDisclosures = disclosures.filter((copy) => !criticalDisclosures.includes(copy)).slice(0, 2);
 
   return (
-    <section aria-labelledby="hotel-product-options-title" className="mt-6 rounded-2xl border border-[#e8dfd0] bg-white/90 p-4 shadow-[0_12px_34px_rgba(16,32,51,0.04)] sm:p-5">
+    <BuiCard role="region" aria-labelledby="hotel-product-options-title" className="mt-6 p-4 sm:p-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Selected hotel</p>
           <h3 id="hotel-product-options-title" className="mt-1 text-xl font-black text-ink">Room &amp; rate options</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Room and rate details are for comparison; exact product booking is not verified.</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-cgray">Room and rate details are for comparison; exact product booking is not verified.</p>
         </div>
       </div>
 
@@ -50,11 +51,11 @@ export function HotelProductOptions({ presentation, tripId, pendingChoice }: { p
       ) : presentation.products.length ? (
         <HotelProductChoicePicker tripId={tripId} presentation={presentation} initialPendingChoice={pendingChoice} />
       ) : (
-        <p className="mt-4 rounded-xl border border-dashed border-[#e8dfd0] bg-[#fffdf8] px-3 py-3 text-sm font-black text-slate-500">Detailed room and rate options aren&apos;t available yet.</p>
+        <p className="mt-4 rounded-xl border border-dashed border-chair bg-csoft px-3 py-3 text-sm font-black text-cgray">Detailed room and rate options aren&apos;t available yet.</p>
       )}
 
-      {criticalDisclosures.length || secondaryDisclosures.length ? <p className="mt-3 text-xs font-bold leading-5 text-slate-500">{[...criticalDisclosures, ...secondaryDisclosures].join(" · ")}</p> : null}
+      {criticalDisclosures.length || secondaryDisclosures.length ? <p className="mt-3 text-xs font-bold leading-5 text-cgray">{[...criticalDisclosures, ...secondaryDisclosures].join(" · ")}</p> : null}
       {presentation.requiresRevalidation ? <p className="mt-2 text-xs font-black text-amber-800">Availability needs refresh before relying on these options.</p> : null}
-    </section>
+    </BuiCard>
   );
 }

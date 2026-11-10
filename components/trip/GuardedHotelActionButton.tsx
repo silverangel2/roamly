@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
 
 export function GuardedHotelActionButton({ tripId, label }: { tripId: string; label: string }) {
   const [busy, setBusy] = useState(false);
@@ -35,14 +36,13 @@ export function GuardedHotelActionButton({ tripId, label }: { tripId: string; la
 
   return (
     <>
-      <button
-        type="button"
-        disabled={busy}
+      <BuiButton
+        busy={busy}
         onClick={() => void continueToHotel()}
-        className="roamly-no-print inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-cblue/20 bg-cblue px-5 py-2.5 text-sm font-black text-white transition hover:bg-cblue/90 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+        className="roamly-no-print w-full sm:w-auto"
       >
         {busy ? "Checking latest hotel details…" : label}
-      </button>
+      </BuiButton>
       {error ? <p className="max-w-[16rem] text-xs font-bold leading-5 text-coral">{error}</p> : null}
     </>
   );

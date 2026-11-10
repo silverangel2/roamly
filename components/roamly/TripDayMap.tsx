@@ -356,7 +356,7 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
 
   return (
     <div>
-      <div className="overflow-hidden rounded-xl bg-cbg">
+      <div className="bui-squircle overflow-hidden rounded-bui-card border border-chair bg-cbg shadow-bui-card">
         <div ref={containerRef} className="h-[280px] w-full" aria-label="Map of this day's stops" />
       </div>
 
@@ -374,8 +374,8 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
               ref={(node) => {
                 cardRefs.current[entry.index] = node;
               }}
-              className={`w-[180px] shrink-0 snap-start rounded-xl border p-3 ${
-                selected ? "border-cblue bg-cblue/10 ring-1 ring-cblue" : "border-chair bg-cbg"
+              className={`bui-squircle w-[180px] shrink-0 snap-start rounded-bui-card border p-3 shadow-bui-card ${
+                selected ? "border-cblue bg-cblue/10 ring-1 ring-cblue" : "border-chair bg-white"
               }`}
             >
               <button
