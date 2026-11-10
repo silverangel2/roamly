@@ -26,6 +26,7 @@ import {
   isPlaceholderTitle,
   isSearchQueryTitle,
   isTimelineAdmissibleCandidate,
+  marketResultCoordinates,
   packFallbackMarketResults
 } from "@/lib/roamly/timelineGrounding";
 import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
@@ -969,6 +970,13 @@ function rehydrateGroundedTimelineItem(item: RoamlyActivitySeed, candidate: Trav
   const cost = candidateCostStatus(candidate) !== "UNKNOWN" && typeof candidate.price_amount === "number" && Number.isFinite(candidate.price_amount)
     ? candidate.price_amount
     : null;
+  // Map-pins fix (2026-11-09): the item's identity becomes this
+  // candidate, so the pin must be THIS candidate's own point (Booking
+  // property coordinates / pack candidate pos), carried — never the
+  // previous item's point, never a guess. A candidate with no
+  // truthful point writes null and drops any provenance stamps, so
+  // the record never claims a place pin it does not have.
+  const coordinates = marketResultCoordinates(candidate);
   return {
     ...item,
     candidateId: candidate.id,
@@ -997,7 +1005,10 @@ function rehydrateGroundedTimelineItem(item: RoamlyActivitySeed, candidate: Trav
     booking_label: undefined,
     booking: undefined,
     affiliate_category: undefined,
-    coordinates: null,
+    coordinates,
+    ...(coordinates
+      ? { coordinateSource: "candidate" as const, coordinatePrecision: "place" as const }
+      : { coordinateSource: undefined, coordinatePrecision: undefined }),
     timing_status: "PLANNED",
     uncertainty: Array.from(new Set([
       ...(item.uncertainty || []),
