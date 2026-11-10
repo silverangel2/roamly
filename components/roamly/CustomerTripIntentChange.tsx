@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { PackageChangeForm, PackageChangeRow, packageFieldClass, packageLabelClass, packagePrimaryClass, packageQuietClass } from "@/components/roamly/packageChangeChrome";
+import { PackageChangeForm, PackageChangeRow, PackageField, packageFieldClass, packageLabelClass } from "@/components/roamly/packageChangeChrome";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { useBuiField } from "@/components/boardui/Field";
 
 type Props = {
   tripId: string;
@@ -27,6 +30,11 @@ function travelerValue(adults: number, childrenCount: number, infants: number) {
   return parts.join(", ");
 }
 
+function wholeCount(raw: string) {
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed >= 0 ? null : "whole";
+}
+
 export default function CustomerTripIntentChange(props: Props) {
   const [open, setOpen] = useState(false);
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -36,6 +44,19 @@ export default function CustomerTripIntentChange(props: Props) {
   const [adults, setAdults] = useState(String(props.adults));
   const [children, setChildren] = useState(String(props.childrenCount));
   const [infants, setInfants] = useState(String(props.infants));
+  const adultsField = useBuiField((raw) => {
+    if (!raw.trim()) return "Enter at least 1 adult.";
+    if (wholeCount(raw) || Number(raw) < 1) return "Adults must be a whole number, at least 1.";
+    return "";
+  });
+  const childrenField = useBuiField((raw) =>
+    // Empty keeps today's meaning (0 travellers) — only a typed
+    // value that is not a whole count is an error.
+    raw.trim() && wholeCount(raw) ? "Children must be a whole number, 0 or more." : ""
+  );
+  const infantsField = useBuiField((raw) =>
+    raw.trim() && wholeCount(raw) ? "Infants must be a whole number, 0 or more." : ""
+  );
   const [travelStyle, setTravelStyle] = useState(props.travelStyle || "Balanced");
   const [interests, setInterests] = useState(props.interests.join(", "));
   const [accommodationPreference, setAccommodationPreference] = useState(props.accommodationPreference || "Not sure");
@@ -46,6 +67,10 @@ export default function CustomerTripIntentChange(props: Props) {
   if (!["generated", "locked", "planned"].includes(props.status)) return null;
 
   async function preview() {
+    const adultsError = adultsField.runValidation(adults);
+    const childrenError = childrenField.runValidation(children);
+    const infantsError = infantsField.runValidation(infants);
+    if (adultsError || childrenError || infantsError) return;
     const composition = { adults: Number(adults), children: Number(children), infants: Number(infants) };
     setBusy(true); setMessage("");
     try {
@@ -95,16 +120,13 @@ export default function CustomerTripIntentChange(props: Props) {
       ) : (
         <PackageChangeForm onCancel={() => { setOpen(false); setProposal(null); }}>
           <p className="text-[0.9375rem] font-semibold tracking-tight text-ink">Change travelers &amp; preferences</p>
-          <p className="mt-1 text-sm leading-6 text-slate-500">Roamly will make a fresh grounded plan while keeping your destination, dates, and budget unchanged. Existing bookings stay attached to this current trip and are not moved.</p>
+          <p className="mt-1 text-sm leading-6 text-cgray">Roamly will make a fresh grounded plan while keeping your destination, dates, and budget unchanged. Existing bookings stay attached to this current trip and are not moved.</p>
           {!proposal ? (
             <>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {([["Adults", adults, setAdults], ["Children", children, setChildren], ["Infants", infants, setInfants]] as const).map(([label, value, setter]) => (
-                  <label key={label} className={packageLabelClass}>
-                    {label}
-                    <input type="number" min="0" value={value} onChange={(event) => setter(event.target.value)} className={packageFieldClass} />
-                  </label>
-                ))}
+                <PackageField key={`adults-${adultsField.shakeKey}`} id="package-adults" label="Adults" type="number" inputMode="numeric" min={0} value={adults} onChange={setAdults} field={adultsField} />
+                <PackageField key={`children-${childrenField.shakeKey}`} id="package-children" label="Children" type="number" inputMode="numeric" min={0} value={children} onChange={setChildren} field={childrenField} />
+                <PackageField key={`infants-${infantsField.shakeKey}`} id="package-infants" label="Infants" type="number" inputMode="numeric" min={0} value={infants} onChange={setInfants} field={infantsField} />
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {fields.map(([label, value, setter]) => (
@@ -114,29 +136,29 @@ export default function CustomerTripIntentChange(props: Props) {
                   </label>
                 ))}
               </div>
-              <label className={`mt-3 block ${packageLabelClass}`}>
+              <label className={`mt-3 ${packageLabelClass}`}>
                 Interests, separated by commas
                 <input value={interests} onChange={(event) => setInterests(event.target.value)} className={packageFieldClass} />
               </label>
-              <label className={`mt-3 block ${packageLabelClass}`}>
+              <label className={`mt-3 ${packageLabelClass}`}>
                 Special planning notes
                 <textarea value={specialNotes} onChange={(event) => setSpecialNotes(event.target.value)} className={`${packageFieldClass} min-h-20 py-2`} />
               </label>
-              <button type="button" onClick={preview} disabled={busy} className={`mt-4 ${packagePrimaryClass}`}>{busy ? "Checking…" : "Preview change"}</button>
+              <BuiButton onClick={preview} busy={busy} className="mt-4">{busy ? "Checking…" : "Preview change"}</BuiButton>
             </>
           ) : (
             <>
-              <p className="mt-3 text-sm font-medium text-slate-700">New composition: {requested?.travelers?.adults || 0} adults, {requested?.travelers?.children || 0} children, {requested?.travelers?.infants || 0} infants.</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Companion traveler details are not copied into the new trip. Re-enter any required passport details after the new slots are created. Your current itinerary remains intact until fresh generation succeeds.</p>
-              {proposal.result?.bookingReviewRequired ? <p className="mt-2 text-sm font-medium text-amber-800">Existing non-confirmed booking activity was found. Review those bookings before relying on the fresh plan; Roamly will not move them.</p> : null}
+              <p className="mt-3 text-sm font-medium text-ink">New composition: {requested?.travelers?.adults || 0} adults, {requested?.travelers?.children || 0} children, {requested?.travelers?.infants || 0} infants.</p>
+              <p className="mt-2 text-sm leading-6 text-cgray">Companion traveler details are not copied into the new trip. Re-enter any required passport details after the new slots are created. Your current itinerary remains intact until fresh generation succeeds.</p>
+              {proposal.result?.bookingReviewRequired ? <BuiNotice tone="info" title="Existing non-confirmed booking activity was found. Review those bookings before relying on the fresh plan; Roamly will not move them." className="mt-2" /> : null}
               <div className="mt-4 flex flex-wrap items-center gap-1">
-                <button type="button" onClick={apply} disabled={busy} className={packagePrimaryClass}>{busy ? "Starting…" : "Approve and create fresh plan"}</button>
-                <button type="button" onClick={() => setProposal(null)} disabled={busy} className={packageQuietClass}>Review again</button>
+                <BuiButton onClick={apply} busy={busy}>{busy ? "Starting…" : "Approve and create fresh plan"}</BuiButton>
+                <BuiButton variant="ghost" onClick={() => setProposal(null)} disabled={busy}>Review again</BuiButton>
               </div>
             </>
           )}
-          {message ? <p className="mt-3 text-sm text-amber-800" aria-live="polite">{message}</p> : null}
-          {applied ? <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800" aria-live="polite">{applied}</p> : null}
+          {message ? <BuiNotice tone="error" title={message} className="mt-3" /> : null}
+          {applied ? <BuiNotice tone="success" title={applied} className="mt-3" /> : null}
         </PackageChangeForm>
       )}
     </div>

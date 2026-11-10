@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiButton } from "@/components/boardui/Button";
 
 type Props = { tripId: string; dayId: string; itemId: string; title: string };
 type Candidate = { candidateId: string; title: string; description: string; date?: string; startTime?: string; endTime?: string; price: number | null; currency?: string | null; priceStatus: string; fitReason: string; source?: string; provider?: string };
@@ -40,11 +42,11 @@ export default function CustomerActivityReplacement({ tripId, dayId, itemId, tit
   }
 
   return <div className="roamly-no-print mt-2">
-    {!open ? <button type="button" onClick={() => { setOpen(true); void discover(); }} className="text-xs font-black text-slate-500 underline decoration-slate-300 underline-offset-4 hover:text-cblue">Find a replacement</button> :
-      <div className="max-w-xl rounded-xl border border-[#e8dfd0] bg-[#fffdf8] px-3 py-3 text-sm">
+    {!open ? <button type="button" onClick={() => { setOpen(true); void discover(); }} className="bui-press text-xs font-black text-cgray underline decoration-chair underline-offset-4 hover:text-cblue">Find a replacement</button> :
+      <BuiCard className="max-w-xl px-3 py-3 text-sm">
         <p className="font-black text-ink">Replace “{title}”?</p>
-        {!selected ? <div className="mt-2 grid gap-2">{candidates.map((candidate) => <button key={candidate.candidateId} type="button" onClick={() => setSelected(candidate)} className="rounded-lg border border-slate-200 px-3 py-2 text-left hover:border-cblue"><span className="font-black">{candidate.title}</span><span className="block text-xs font-semibold text-slate-600">{candidate.startTime && candidate.endTime ? `${candidate.startTime}–${candidate.endTime} · ` : ""}{candidate.priceStatus === "unknown" ? "Price unknown" : candidate.price != null ? `${candidate.price} ${candidate.currency || ""}` : "Price unknown"} · {candidate.fitReason}</span></button>)}</div> : <><p className="mt-1 text-xs font-semibold leading-5 text-slate-600">Replace “{title}” with “{selected.title}”? This leaves the existing time slot and does not cancel a booking or move other activities.</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={apply} disabled={busy} className="min-h-11 rounded-full bg-cblue px-4 py-2 text-xs font-black text-white disabled:opacity-60">{busy ? "Replacing…" : "Replace activity"}</button><button type="button" onClick={() => setSelected(null)} disabled={busy} className="min-h-11 rounded-full border border-slate-300 px-4 py-2 text-xs font-black text-slate-700">Choose another</button></div></>}
-        {busy && !selected ? <p className="mt-2 text-xs font-bold text-slate-500">Checking current grounded options…</p> : null}{message ? <p className="mt-2 text-xs font-bold text-amber-800" aria-live="polite">{message}</p> : null}<button type="button" onClick={() => { setOpen(false); setSelected(null); }} className="mt-2 text-xs font-black text-slate-500 underline">Cancel</button>
-      </div>}
+        {!selected ? <div className="mt-2 grid gap-2">{candidates.map((candidate) => <button key={candidate.candidateId} type="button" onClick={() => setSelected(candidate)} className="bui-press bui-tap w-full rounded-bui-card border border-chair bg-white px-3 py-2 text-left shadow-bui-card transition hover:border-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"><span className="font-black">{candidate.title}</span><span className="block text-xs font-semibold text-cgray">{candidate.startTime && candidate.endTime ? `${candidate.startTime}–${candidate.endTime} · ` : ""}{candidate.priceStatus === "unknown" ? "Price unknown" : candidate.price != null ? `${candidate.price} ${candidate.currency || ""}` : "Price unknown"} · {candidate.fitReason}</span></button>)}</div> : <><p className="mt-1 text-xs font-semibold leading-5 text-cgray">Replace “{title}” with “{selected.title}”? This leaves the existing time slot and does not cancel a booking or move other activities.</p><div className="mt-3 flex flex-wrap gap-2"><BuiButton onClick={apply} busy={busy}>{busy ? "Replacing…" : "Replace activity"}</BuiButton><BuiButton variant="secondary" onClick={() => setSelected(null)} disabled={busy}>Choose another</BuiButton></div></>}
+        {busy && !selected ? <p className="mt-2 text-xs font-bold text-cgray">Checking current grounded options…</p> : null}{message ? <p className="mt-2 text-xs font-bold text-amber-800" aria-live="polite">{message}</p> : null}<button type="button" onClick={() => { setOpen(false); setSelected(null); }} className="bui-press mt-2 text-xs font-black text-cgray underline">Cancel</button>
+      </BuiCard>}
   </div>;
 }

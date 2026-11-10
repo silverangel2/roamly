@@ -1,3 +1,4 @@
+import { BuiCard } from "@/components/boardui/Card";
 import CustomerBudgetChange from "@/components/roamly/CustomerBudgetChange";
 import CustomerDateChange from "@/components/roamly/CustomerDateChange";
 import CustomerDestinationChange from "@/components/roamly/CustomerDestinationChange";
@@ -28,19 +29,19 @@ export function CustomizeYourTrip(props: CustomizeYourTripProps) {
   const notes = props.specialNotes.trim();
 
   return (
-    <section id="customize" className="roamly-no-print scroll-mt-28 rounded-[1.5rem] bg-white px-5 py-6 shadow-[0_10px_30px_rgba(16,32,51,0.04)] sm:px-6 sm:py-7">
+    <BuiCard id="customize" className="roamly-no-print scroll-mt-28 px-5 py-6 sm:px-6 sm:py-7">
       <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-ink">Customize your trip</h2>
-      <p className="mt-1.5 max-w-md text-[0.9375rem] leading-6 text-slate-500">
+      <p className="mt-1.5 max-w-md text-[0.9375rem] leading-6 text-cgray">
         Tell us what to change — we’ll rebuild the parts that need it.
       </p>
       {notes ? (
-        <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
+        <p className="mt-4 max-w-md text-sm leading-6 text-cgray">
           <span className="font-medium text-ink">Your notes. </span>
           {notes}
         </p>
       ) : null}
-      <div className="mt-5 overflow-hidden rounded-2xl bg-[#f7f3ea]">
-        <div className="divide-y divide-[#e7dfd2]/90">
+      <div className="mt-5 overflow-hidden rounded-bui-card bg-csoft">
+        <div className="divide-y divide-chair">
           <CustomerBudgetChange tripId={props.tripId} currentAmount={props.budgetAmount} currency={props.currency} />
           <CustomerDateChange tripId={props.tripId} startDate={props.startDate} endDate={props.endDate} status={props.status} />
           <CustomerDestinationChange tripId={props.tripId} currentLabel={props.destinationLabel} status={props.status} />
@@ -60,9 +61,9 @@ export function CustomizeYourTrip(props: CustomizeYourTripProps) {
           />
         </div>
       </div>
-      <p className="mt-4 max-w-md text-[0.8125rem] leading-5 text-slate-400">
+      <p className="mt-4 max-w-md text-[0.8125rem] leading-5 text-cgray2">
         On the itinerary, a flexible stop can be swapped or removed.
       </p>
-    </section>
+    </BuiCard>
   );
 }

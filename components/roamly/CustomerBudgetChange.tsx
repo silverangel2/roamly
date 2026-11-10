@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { PackageChangeForm, PackageChangeRow, packageFieldClass, packageLabelClass, packagePrimaryClass, packageQuietClass } from "@/components/roamly/packageChangeChrome";
+import { PackageChangeForm, PackageChangeRow, PackageField } from "@/components/roamly/packageChangeChrome";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { useBuiField } from "@/components/boardui/Field";
 
 type Props = { tripId: string; currentAmount: number | null; currency: string };
 type Proposal = { id: string; requested_budget_amount: number; requested_budget_currency: string; preview_snapshot: { totalEstimateAmount: number | null; committedAmount: number | null; committedStatus: string; remainingBudgetAmount: number | null; budgetStatus: string; uncertainty: string[]; flexibleItems: Array<{ dayId: string; itemId: string; title: string; estimatedCost: number | null }> } };
@@ -14,12 +17,20 @@ function budgetValue(amount: number | null, currency: string) {
 export default function CustomerBudgetChange({ tripId, currentAmount, currency }: Props) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(currentAmount == null ? "" : String(currentAmount));
+  const budgetField = useBuiField((raw) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return "Enter the new budget.";
+    const parsed = Number(trimmed.replace(/,/g, ""));
+    if (!Number.isFinite(parsed) || parsed < 0) return "Enter the budget as a number, like 1800.";
+    return "";
+  });
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [applied, setApplied] = useState("");
 
   async function preview() {
+    if (budgetField.runValidation(value)) return;
     setBusy(true); setMessage("");
     try {
       const response = await fetch(`/api/trips/${tripId}/budget-change`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ amount: value, currency }) });
@@ -57,28 +68,27 @@ export default function CustomerBudgetChange({ tripId, currentAmount, currency }
           <p className="text-[0.9375rem] font-semibold tracking-tight text-ink">Change your trip budget</p>
           {!proposal ? (
             <>
-              <label className={`mt-4 block ${packageLabelClass}`}>
-                New budget ({currency})
-                <input value={value} onChange={(event) => setValue(event.target.value)} inputMode="decimal" className={packageFieldClass} />
-              </label>
-              <button type="button" onClick={preview} disabled={busy} className={`mt-4 ${packagePrimaryClass}`}>{busy ? "Checking…" : "Preview change"}</button>
+              <div className="mt-4">
+                <PackageField key={`new-budget-${budgetField.shakeKey}`} id="package-new-budget" label={`New budget (${currency})`} value={value} onChange={setValue} field={budgetField} inputMode="decimal" />
+              </div>
+              <BuiButton onClick={preview} busy={busy} className="mt-4">{busy ? "Checking…" : "Preview change"}</BuiButton>
             </>
           ) : (
             <>
-              <p className="mt-3 text-sm text-slate-600">New budget: {currency} {proposal.requested_budget_amount.toLocaleString("en-CA")}</p>
-              <p className="mt-1 text-sm text-slate-600">Known or estimated trip cost: {proposal.preview_snapshot.totalEstimateAmount == null ? "Unknown" : `${currency} ${proposal.preview_snapshot.totalEstimateAmount.toLocaleString("en-CA")}`}</p>
+              <p className="mt-3 text-sm text-cgray">New budget: {currency} {proposal.requested_budget_amount.toLocaleString("en-CA")}</p>
+              <p className="mt-1 text-sm text-cgray">Known or estimated trip cost: {proposal.preview_snapshot.totalEstimateAmount == null ? "Unknown" : `${currency} ${proposal.preview_snapshot.totalEstimateAmount.toLocaleString("en-CA")}`}</p>
               <p className="mt-2 text-sm font-medium text-ink">{proposal.preview_snapshot.budgetStatus === "over_budget" ? "Over budget" : proposal.preview_snapshot.budgetStatus === "unknown" ? "Budget still uncertain" : "Within the new budget"}</p>
-              {proposal.preview_snapshot.committedAmount != null ? <p className="mt-1 text-sm text-slate-600">Confirmed commitments remain protected: {currency} {proposal.preview_snapshot.committedAmount.toLocaleString("en-CA")}.</p> : null}
+              {proposal.preview_snapshot.committedAmount != null ? <p className="mt-1 text-sm text-cgray">Confirmed commitments remain protected: {currency} {proposal.preview_snapshot.committedAmount.toLocaleString("en-CA")}.</p> : null}
               {proposal.preview_snapshot.uncertainty.map((item) => <p key={item} className="mt-1 text-sm text-amber-800">{item}</p>)}
-              {proposal.preview_snapshot.flexibleItems.length ? <p className="mt-2 text-sm text-slate-600">Flexible unbooked items that may be reconsidered later: {proposal.preview_snapshot.flexibleItems.map((item) => item.title).join(", ")}.</p> : null}
+              {proposal.preview_snapshot.flexibleItems.length ? <p className="mt-2 text-sm text-cgray">Flexible unbooked items that may be reconsidered later: {proposal.preview_snapshot.flexibleItems.map((item) => item.title).join(", ")}.</p> : null}
               <div className="mt-4 flex flex-wrap items-center gap-1">
-                <button type="button" onClick={apply} disabled={busy} className={packagePrimaryClass}>{busy ? "Saving…" : "Approve budget change"}</button>
-                <button type="button" onClick={() => setProposal(null)} disabled={busy} className={packageQuietClass}>Review again</button>
+                <BuiButton onClick={apply} busy={busy}>{busy ? "Saving…" : "Approve budget change"}</BuiButton>
+                <BuiButton variant="ghost" onClick={() => setProposal(null)} disabled={busy}>Review again</BuiButton>
               </div>
             </>
           )}
-          {message ? <p className="mt-3 text-sm text-amber-800" aria-live="polite">{message}</p> : null}
-          {applied ? <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800" aria-live="polite">{applied}</p> : null}
+          {message ? <BuiNotice tone="error" title={message} className="mt-3" /> : null}
+          {applied ? <BuiNotice tone="success" title={applied} className="mt-3" /> : null}
         </PackageChangeForm>
       )}
     </div>

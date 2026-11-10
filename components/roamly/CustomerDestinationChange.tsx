@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
-import { PackageChangeForm, PackageChangeRow, packagePrimaryClass, packageQuietClass } from "@/components/roamly/packageChangeChrome";
+import { PackageChangeForm, PackageChangeRow } from "@/components/roamly/packageChangeChrome";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
 import type { NormalizedPlace } from "@/lib/roamly/places";
 
 type Props = { tripId: string; currentLabel: string; status: string };
@@ -11,6 +13,7 @@ type Proposal = { id: string; requested_destination_snapshot?: { city?: string; 
 export default function CustomerDestinationChange({ tripId, currentLabel, status }: Props) {
   const [open, setOpen] = useState(false);
   const [destination, setDestination] = useState<NormalizedPlace | null>(null);
+  const [destError, setDestError] = useState("");
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -18,6 +21,14 @@ export default function CustomerDestinationChange({ tripId, currentLabel, status
   if (!["generated", "locked", "planned"].includes(status)) return null;
 
   async function preview() {
+    // The preview button is never disabled (form rules: a submit is
+    // never a silent refusal) — with no place picked yet it explains
+    // itself under the selector instead of sending anything.
+    if (!destination) {
+      setDestError("Choose a destination first.");
+      return;
+    }
+    setDestError("");
     setBusy(true); setMessage("");
     try {
       const response = await fetch(`/api/trips/${tripId}/destination-change`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ destination }) });
@@ -56,26 +67,27 @@ export default function CustomerDestinationChange({ tripId, currentLabel, status
       ) : (
         <PackageChangeForm onCancel={() => { setOpen(false); setProposal(null); setDestination(null); }}>
           <p className="text-[0.9375rem] font-semibold tracking-tight text-ink">Change your destination</p>
-          <p className="mt-1 text-sm text-slate-500">Current destination: {currentLabel || "Your trip destination"}</p>
+          <p className="mt-1 text-sm text-cgray">Current destination: {currentLabel || "Your trip destination"}</p>
           {!proposal ? (
             <>
               <div className="mt-4">
-                <PlaceSelector label="New destination" value={destination} onChange={setDestination} helper="Choose a recognized city or place. Single-destination changes only." />
+                <PlaceSelector label="New destination" value={destination} onChange={(place) => { setDestination(place); setDestError(""); }} helper="Choose a recognized city or place. Single-destination changes only." />
+                {destError ? <p role="alert" className="mt-2 text-sm font-bold leading-5 text-cred">{destError}</p> : null}
               </div>
-              <button type="button" onClick={preview} disabled={busy || !destination} className={`mt-4 ${packagePrimaryClass}`}>{busy ? "Checking…" : "Preview change"}</button>
+              <BuiButton onClick={preview} busy={busy} className="mt-4">{busy ? "Checking…" : "Preview change"}</BuiButton>
             </>
           ) : (
             <>
-              <p className="mt-3 text-sm text-slate-600">New destination: {[requested?.city || requested?.value, requested?.country].filter(Boolean).join(", ")}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Your existing bookings will not be changed. Flights, hotels, activities, events, prices, routing, requirements, and connectivity will be freshly evaluated for the new destination. Your original trip stays available until the new itinerary succeeds.</p>
+              <p className="mt-3 text-sm text-cgray">New destination: {[requested?.city || requested?.value, requested?.country].filter(Boolean).join(", ")}</p>
+              <p className="mt-2 text-sm leading-6 text-cgray">Your existing bookings will not be changed. Flights, hotels, activities, events, prices, routing, requirements, and connectivity will be freshly evaluated for the new destination. Your original trip stays available until the new itinerary succeeds.</p>
               <div className="mt-4 flex flex-wrap items-center gap-1">
-                <button type="button" onClick={apply} disabled={busy} className={packagePrimaryClass}>{busy ? "Starting…" : "Create new itinerary"}</button>
-                <button type="button" onClick={() => setProposal(null)} disabled={busy} className={packageQuietClass}>Review again</button>
+                <BuiButton onClick={apply} busy={busy}>{busy ? "Starting…" : "Create new itinerary"}</BuiButton>
+                <BuiButton variant="ghost" onClick={() => setProposal(null)} disabled={busy}>Review again</BuiButton>
               </div>
             </>
           )}
-          {message ? <p className="mt-3 text-sm text-amber-800" aria-live="polite">{message}</p> : null}
-          {applied ? <p className="mt-3 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-sm font-semibold text-emerald-800" aria-live="polite">{applied}</p> : null}
+          {message ? <BuiNotice tone="error" title={message} className="mt-3" /> : null}
+          {applied ? <BuiNotice tone="success" title={applied} className="mt-3" /> : null}
         </PackageChangeForm>
       )}
     </div>
