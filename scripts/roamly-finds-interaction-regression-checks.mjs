@@ -53,7 +53,12 @@ try {
     if (!byLabel("Stay")?.href.includes("stay22.com")) throw new Error(`${viewport.name}: Stay22 quick handoff is missing`);
     if (byLabel("Flights")?.href !== "#finds-flight-widget") throw new Error(`${viewport.name}: Flights must use the embedded widget anchor`);
     if (!byLabel("Activities")?.href.includes("klook.com")) throw new Error(`${viewport.name}: Klook quick handoff is missing`);
-    if (!byLabel("Gear")?.href.includes("tag=roamly060-20")) throw new Error(`${viewport.name}: Amazon attribution is missing`);
+    // R-1 CORRECTION (2026-11-10, final audit fold-in): this pin previously asserted
+    // "tag=roamly060-20" — the retired Canada-only tag (owner's records, R-1 resolution
+    // 2026-11-10). The Quick Book Gear link carries the unified international tag
+    // roamly02e-20 and, since the same fold-in, builds on amazon.com (per-storefront
+    // tags earn nothing cross-store). Pin now asserts the true served href.
+    if (!byLabel("Gear")?.href.includes("amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20")) throw new Error(`${viewport.name}: Amazon attribution is missing`);
     if (byLabel("eSIM")?.href !== "#finds-esim-widget") throw new Error(`${viewport.name}: eSIM must use the embedded widget anchor`);
     if (await page.locator("#finds-flight-widget").count() !== 1 || await page.locator("#finds-esim-widget").count() !== 1) throw new Error(`${viewport.name}: embedded flight/eSIM widget anchors are missing`);
     for (const phrase of ["Worth packing", "Flights worth checking", "Things worth doing", "More ways to explore", "Stay connected"]) {

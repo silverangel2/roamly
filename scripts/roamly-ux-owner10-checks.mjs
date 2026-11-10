@@ -209,7 +209,12 @@ check(
   "STATIC",
   dayPlan.includes("stripTitleEcho(title, description)") &&
     dayPlan.includes('item.unverified ? "Unverified stop" : item.title') &&
-    dayPlan.includes("Plan title: {item.planTitle}")
+    // Familiarity redesign (2026-11-09): the plan title no longer
+    // renders as a JSX line on the row — it is the unverified
+    // stop's ONE sub-line, composed by dayRowSubLine. Same
+    // protection (an unverified stop names its plan title), new
+    // home.
+    dayPlan.includes("Plan title: ${item.planTitle}")
 );
 
 // ---- Item 6: Live restructure (featured card + compact list + details) ----

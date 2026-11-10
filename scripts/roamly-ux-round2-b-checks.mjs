@@ -68,8 +68,14 @@ const CROSS_BORDER = /passport|embassy|consulate|roaming|eSIM|visa|entry documen
   check("CurrentDayTimeline uncertain heading falls back, never merges", "STATIC",
     timeline.includes('kind === "uncertain"'));
   const dayPlan = read("components/trip/ItineraryDayPlan.tsx");
-  check("DayTimelineCard renders presentDayHeading venues + Travel badge", "STATIC",
-    dayPlan.includes("presentDayHeading") && dayPlan.includes("dayHeadings.map") && dayPlan.includes("itemIsTravel"));
+  // Familiarity redesign (2026-11-09): the owner rejected the day
+  // card's heading stack — DayTimelineCard still DERIVES
+  // presentDayHeading (its kind feeds the day's uncertainty notes)
+  // but no longer RENDERS venue headings or a Travel badge on the
+  // face; the header is one slim line (date + stop count + first
+  // clock). CurrentDayTimeline above keeps its own rendering.
+  check("DayTimelineCard derives presentDayHeading for its notes but renders no venue headings (redesign)", "STATIC",
+    dayPlan.includes("presentDayHeading") && dayPlan.includes("dayHeading.kind") && !dayPlan.includes("dayHeadings.map") && dayPlan.includes("itemIsTravel"));
   const guest = read("components/plan/GuestFreeItinerary.tsx");
   check("GuestFreeItinerary renders presentDayHeading venues", "STATIC",
     guest.includes("presentDayHeading"));

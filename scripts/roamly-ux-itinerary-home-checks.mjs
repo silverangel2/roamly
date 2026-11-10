@@ -161,8 +161,15 @@ ok("day view: heading, subtitle from stored plan, deduped map stops", () => {
   assert.equal(view.heading, "Day 1 · Mon, Oct 26");
   assert.equal(view.subtitle, "Arrival and first exploration");
   assert.equal(view.rows.length, 4);
+  // Owner walk, 2026-11-09 (BoardUI day/map pass): segment rows
+  // never render as Map place cards — the travel leg's airport
+  // query and the arrival leg's bare destination-city query are
+  // movements/areas, not places. Only the venue and the
+  // return-to-stay property remain. (Was: all four queries,
+  // including "Destination City" — the exact card shape the owner
+  // flagged on his Montreal map.)
   assert.deepEqual(view.mapStops, [
-    "Origin City Airport", "Destination City", "Central Market Hall", "Harbor Hotel"
+    "Central Market Hall", "Harbor Hotel"
   ]);
 });
 ok("day view with no subtitle renders empty subtitle, never invented text", () => {
@@ -342,12 +349,18 @@ ok("STATIC panel: provenance pill gated on !row.unverified (unplanned rows carry
   assert.ok(panel.includes("isClockTime(row.time) && !row.unverified"),
     "panel pill render lost its unverified gate");
 });
-ok("STATIC day card: Planned line gated on !item.unverified (unplanned rows carry no Planned line)", () => {
+ok("STATIC day card: no Planned label at all (the mislabel this gate guarded is now impossible)", () => {
   const dayCard = readFileSync(new URL("../components/trip/ItineraryDayPlan.tsx", import.meta.url), "utf8");
-  const plannedAt = dayCard.indexOf(">Planned</p>");
-  assert.ok(plannedAt >= 0, "day-card Planned line gone");
-  assert.ok(dayCard.slice(Math.max(0, plannedAt - 220), plannedAt).includes("!item.unverified"),
-    "day-card Planned line lost its unverified gate");
+  // Familiarity redesign (2026-11-09, owner rejection of the
+  // batch-1 face): the day face carries NO per-time provenance
+  // labels at all — no Planned / Estimated / booking-time chips —
+  // so an unverified row can never wear a "Planned" label here:
+  // the 2026-10-28 mislabel is impossible on this surface by
+  // construction, which is stronger than the gate it replaces.
+  // The panel's gate above is unchanged, and the day card still
+  // renders unverified rows as "Unverified stop" (asserted below).
+  assert.ok(!dayCard.includes(">Planned<"), "day card regained a Planned label");
+  assert.ok(!dayCard.includes("Confirmed · booking time"), "day card regained a booking-time label");
 });
 ok("planned rows keep their pill path: travel leg is planned with a clock time", () => {
   const row = toHomeRow(fixtureRows[0], 0, 4);
