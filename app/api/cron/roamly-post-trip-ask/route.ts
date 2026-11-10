@@ -105,13 +105,13 @@ function renderPostTripAskEmail(params: { destination: string; tripId: string })
   const shareUrl = toRoamlyAbsoluteUrl(`/trips/share?trip=${params.tripId}`);
   const intro = `Your trip to ${params.destination} wrapped up about a week ago. Two quick asks while it is still fresh — both make Roamly smarter for you and for future travelers.`;
   const bodyHtml = `${renderEmailBodyCopy(intro)}
-    <div style="Margin:20px 0 0 0;padding:18px;border:1px solid #e4e7ec;border-radius:8px;background:#f9fafb;">
-      <p style="Margin:0 0 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:700;color:#101828;">1 · Rate your booked items</p>
+    <div style="Margin:20px 0 0 0;padding:18px;border:1px solid #DCE5F0;border-radius:8px;background:#F2F6FC;">
+      <p style="Margin:0 0 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:700;color:#223354;">1 · Rate your booked items</p>
       ${renderEmailBodyCopy("Tell Roamly what worked and what did not — the hotels, flights, and activities you actually booked. It tunes your future trips.")}
       ${renderEmailCta("Leave feedback", feedbackUrl)}
     </div>
-    <div style="Margin:16px 0 0 0;padding:18px;border:1px solid #e4e7ec;border-radius:8px;background:#f9fafb;">
-      <p style="Margin:0 0 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:700;color:#101828;">2 · Share your proven itinerary</p>
+    <div style="Margin:16px 0 0 0;padding:18px;border:1px solid #DCE5F0;border-radius:8px;background:#F2F6FC;">
+      <p style="Margin:0 0 8px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:700;color:#223354;">2 · Share your proven itinerary</p>
       ${renderEmailBodyCopy("Publish this trip to the Itinerary Library so future travelers learn from real bookings — never scraped reviews. You choose whether it is reused anonymously.")}
       ${renderEmailCta("Share itinerary", shareUrl)}
     </div>`;

@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
   const result = await performActivityAction(auth.supabase, {
     userId: auth.userId,
     userEmail: auth.userEmail,
+    activityTransition: auth.fieldTest ? "service" : "authenticated",
     tripId,
     activityId,
     action: "skip",

@@ -233,12 +233,12 @@ function renderItineraryEmail({
   const dayHtml = days
     .slice(0, 10)
     .map(
-      (day) => `<section style="border-top:1px solid #e5edf3;padding:16px 0;">
-        <p style="margin:0 0 6px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#0f8f9c;">${tr(locale, "Day")} ${day.day_number}${day.city ? ` - ${escapeHtml(day.city)}` : ""}</p>
-        <h2 style="margin:0 0 10px;font-size:18px;line-height:1.25;color:#132033;">${escapeHtml(day.title)}</h2>
-        <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#526176;"><strong>${tr(locale, "Morning")}:</strong> ${escapeHtml(day.morning)}</p>
-        <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#526176;"><strong>${tr(locale, "Afternoon")}:</strong> ${escapeHtml(day.afternoon)}</p>
-        <p style="margin:0;font-size:14px;line-height:1.6;color:#526176;"><strong>${tr(locale, "Evening")}:</strong> ${escapeHtml(day.evening)}</p>
+      (day) => `<section style="border-top:1px solid #DCE5F0;padding:16px 0;">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#087BFF;">${tr(locale, "Day")} ${day.day_number}${day.city ? ` - ${escapeHtml(day.city)}` : ""}</p>
+        <h2 style="margin:0 0 10px;font-size:18px;line-height:1.25;color:#223354;">${escapeHtml(day.title)}</h2>
+        <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#3D4E6D;"><strong>${tr(locale, "Morning")}:</strong> ${escapeHtml(day.morning)}</p>
+        <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#3D4E6D;"><strong>${tr(locale, "Afternoon")}:</strong> ${escapeHtml(day.afternoon)}</p>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:#3D4E6D;"><strong>${tr(locale, "Evening")}:</strong> ${escapeHtml(day.evening)}</p>
       </section>`
     )
     .join("");
@@ -246,11 +246,11 @@ function renderItineraryEmail({
     .map((item) => {
       const href = safeExternalUrl(item.amazon_url);
       const action = essentialActionLabel(item, locale);
-      return `<section style="border-top:1px solid #e5edf3;padding:14px 0;">
-        <p style="margin:0 0 5px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#0f8f9c;">[ ] ${escapeHtml(tr(locale, item.category))} - ${escapeHtml(tr(locale, item.priority))} ${escapeHtml(tr(locale, "priority"))}</p>
-        <h2 style="margin:0 0 8px;font-size:17px;line-height:1.25;color:#132033;">${escapeHtml(item.title)}</h2>
-        <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#526176;">${escapeHtml(item.reason)}</p>
-        ${href ? `<a href="${escapeHtml(href)}" style="font-size:13px;font-weight:900;color:#0f8f9c;text-decoration:none;">${escapeHtml(action)}</a>` : `<p style="margin:0;font-size:13px;font-weight:900;color:#7a8798;">${escapeHtml(tr(locale, "Amazon search link unavailable"))}</p>`}
+      return `<section style="border-top:1px solid #DCE5F0;padding:14px 0;">
+        <p style="margin:0 0 5px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#087BFF;">[ ] ${escapeHtml(tr(locale, item.category))} - ${escapeHtml(tr(locale, item.priority))} ${escapeHtml(tr(locale, "priority"))}</p>
+        <h2 style="margin:0 0 8px;font-size:17px;line-height:1.25;color:#223354;">${escapeHtml(item.title)}</h2>
+        <p style="margin:0 0 8px;font-size:14px;line-height:1.6;color:#3D4E6D;">${escapeHtml(item.reason)}</p>
+        ${href ? `<a href="${escapeHtml(href)}" style="font-size:13px;font-weight:900;color:#087BFF;text-decoration:none;">${escapeHtml(action)}</a>` : `<p style="margin:0;font-size:13px;font-weight:900;color:#657795;">${escapeHtml(tr(locale, "Amazon search link unavailable"))}</p>`}
       </section>`;
     })
     .join("");
@@ -258,61 +258,61 @@ function renderItineraryEmail({
     .map((suggestion) => {
       const href = bookingHref(suggestion, trip);
       const action = `${tr(locale, "Search")}: ${bookingAction(suggestion, locale)}`;
-      return `<section style="border-top:1px solid #e5edf3;padding:14px 0;">
-        <p style="margin:0 0 5px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#0f8f9c;">${escapeHtml(tr(locale, suggestion.category || suggestion.booking_category))}</p>
-        <h2 style="margin:0 0 8px;font-size:17px;line-height:1.25;color:#132033;">${escapeHtml(bookingTitle(suggestion, locale))}</h2>
-        <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#526176;">${escapeHtml(suggestion.description || suggestion.why_recommended || tr(locale, "Search current availability before booking."))}</p>
-        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#526176;">${escapeHtml(bookingEstimate(suggestion, locale))}</p>
-        ${href ? `<a href="${escapeHtml(href)}" style="font-size:13px;font-weight:900;color:#0f8f9c;text-decoration:none;">${escapeHtml(action)}</a>` : `<p style="margin:0;font-size:13px;font-weight:900;color:#7a8798;">${escapeHtml(tr(locale, "Search link unavailable"))}</p>`}
+      return `<section style="border-top:1px solid #DCE5F0;padding:14px 0;">
+        <p style="margin:0 0 5px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#087BFF;">${escapeHtml(tr(locale, suggestion.category || suggestion.booking_category))}</p>
+        <h2 style="margin:0 0 8px;font-size:17px;line-height:1.25;color:#223354;">${escapeHtml(bookingTitle(suggestion, locale))}</h2>
+        <p style="margin:0 0 6px;font-size:14px;line-height:1.6;color:#3D4E6D;">${escapeHtml(suggestion.description || suggestion.why_recommended || tr(locale, "Search current availability before booking."))}</p>
+        <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#3D4E6D;">${escapeHtml(bookingEstimate(suggestion, locale))}</p>
+        ${href ? `<a href="${escapeHtml(href)}" style="font-size:13px;font-weight:900;color:#087BFF;text-decoration:none;">${escapeHtml(action)}</a>` : `<p style="margin:0;font-size:13px;font-weight:900;color:#657795;">${escapeHtml(tr(locale, "Search link unavailable"))}</p>`}
       </section>`;
     })
     .join("");
 
   const html = `<!doctype html>
 <html>
-  <body style="margin:0;background:#f7fcff;font-family:Arial,sans-serif;color:#132033;">
+  <body style="margin:0;background:#F2F6FC;font-family:Arial,sans-serif;color:#223354;">
     <main style="max-width:680px;margin:0 auto;padding:24px;">
       <header style="padding:8px 8px 18px;">
-        <a href="${escapeHtml(ROAMLY_PUBLIC_DOMAIN)}" style="display:inline-flex;align-items:center;gap:10px;color:#102033;text-decoration:none;">
-          <span style="display:inline-grid;width:40px;height:40px;place-items:center;border-radius:14px;background:#54d6c6;color:#102033;font-size:21px;font-weight:900;">R</span>
-          <span style="font-size:24px;font-weight:900;letter-spacing:0;color:#102033;">Roamly</span>
+        <a href="${escapeHtml(ROAMLY_PUBLIC_DOMAIN)}" style="display:inline-flex;align-items:center;gap:10px;color:#223354;text-decoration:none;">
+          <span style="display:inline-grid;width:40px;height:40px;place-items:center;border-radius:14px;background:#071E55;color:#ffffff;font-size:21px;font-weight:900;">R</span>
+          <span style="font-size:24px;font-weight:900;letter-spacing:0;color:#223354;">Roamly</span>
         </a>
       </header>
-      <section style="background:#ffffff;border:1px solid #dce8f2;border-radius:24px;padding:28px;box-shadow:0 18px 45px rgba(31,45,61,0.10);">
-        <p style="margin:0 0 14px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#0aa6a6;">${escapeHtml(tr(locale, "Roamly itinerary"))}</p>
-        <h1 style="margin:0;font-size:30px;line-height:1.08;color:#132033;">${escapeHtml(title)}</h1>
-        <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#526176;">${escapeHtml(destination)}${dates ? ` · ${escapeHtml(dates)}` : ""}</p>
-        <p style="margin:18px 0 0;font-size:15px;line-height:1.65;color:#526176;">${escapeHtml(summary)}</p>
-        ${budgetSummary ? `<p style="margin:14px 0 0;font-size:14px;font-weight:900;color:#132033;">${escapeHtml(budgetSummary)}</p>` : ""}
-        <a href="${escapeHtml(tripUrl)}" style="display:inline-block;margin-top:20px;background:#0f8f9c;color:#ffffff;text-decoration:none;border-radius:999px;padding:13px 18px;font-weight:900;">${escapeHtml(tr(locale, "Open trip in Roamly"))}</a>
+      <section style="background:#ffffff;border:1px solid #DCE5F0;border-radius:24px;padding:28px;box-shadow:0 18px 45px rgba(7,30,85,0.10);">
+        <p style="margin:0 0 14px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#087BFF;">${escapeHtml(tr(locale, "Roamly itinerary"))}</p>
+        <h1 style="margin:0;font-size:30px;line-height:1.08;color:#223354;">${escapeHtml(title)}</h1>
+        <p style="margin:12px 0 0;font-size:15px;font-weight:700;color:#3D4E6D;">${escapeHtml(destination)}${dates ? ` · ${escapeHtml(dates)}` : ""}</p>
+        <p style="margin:18px 0 0;font-size:15px;line-height:1.65;color:#3D4E6D;">${escapeHtml(summary)}</p>
+        ${budgetSummary ? `<p style="margin:14px 0 0;font-size:14px;font-weight:900;color:#223354;">${escapeHtml(budgetSummary)}</p>` : ""}
+        <a href="${escapeHtml(tripUrl)}" style="display:inline-block;margin-top:20px;background:#087BFF;color:#ffffff;text-decoration:none;border-radius:999px;padding:13px 18px;font-weight:900;">${escapeHtml(tr(locale, "Open trip in Roamly"))}</a>
       </section>
-      <section style="background:#ffffff;border:1px solid #dce8f2;border-radius:24px;padding:24px;margin-top:18px;">
+      <section style="background:#ffffff;border:1px solid #DCE5F0;border-radius:24px;padding:24px;margin-top:18px;">
         ${dayHtml}
       </section>
       ${
         essentialsHtml
-          ? `<section style="background:#ffffff;border:1px solid #dce8f2;border-radius:24px;padding:24px;margin-top:18px;">
-        <p style="margin:0 0 12px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#0aa6a6;">${escapeHtml(tr(locale, "Pre-trip essentials checklist"))}</p>
+          ? `<section style="background:#ffffff;border:1px solid #DCE5F0;border-radius:24px;padding:24px;margin-top:18px;">
+        <p style="margin:0 0 12px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#087BFF;">${escapeHtml(tr(locale, "Pre-trip essentials checklist"))}</p>
         ${essentialsHtml}
-        <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:#7a8798;">${escapeHtml(tr(locale, "Amazon prices are not shown in Roamly. Verify price and availability on Amazon."))} ${escapeHtml(tr(locale, amazonAffiliateDisclosure))}</p>
+        <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:#657795;">${escapeHtml(tr(locale, "Amazon prices are not shown in Roamly. Verify price and availability on Amazon."))} ${escapeHtml(tr(locale, amazonAffiliateDisclosure))}</p>
       </section>`
           : ""
       }
       ${
         bookingHtml
-          ? `<section style="background:#ffffff;border:1px solid #dce8f2;border-radius:24px;padding:24px;margin-top:18px;">
-        <p style="margin:0 0 12px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#0aa6a6;">${escapeHtml(tr(locale, "Top booking recommendations"))}</p>
+          ? `<section style="background:#ffffff;border:1px solid #DCE5F0;border-radius:24px;padding:24px;margin-top:18px;">
+        <p style="margin:0 0 12px;font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:#087BFF;">${escapeHtml(tr(locale, "Top booking recommendations"))}</p>
         ${bookingHtml}
-        <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:#7a8798;">${escapeHtml(tr(locale, "Suggested options are search-ready planning recommendations, not completed bookings. Estimated prices may change before booking."))} ${escapeHtml(tr(locale, affiliateDisclosure))}</p>
+        <p style="margin:14px 0 0;font-size:12px;line-height:1.6;color:#657795;">${escapeHtml(tr(locale, "Suggested options are search-ready planning recommendations, not completed bookings. Estimated prices may change before booking."))} ${escapeHtml(tr(locale, affiliateDisclosure))}</p>
       </section>`
           : ""
       }
       <footer style="padding:18px 8px 0;">
-        <p style="margin:0;font-size:12px;line-height:1.6;color:#7a8798;">${escapeHtml(tr(locale, "PDF export is available from the trip page."))} ${escapeHtml(tr(locale, "Generated by Roamly."))}</p>
-        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;color:#7a8798;">${escapeHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
-        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;"><a href="${escapeHtml(managePreferencesUrl)}" style="color:#0f8f9c;font-weight:900;text-decoration:none;">${escapeHtml(translateKey(locale, "ui.status.manageNotificationPreferences", "Manage notification preferences"))}</a></p>
-        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;color:#7a8798;">Need help? Reply to this email or contact <a href="mailto:${escapeHtml(supportEmail)}" style="color:#0f8f9c;font-weight:900;text-decoration:none;">${escapeHtml(supportEmail)}</a>.</p>
-        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;color:#7a8798;"><a href="${escapeHtml(ROAMLY_PUBLIC_DOMAIN)}" style="color:#0f8f9c;font-weight:900;text-decoration:none;">roamlyhq.com</a></p>
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#657795;">${escapeHtml(tr(locale, "PDF export is available from the trip page."))} ${escapeHtml(tr(locale, "Generated by Roamly."))}</p>
+        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;color:#657795;">${escapeHtml(ROAMLY_EMAIL_FOOTER_COPY)}</p>
+        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;"><a href="${escapeHtml(managePreferencesUrl)}" style="color:#087BFF;font-weight:900;text-decoration:none;">${escapeHtml(translateKey(locale, "ui.status.manageNotificationPreferences", "Manage notification preferences"))}</a></p>
+        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;color:#657795;">Need help? Reply to this email or contact <a href="mailto:${escapeHtml(supportEmail)}" style="color:#087BFF;font-weight:900;text-decoration:none;">${escapeHtml(supportEmail)}</a>.</p>
+        <p style="margin:10px 0 0;font-size:12px;line-height:1.6;color:#657795;"><a href="${escapeHtml(ROAMLY_PUBLIC_DOMAIN)}" style="color:#087BFF;font-weight:900;text-decoration:none;">roamlyhq.com</a></p>
       </footer>
     </main>
   </body>

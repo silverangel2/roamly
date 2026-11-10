@@ -130,11 +130,11 @@ export async function POST(request: NextRequest) {
       eyebrow: "Support request",
       title: subject,
       bodyHtml: `
-        <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#42526a;"><strong>Name:</strong> ${escapeEmailHtml(name)}</p>
-        <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#42526a;"><strong>Email:</strong> ${escapeEmailHtml(email)}</p>
-        <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#42526a;"><strong>Category:</strong> ${escapeEmailHtml(category)}</p>
-        ${tripId ? `<p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#42526a;"><strong>Trip ID:</strong> ${escapeEmailHtml(tripId)}</p>` : ""}
-        <p style="margin:18px 0 0;white-space:pre-wrap;font-size:15px;line-height:1.65;color:#42526a;">${escapeEmailHtml(message)}</p>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#223354;"><strong>Name:</strong> ${escapeEmailHtml(name)}</p>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#223354;"><strong>Email:</strong> ${escapeEmailHtml(email)}</p>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#223354;"><strong>Category:</strong> ${escapeEmailHtml(category)}</p>
+        ${tripId ? `<p style="margin:0 0 12px;font-size:15px;line-height:1.65;color:#223354;"><strong>Trip ID:</strong> ${escapeEmailHtml(tripId)}</p>` : ""}
+        <p style="margin:18px 0 0;white-space:pre-wrap;font-size:15px;line-height:1.65;color:#223354;">${escapeEmailHtml(message)}</p>
       `,
       bodyText: `Name: ${name}\nEmail: ${email}\nCategory: ${category}${tripId ? `\nTrip ID: ${tripId}` : ""}\n\n${message}`,
       supportEmail
