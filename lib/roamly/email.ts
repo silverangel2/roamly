@@ -660,7 +660,7 @@ export function renderEmailTemplate(type: EmailTemplateType, data: TemplateData)
                                 : "Trip reminder";
   const bodyHtml = destination
     ? `${renderEmailBodyCopy(message)}
-    <p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;font-weight:700;color:#475467;">Trip: ${escapeEmailHtml(destination)}</p>`
+    <p style="Margin:0 0 16px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;font-weight:700;color:#223354;">Trip: ${escapeEmailHtml(destination)}</p>`
     : renderEmailBodyCopy(message);
   const bodyText = destination ? `${message}\n\nTrip: ${destination}` : message;
 

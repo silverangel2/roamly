@@ -103,8 +103,8 @@ export function renderEmailSummary(items?: RoamlyEmailSummaryItem[]) {
     .map(
       (item) => `
         <tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #D9E2EE;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#223354;width:38%;">${escapeEmailHtml(item.label)}</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #D9E2EE;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#657795;">${escapeEmailHtml(item.value)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #DCE5F0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;font-weight:700;color:#223354;width:38%;">${escapeEmailHtml(item.label)}</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #DCE5F0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:18px;color:#657795;">${escapeEmailHtml(item.value)}</td>
         </tr>`
     )
     .join("");
@@ -112,19 +112,24 @@ export function renderEmailSummary(items?: RoamlyEmailSummaryItem[]) {
   if (!rows) return "";
 
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="Margin:18px 0;border-collapse:collapse;border:1px solid #D9E2EE;border-radius:8px;background:#F2F6FC;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="Margin:18px 0;border-collapse:collapse;border:1px solid #DCE5F0;border-radius:8px;background:#F2F6FC;">
       ${rows}
     </table>`;
 }
 
 export function renderRoamlyEmailHeader(footerUrl = ROAMLY_PUBLIC_DOMAIN) {
+  /* Batch 10 design layer (2026-11-10): the header is the brand
+   * navy band (#071E55, the cnavy token). The wordmark renders as
+   * white text, not the logo PNG: the PNG wordmark is primary-blue
+   * on transparent, which cannot sit legibly on navy, and a text
+   * wordmark is the email-safe form (no image blocking, no
+   * dark-mode inversion). The band links to the same footerUrl
+   * the image linked to — link and name unchanged. */
   return `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="Margin:0 0 20px 0;border-collapse:separate;">
       <tr>
-        <td align="center" style="padding:0 0 20px 0;">
-          <a href="${escapeEmailHtml(footerUrl)}" style="text-decoration:none;">
-            <img src="${ROAMLY_LOGO_URL}" width="148" alt="Roamly" style="display:block;width:148px;max-width:148px;height:auto;border:0;outline:none;text-decoration:none;">
-          </a>
+        <td bgcolor="#071E55" align="center" style="padding:20px 16px;border-radius:10px;background:#071E55;text-align:center;">
+          <a href="${escapeEmailHtml(footerUrl)}" style="font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:26px;font-weight:900;letter-spacing:0.4px;color:#ffffff;text-decoration:none;">Roamly</a>
         </td>
       </tr>
     </table>`;
@@ -214,7 +219,7 @@ export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRend
               <td>${renderRoamlyEmailHeader(footerUrl)}</td>
             </tr>
             <tr>
-              <td bgcolor="#ffffff" class="roamly-email-card" style="padding:32px;border:1px solid #D9E2EE;border-radius:10px;background:#ffffff;">
+              <td bgcolor="#ffffff" class="roamly-email-card" style="padding:32px;border:1px solid #DCE5F0;border-radius:10px;background:#ffffff;">
                 ${
                   input.eyebrow
                     ? `<p style="Margin:0 0 12px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#087BFF;">${escapeEmailHtml(input.eyebrow)}</p>`
@@ -227,7 +232,7 @@ export function renderRoamlyEmailShell(input: RoamlyEmailShellInput): RoamlyRend
                 ${renderEmailCta(input.ctaLabel, ctaUrl)}
                 ${
                   disclosure
-                    ? `<p style="Margin:22px 0 0 0;padding-top:14px;border-top:1px solid #D9E2EE;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#657795;">${escapeEmailHtml(disclosure)}</p>`
+                    ? `<p style="Margin:22px 0 0 0;padding-top:14px;border-top:1px solid #DCE5F0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;color:#657795;">${escapeEmailHtml(disclosure)}</p>`
                     : ""
                 }
               </td>
