@@ -719,6 +719,11 @@ select {
   .bui-shimmer {
     animation: none !important;
   }
+
+  .bui-accordion-panel,
+  .bui-accordion-chevron {
+    transition: none !important;
+  }
 }
 
 /* ------------------------------------------------------------------ */

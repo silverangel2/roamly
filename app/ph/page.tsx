@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import PhSkyScene from "@/components/roamly/PhSkyScene";
-import { Button } from "@/components/ui/Button";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { createMapLink } from "@/lib/itinerary";
 import {
   PHILIPPINES_AREAS,
@@ -36,29 +37,29 @@ function coordinatesLabel(activity: PhActivitySeed): string | null {
 function ActivityRow({ activity }: { activity: PhActivitySeed }) {
   const coords = coordinatesLabel(activity);
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-[#e7eee4] py-2.5 last:border-b-0">
+    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-chair py-2.5 last:border-b-0">
       <div className="min-w-0">
-        <p className="text-sm font-bold text-ink">
-          <span className="mr-2 text-xs font-extrabold text-[#087BFF]">{activity.time_label}</span>
+        <p className="text-sm font-bold text-chead">
+          <span className="mr-2 text-xs font-extrabold text-cblue">{activity.time_label}</span>
           {activity.title}
         </p>
-        <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">
+        <p className="mt-0.5 text-xs font-semibold leading-5 text-cgray">
           {activity.location_name}
-          {coords ? <span className="text-slate-400"> · {coords}</span> : null}
+          {coords ? <span className="text-cgray2"> · {coords}</span> : null}
           {" · "}
           <a
             href={createMapLink(activity.map_query)}
             target="_blank"
             rel="noreferrer"
-            className="font-bold text-[#087BFF] underline decoration-[#b8d6ca] underline-offset-2 hover:text-[#0e605a]"
+            className="font-bold text-cblue underline decoration-cblue/40 underline-offset-2 hover:text-cnavy"
           >
             Map
           </a>
         </p>
       </div>
-      <p className="shrink-0 text-sm font-black text-ink">
+      <p className="shrink-0 text-sm font-black text-chead">
         {activity.estimated_cost === 0 ? "Free" : formatPeso(activity.estimated_cost)}
-        {activity.estimated_cost ? <span className="ml-1 text-[0.65rem] font-bold uppercase tracking-wide text-slate-400">est.</span> : null}
+        {activity.estimated_cost ? <span className="ml-1 text-[0.65rem] font-bold uppercase tracking-wide text-cgray2">est.</span> : null}
       </p>
     </li>
   );
@@ -72,30 +73,30 @@ export default function PhilippinesPage() {
   );
 
   return (
-    <div className="safe-bottom bg-cbg text-ink">
+    <div className="safe-bottom bg-cbg text-cink">
       <section className="relative isolate mx-auto w-full max-w-5xl px-4 pb-4 pt-10 sm:px-8 sm:pt-14">
         <PhSkyScene />
         <div className="relative z-10">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-[#087BFF]">Roamly · Philippines</p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Roamly · Philippines</p>
         <h1 className="mt-3 max-w-2xl text-4xl font-black leading-[1.02] tracking-tight sm:text-5xl">
           Plan the Philippines, place by place.
         </h1>
-        <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-slate-600">
+        <p className="mt-4 max-w-2xl text-base font-semibold leading-7 text-cink">
           Coming home, or seeing your own country properly for the first time? Roamly now plans the Philippines the way it
           plans everywhere — day by day, around your budget — with one difference: every stop below is a real place whose
           coordinates we checked against map records, priced in pesos — and on travel days, the Live Companion
           sends timely messages and points out what is near when you open Roamly.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button href={philippinesPlanHref("Cebu City, Philippines")}>Plan a trip home</Button>
-          <Button href={philippinesPlanHref("Boracay, Philippines")} tone="secondary">
+          <BuiButtonLink href={philippinesPlanHref("Cebu City, Philippines")}>Plan a trip home</BuiButtonLink>
+          <BuiButtonLink href={philippinesPlanHref("Boracay, Philippines")} variant="secondary">
             Plan Boracay
-          </Button>
-          <Button href={philippinesPlanHref("El Nido, Philippines")} tone="secondary">
+          </BuiButtonLink>
+          <BuiButtonLink href={philippinesPlanHref("El Nido, Philippines")} variant="secondary">
             Plan Palawan
-          </Button>
+          </BuiButtonLink>
         </div>
-        <p className="mt-4 text-xs font-semibold leading-5 text-slate-500">
+        <p className="mt-4 text-xs font-semibold leading-5 text-cgray">
           Prices shown are per-person planning estimates in Philippine pesos (₱) — always verify before you book. Place
           coordinates checked {PH_PACK_VERIFIED_AT} against Google Places listings.
         </p>
@@ -104,28 +105,28 @@ export default function PhilippinesPage() {
 
       {PHILIPPINES_AREAS.map((area) => (
         <section key={area.key} id={area.key} className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
-          <div className="rounded-[1.5rem] border border-[#D9E2EE] bg-white/90 p-5 shadow-[0_14px_40px_rgba(34,51,84,0.06)] sm:p-7">
+          <BuiCard className="p-5 sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-xl">
-                <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-[#087BFF]">{area.region}</p>
-                <h2 className="mt-1 text-2xl font-black tracking-tight">{area.displayName}</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{area.tagline}</p>
+                <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-cblue">{area.region}</p>
+                <h2 className="mt-1 text-2xl font-black tracking-tight text-chead">{area.displayName}</h2>
+                <p className="mt-2 text-sm font-semibold leading-6 text-cink">{area.tagline}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {area.planLinks.map((link) => (
-                  <Button key={link.plannerLabel} href={philippinesPlanHref(link.plannerLabel)} className="min-h-10 px-4 text-xs">
+                  <BuiButtonLink key={link.plannerLabel} href={philippinesPlanHref(link.plannerLabel)} size="small">
                     {link.label}
-                  </Button>
+                  </BuiButtonLink>
                 ))}
               </div>
             </div>
 
             {area.festivalHook ? (
-              <div className="mt-4 rounded-2xl bg-[#fff6e8] px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#a65d32]">
+              <div className="mt-4 rounded-2xl bg-sun/15 px-4 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-chead">
                   {area.festivalHook.name} · {area.festivalHook.when}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-[#6b4a2a]">{area.festivalHook.note}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-cink">{area.festivalHook.note}</p>
               </div>
             ) : null}
 
@@ -135,19 +136,19 @@ export default function PhilippinesPage() {
               ))}
             </ul>
 
-            <p className="mt-4 text-xs font-semibold leading-5 text-slate-500">
-              <span className="font-black text-slate-600">Season notes — general patterns, not promises:</span>{" "}
+            <p className="mt-4 text-xs font-semibold leading-5 text-cgray">
+              <span className="font-black text-cink">Season notes — general patterns, not promises:</span>{" "}
               {area.seasonNote}
             </p>
-          </div>
+          </BuiCard>
         </section>
       ))}
 
       <section className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
-        <div className="rounded-[1.5rem] bg-[#173d40] p-5 text-white sm:p-7">
-          <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-[#9fd8c9]">Sample · built from the pack</p>
+        <div className="rounded-bui-panel bg-cnavy p-5 text-white sm:p-7">
+          <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-csoft">Sample · built from the pack</p>
           <h2 className="mt-1 text-2xl font-black tracking-tight">Five days in Cebu + Bohol</h2>
-          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#cfe5d8]">
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-white/75">
             This sample was generated by Roamly&apos;s own itinerary builder using only the verified Philippines pack —
             no placeholders, every stop mapped. Estimated activity total:{" "}
             <span className="font-black text-white">{formatPeso(sampleTotal)}</span> per person.
@@ -155,7 +156,7 @@ export default function PhilippinesPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {sample.daily_itinerary.map((day) => (
               <div key={day.day_number} className="rounded-2xl bg-white/5 p-4 ring-1 ring-white/10">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#9fd8c9]">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-csoft">
                   Day {day.day_number}
                   {day.date ? ` · ${day.date}` : ""}
                 </p>
@@ -165,7 +166,7 @@ export default function PhilippinesPage() {
                       <span className="font-bold text-white">
                         {item.time_label} — {item.title}
                       </span>
-                      <span className="block text-xs font-semibold leading-5 text-[#cfe5d8]">
+                      <span className="block text-xs font-semibold leading-5 text-white/75">
                         {item.location_name} ·{" "}
                         {item.packageIncluded
                           ? `Included in ${item.packageName ?? "tour package"}`
@@ -180,8 +181,8 @@ export default function PhilippinesPage() {
             ))}
           </div>
           <div className="mt-6">
-            <Button href={philippinesPlanHref("Cebu City, Philippines")}>Make it yours in the planner</Button>
-            <p className="mt-3 text-xs font-semibold leading-5 text-[#cfe5d8]">
+            <BuiButtonLink href={philippinesPlanHref("Cebu City, Philippines")}>Make it yours in the planner</BuiButtonLink>
+            <p className="mt-3 text-xs font-semibold leading-5 text-white/75">
               Starting from a sample builds a fresh trip from Roamly&apos;s places — the sample&apos;s exact stops aren&apos;t carried over.
             </p>
           </div>
@@ -189,21 +190,21 @@ export default function PhilippinesPage() {
       </section>
 
       <section className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-8">
-        <h2 className="mt-1 text-2xl font-black tracking-tight">What it costs</h2>
-        <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-600">
+        <h2 className="mt-1 text-2xl font-black tracking-tight text-chead">What it costs</h2>
+        <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-cink">
           Your first itinerary is free, one per account. After that, for Philippines trips: Full Itinerary{" "}
-          <strong className="font-bold text-ink">₱99</strong>, Live Trip Companion{" "}
-          <strong className="font-bold text-ink">₱79</strong>, Complete Trip Pack{" "}
-          <strong className="font-bold text-ink">₱149</strong>. One-time each, tax included, no subscription.
+          <strong className="font-bold text-chead">₱99</strong>, Live Trip Companion{" "}
+          <strong className="font-bold text-chead">₱79</strong>, Complete Trip Pack{" "}
+          <strong className="font-bold text-chead">₱149</strong>. One-time each, tax included, no subscription.
         </p>
       </section>
 
       <section className="mx-auto w-full max-w-5xl px-4 pb-12 pt-2 sm:px-8">
-        <p className="text-xs font-semibold leading-5 text-slate-500">
+        <p className="text-xs font-semibold leading-5 text-cgray">
           Flights and hotels for these trips book through Roamly&apos;s usual partner links inside the planner — flights via
           Travelpayouts (Aviasales), stays via Stay22, activities via Klook where a partner link exists. Roamly has no
           direct Agoda program yet, so Agoda links here would earn nothing — we don&apos;t show any until they do.{" "}
-          <Link href="/plan" className="font-bold text-[#087BFF] underline decoration-[#b8d6ca] underline-offset-2">
+          <Link href="/plan" className="font-bold text-cblue underline decoration-cblue/40 underline-offset-2">
             Open the planner
           </Link>
         </p>

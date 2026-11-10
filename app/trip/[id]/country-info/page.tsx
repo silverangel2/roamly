@@ -83,9 +83,9 @@ export default async function TripCountryInfoPage({
 
   return (
     <div className="calm-bleed mx-auto w-full max-w-2xl px-4 py-5 sm:px-6 sm:py-8">
-      <section className="bui-enter rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card sm:p-5">
+      <BuiCard className="bui-enter rounded-bui-panel p-4 sm:p-5">
         <CountryInfoPanel model={model} initialTab={requestedTab} />
-      </section>
+      </BuiCard>
     </div>
   );
 }

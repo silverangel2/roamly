@@ -6,6 +6,8 @@ import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
 import { UNKNOWN_TZ_LABEL, zoneForMath } from "@/lib/roamly/tripTimezone";
 import { formatTripDateRange, tripClockState } from "@/lib/roamly/tripClock";
 import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { TripHeroCard } from "@/components/roamly/TripHeroCard";
 import { AlertsSectionCard, type AlertsSectionRow } from "@/components/roamly/AlertsSectionCard";
 import { NotificationShellStateBridge } from "@/components/roamly/NotificationShellStateBridge";
@@ -232,12 +234,12 @@ export default async function NotificationsPage({
     return (
       <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
         <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
-        <div className="bui-enter mt-5 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
+        <BuiCard className="bui-enter mt-5 p-4">
           <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">Notifications need an account.</h2>
           <div className="mt-4">
-            <a className="bui-press bui-touch inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href={`/login?next=${encodeURIComponent(loginNext)}`}>Log in</a>
+            <BuiButtonLink className="min-h-[50px] text-[17px]" href={`/login?next=${encodeURIComponent(loginNext)}`}>Log in</BuiButtonLink>
           </div>
-        </div>
+        </BuiCard>
       </div>
     );
   }
@@ -344,15 +346,15 @@ export default async function NotificationsPage({
       <div className="calm-bleed mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
         <NotificationShellStateBridge activeTripId="" unreadCount={0} />
         <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Alerts</h1>
-        <div className="bui-enter mt-5 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
+        <BuiCard className="bui-enter mt-5 p-4">
           <h2 className="text-[22px] font-bold tracking-[-0.018em] text-chead">No current trip to show.</h2>
           <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
             Reminders and check-ins stay with the trip they belong to. Open a trip to see its own updates.
           </p>
           <div className="mt-4">
-            <a className="bui-press bui-touch inline-flex min-h-[50px] items-center justify-center rounded-xl bg-cblue px-5 text-[17px] font-semibold text-white" href="/dashboard">Open dashboard</a>
+            <BuiButtonLink className="min-h-[50px] text-[17px]" href="/dashboard">Open dashboard</BuiButtonLink>
           </div>
-        </div>
+        </BuiCard>
       </div>
     );
   }
@@ -806,9 +808,9 @@ export default async function NotificationsPage({
         <div className="flex items-center gap-2">
           {tripUnreadCount > 0 ? (
             <form action={markAllNotificationsRead}>
-              <button type="submit" className="inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-semibold text-cblue">
+              <BuiButton type="submit" variant="ghost" className="rounded-full px-3 text-[15px]">
                 Mark all read
-              </button>
+              </BuiButton>
             </form>
           ) : null}
           <a href="/account?view=preferences" className="inline-flex min-h-11 items-center px-1 text-cgray" aria-label="Notification settings">
