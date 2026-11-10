@@ -10,7 +10,7 @@
  * stop title, so the trip page and the live page share one map shape
  * without threading coordinates through the timeline builders.
  */
-import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
+import { getDestinationPhoto, type DestinationPhotoSharedState } from "@/lib/roamly/destinationPhoto";
 
 export type VenuePhoto = {
   imageUrl: string;
@@ -84,7 +84,8 @@ export function isVenueTimelineSeed(seed: TimelineSeed): boolean {
  */
 export async function buildVenuePhotoMap(
   days: ReadonlyArray<{ live_timeline?: ReadonlyArray<TimelineSeed> | null } | null> | null,
-  country: string | null
+  country: string | null,
+  shared?: DestinationPhotoSharedState
 ): Promise<VenuePhotoMap> {
   const wanted = new Map<string, { label: string; latitude: number | null; longitude: number | null }>();
   for (const day of days || []) {
@@ -97,6 +98,10 @@ export async function buildVenuePhotoMap(
       wanted.set(key, { label, latitude: coords?.latitude ?? null, longitude: coords?.longitude ?? null });
     }
   }
+  // Composition batch (2026-11-09): one shared state per map build
+  // (or the caller's, when the caller renders more photo lookups of
+  // its own) — the registry scan inside each lookup is paid once.
+  const photoShared = shared ?? {};
   const entries = await Promise.all(
     [...wanted.entries()].map(async ([key, want]) => {
       const photo = await getDestinationPhoto({
@@ -104,7 +109,7 @@ export async function buildVenuePhotoMap(
         country,
         latitude: want.latitude,
         longitude: want.longitude
-      }).catch(() => null);
+      }, photoShared).catch(() => null);
       if (!photo) return null;
       return [key, { imageUrl: photo.imageUrl, credit: photo.credit ?? null, pageUrl: photo.pageUrl ?? null }] as const;
     })
