@@ -43,7 +43,7 @@ function BrandRow(props: { step: string }) {
   return (
     <div className="flex items-center gap-[9px]">
       <Image src={GATE_LOGO_SRC} alt="Roamly logo" width={38} height={38} className="h-[38px] w-[38px] rounded-[10px]" />
-      <span className="text-[17px] font-extrabold text-[#0b3d2b]">Roamly</span>
+      <span className="text-[17px] font-extrabold text-cnavy">Roamly</span>
       <BuiBadge tone="warm" className="ml-auto">
         {props.step}
       </BuiBadge>
@@ -52,11 +52,11 @@ function BrandRow(props: { step: string }) {
 }
 
 function SheetTitle(props: { children: ReactNode }) {
-  return <h2 className="mb-[7px] mt-[13px] text-[21.5px] font-extrabold leading-tight tracking-[-0.01em] text-[#12211b]">{props.children}</h2>;
+  return <h2 className="mb-[7px] mt-[13px] text-[21.5px] font-extrabold leading-tight tracking-[-0.01em] text-chead">{props.children}</h2>;
 }
 
 function SheetReason(props: { children: ReactNode }) {
-  return <p className="text-[14.5px] leading-[1.45] text-[#33463d]">{props.children}</p>;
+  return <p className="text-[14.5px] leading-[1.45] text-cink">{props.children}</p>;
 }
 
 function PrimaryButton(props: { children: ReactNode; onClick: () => void }) {
@@ -76,7 +76,7 @@ function LaterButton(props: { onClick: () => void }) {
 }
 
 function SheetMicro(props: { children: ReactNode }) {
-  return <p className="mt-[7px] text-center text-[12px] leading-[1.4] text-[#71837b]">{props.children}</p>;
+  return <p className="mt-[7px] text-center text-[12px] leading-[1.4] text-cgray2">{props.children}</p>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,26 +96,26 @@ export function InstallSheetView(props: {
       <SheetTitle>Put Roamly on your phone</SheetTitle>
       <SheetReason>
         Your trip alerts can only reach this phone once Roamly is installed on it —{" "}
-        <b className="text-[#12211b]">that&apos;s a phone rule, not ours.</b> Installing takes a few
+        <b className="text-chead">that&apos;s a phone rule, not ours.</b> Installing takes a few
         seconds, and your itinerary continues right after.
       </SheetReason>
       {props.guided ? (
         <div className="mt-[13px] rounded-bui-card border border-chair bg-cbg px-[13px] py-[11px] shadow-bui-card">
           {props.guidedKind === "numbered-steps" ? (
-            <ol className="list-none text-[13.5px] leading-[1.5] text-[#33463d]">
-              <li><b className="text-[#12211b]">1.</b> Tap the Share icon in your browser.</li>
-              <li><b className="text-[#12211b]">2.</b> Scroll and tap <b className="text-[#12211b]">Add to Home Screen</b>.</li>
-              <li><b className="text-[#12211b]">3.</b> Tap <b className="text-[#12211b]">Add</b>, then open Roamly from your Home Screen.</li>
+            <ol className="list-none text-[13.5px] leading-[1.5] text-cink">
+              <li><b className="text-chead">1.</b> Tap the Share icon in your browser.</li>
+              <li><b className="text-chead">2.</b> Scroll and tap <b className="text-chead">Add to Home Screen</b>.</li>
+              <li><b className="text-chead">3.</b> Tap <b className="text-chead">Add</b>, then open Roamly from your Home Screen.</li>
             </ol>
           ) : props.guidedKind === "native-prompt" ? (
-            <p className="text-[13.5px] leading-[1.5] text-[#33463d]">
+            <p className="text-[13.5px] leading-[1.5] text-cink">
               Use your browser&apos;s install prompt to add Roamly to your Home Screen, then open it
               from that icon.
             </p>
           ) : (
-            <p className="text-[13.5px] leading-[1.5] text-[#33463d]">
-              In your browser menu, choose <b className="text-[#12211b]">Install app</b> or{" "}
-              <b className="text-[#12211b]">Add to Home Screen</b>, then open Roamly from that icon.
+            <p className="text-[13.5px] leading-[1.5] text-cink">
+              In your browser menu, choose <b className="text-chead">Install app</b> or{" "}
+              <b className="text-chead">Add to Home Screen</b>, then open Roamly from that icon.
             </p>
           )}
           <button
@@ -177,8 +177,8 @@ export function AlertsDeniedSheetView(props: {
       </SheetReason>
       <div className="mt-[13px] rounded-bui-card border border-chair bg-cbg px-[13px] py-[11px] shadow-bui-card">
         <p className="text-[12px] font-bold tracking-[0.03em] text-cblue">TURN THEM ON — TAKES TEN SECONDS</p>
-        <p className="mt-[3px] text-[13.5px] leading-[1.45] text-[#33463d]">
-          <b className="text-[#12211b]">{props.settingsPath}</b>. Then come back here — Roamly
+        <p className="mt-[3px] text-[13.5px] leading-[1.45] text-cink">
+          <b className="text-chead">{props.settingsPath}</b>. Then come back here — Roamly
           checks again the moment you return.
         </p>
       </div>
@@ -206,14 +206,14 @@ export function GateBannerView(props: {
         type="button"
         data-measure="gate-banner"
         onClick={props.onTap}
-        className="bui-press flex h-[46px] w-full items-center gap-[9px] rounded-[12px] bg-[#0b3d2b] py-[9px] pl-[11px] pr-[10px] text-left text-[#eaf4ef] shadow-[0_5px_16px_rgba(8,44,32,0.20)]"
+        className="bui-press flex h-[46px] w-full items-center gap-[9px] rounded-[12px] bg-cnavy py-[9px] pl-[11px] pr-[10px] text-left text-white shadow-[0_5px_16px_rgba(7,30,85,0.20)]"
       >
         <Image src={GATE_LOGO_SRC} alt="" width={23} height={23} className="h-[23px] w-[23px] flex-none rounded-[6px] bg-white p-[2px]" />
         <span className="min-w-0 flex-1 text-[13px] font-semibold leading-tight">
           {props.line}
-          <span className="block truncate text-[11px] font-medium text-[#a9c8bb]">{subline}</span>
+          <span className="block truncate text-[11px] font-medium text-white/70">{subline}</span>
         </span>
-        <span className="flex-none whitespace-nowrap rounded-[8px] bg-white px-[11px] py-[7px] text-[12.5px] font-bold text-[#0b3d2b]">
+        <span className="flex-none whitespace-nowrap rounded-[8px] bg-white px-[11px] py-[7px] text-[12.5px] font-bold text-cnavy">
           {props.actionLabel}
         </span>
       </button>
@@ -230,7 +230,7 @@ export function GmailAskSheetView(props: { onConnect: () => void; onNotNow: () =
     <SheetShell measure="gmail-ask-sheet">
       <div className="flex items-center gap-[9px]">
         <Image src={GATE_LOGO_SRC} alt="Roamly logo" width={38} height={38} className="h-[38px] w-[38px] rounded-[10px]" />
-        <span className="text-[17px] font-extrabold text-[#0b3d2b]">Roamly</span>
+        <span className="text-[17px] font-extrabold text-cnavy">Roamly</span>
         <BuiBadge tone="warm" className="ml-auto">
           CONNECT GMAIL
         </BuiBadge>
@@ -273,8 +273,8 @@ export function GateReadyView(props: {
           <Check size={14} strokeWidth={3} aria-hidden="true" />
         </span>
         <div>
-          <p className="text-[14.5px] font-bold text-[#12211b]">Roamly app — installed, alerts on</p>
-          <p className="mt-[1px] text-[12.5px] leading-[1.35] text-[#5c6f66]">
+          <p className="text-[14.5px] font-bold text-chead">Roamly app — installed, alerts on</p>
+          <p className="mt-[1px] text-[12.5px] leading-[1.35] text-cgray">
             Detected on this phone. Trip alerts are on — that&apos;s how your companion reaches you.
           </p>
         </div>
@@ -286,8 +286,8 @@ export function GateReadyView(props: {
           <Check size={14} strokeWidth={3} aria-hidden="true" />
         </span>
             <div>
-              <p className="text-[14.5px] font-bold text-[#12211b]">Gmail — connected</p>
-              <p className="mt-[1px] text-[12.5px] leading-[1.35] text-[#5c6f66]">
+              <p className="text-[14.5px] font-bold text-chead">Gmail — connected</p>
+              <p className="mt-[1px] text-[12.5px] leading-[1.35] text-cgray">
                 Booking updates are on. Roamly reads booking confirmations only in your Gmail.
               </p>
             </div>
@@ -296,8 +296,8 @@ export function GateReadyView(props: {
           <>
             <Image src={GATE_LOGO_SRC} alt="" width={24} height={24} className="mt-[1px] h-6 w-6 flex-none rounded-[7px]" />
             <div className="min-w-0 flex-1">
-              <p className="text-[14.5px] font-bold text-[#12211b]">Connect Gmail</p>
-              <p className="mt-[1px] text-[12.5px] leading-[1.35] text-[#5c6f66]">
+              <p className="text-[14.5px] font-bold text-chead">Connect Gmail</p>
+              <p className="mt-[1px] text-[12.5px] leading-[1.35] text-cgray">
                 So this trip can keep itself matched to your bookings — booking confirmations only,
                 never your other mail.
               </p>
@@ -340,7 +340,7 @@ export function HandoffFreshCodeView() {
       <SheetTitle>This code has been used or has expired</SheetTitle>
       <SheetReason>
         Handoff codes work once and last 10 minutes. Open Roamly on your computer and choose{" "}
-        <b className="text-[#12211b]">“Take this trip with you”</b> to get a fresh code — or just
+        <b className="text-chead">“Take this trip with you”</b> to get a fresh code — or just
         sign in here; your trip lives on your account.
       </SheetReason>
     </SheetShell>

@@ -117,6 +117,9 @@ assert.equal(live.fallbackRouteStatus(null).durationMinutes, null, "unavailable 
 
 const liveClient = fs.readFileSync(path.join(root, "components/trip/LiveTripClient.tsx"), "utf8");
 assert.ok(liveClient.includes("currentActivity && !tripCompleted"), "completed trips do not expose check-in/skip controls");
-assert.ok(liveClient.includes("!tripCompleted ? <section"), "completed trips do not expose pause/resume controls");
+// BoardUI batch 2 (2026-11-09): the guarded block renders as a
+// BuiCard; the !tripCompleted guard itself is unchanged — the old
+// needle pinned the pre-BoardUI <section> element.
+assert.ok(liveClient.includes("!tripCompleted ? <BuiCard"), "completed trips do not expose pause/resume controls");
 
 console.log("Roamly trip truth integrity checks passed (identity quarantine, unknown pricing, planned timing, lifecycle boundaries, and unavailable routing).");

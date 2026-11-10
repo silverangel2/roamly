@@ -87,7 +87,7 @@ export function BookingCardsClient({
               destination
             })
           }
-          className="rounded-[1.5rem] border border-cloud bg-white/90 p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-cblue/40"
+          className="bui-squircle bui-lift bui-press bui-tap rounded-bui-card border border-chair bg-white p-4 shadow-bui-card transition hover:border-cblue/40"
         >
           <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{link.label}</p>
           <h3 className="mt-2 text-lg font-black text-ink">{link.title}</h3>
@@ -98,7 +98,7 @@ export function BookingCardsClient({
         </a>
       ))}
       {showDisclosure ? (
-        <p className="rounded-2xl bg-mist px-4 py-3 text-xs font-bold leading-5 text-slate-500 sm:col-span-2 lg:col-span-3">
+        <p className="rounded-bui-card bg-mist px-4 py-3 text-xs font-bold leading-5 text-slate-500 sm:col-span-2 lg:col-span-3">
           {links[0]?.affiliate_disclosure}
         </p>
       ) : null}

@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     images: [{ url: "https://roamlyhq.com/opengraph-image", width: 1200, height: 630, alt: "Roamly — AI travel planner" }]
   }
 };
+import { BuiNotice } from "@/components/boardui/Notice";
 import { ItineraryShareForm } from "@/components/trip/ItineraryShareForm";
 import {
   getCompletedTripsForSharing,
@@ -35,7 +36,7 @@ export default async function ShareItineraryPage({ searchParams }: PageProps) {
   if (!current.configured) {
     return (
       <div className="safe-bottom mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
-        <h1 className="text-3xl font-black text-ink">Supabase setup required.</h1>
+        <h1 className="text-3xl font-black text-chead">Supabase setup required.</h1>
       </div>
     );
   }
@@ -65,17 +66,15 @@ export default async function ShareItineraryPage({ searchParams }: PageProps) {
     <div className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
       <div className="bui-enter mb-5">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Itinerary Library</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-ink">Share your proven itinerary</h1>
-        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+        <h1 className="mt-2 text-4xl font-black tracking-tight text-chead">Share your proven itinerary</h1>
+        <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-cink">
           Completed a trip worth repeating? Share it so future travelers get suggestions proven by real
           bookings — not scraped reviews. Rate the hotels, flights, and activities you actually booked;
           only items from your own booking wallet can be rated.
         </p>
       </div>
       {completed.error ? (
-        <p className="bui-enter rounded-bui-card border border-cred/40 bg-cred/10 px-4 py-3 text-sm font-bold text-[#B92C44] shadow-bui-card">
-          Could not load your trips: {completed.error}
-        </p>
+        <BuiNotice tone="error" title={`Could not load your trips: ${completed.error}`} />
       ) : (
         <ItineraryShareForm
           trips={completed.trips}

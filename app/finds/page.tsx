@@ -62,7 +62,7 @@ export default async function FindsPage({ searchParams }: { searchParams: Search
   ];
 
   return (
-    <div className="min-h-[75vh] bg-[#F2F6FC] px-4 pb-12 pt-5 text-[#223354] sm:px-8 sm:pb-16 sm:pt-8">
+    <div className="min-h-[75vh] bg-cbg px-4 pb-12 pt-5 text-chead sm:px-8 sm:pb-16 sm:pt-8">
       <div className="mx-auto max-w-[1440px]">
         <Stay22LetMeAllezScript />
         <FindsTabs cards={cards} destination={destination} origin={origin} startDate={startDate} endDate={endDate} disclosures={[amazonAffiliateDisclosure]} emptyMessage="No verified live listing is available for this section right now." activePromo={activePromo} flightLiveSearchConfigured={flightLiveSearchConfigured()} />

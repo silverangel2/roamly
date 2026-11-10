@@ -301,7 +301,12 @@ const dayPlanModule = loadTsxWithMocks("components/trip/ItineraryDayPlan.tsx", {
   "@/lib/roamly/daySummary": await import("@/lib/roamly/daySummary.ts"),
   "@/lib/roamly/activityDescription": await import("@/lib/roamly/activityDescription.ts"),
   "@/lib/roamly/marketStopDescription": await import("@/lib/roamly/marketStopDescription.ts"),
-  "@/lib/roamly/planStayRow": await import("@/lib/roamly/planStayRow.ts")
+  "@/lib/roamly/planStayRow": await import("@/lib/roamly/planStayRow.ts"),
+  // BoardUI day pass (2026-11-09): the day card now imports the
+  // BoardUI accordion + chip primitives; the display-chain tests
+  // never render, so inert stand-ins are the whole contract.
+  "@/components/boardui/Accordion": { BuiAccordion: () => null },
+  "@/components/boardui/Badge": { BuiChip: () => null, BuiBadge: () => null }
 });
 const { buildDisplayTimelineItems } = dayPlanModule;
 

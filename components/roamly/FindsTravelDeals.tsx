@@ -54,7 +54,7 @@ const DEALS = [
   {
     title: "Travel gear",
     via: "Shop travel essentials · Amazon Associates",
-    href: "https://amazon.ca/s?k=travel+gear+essentials&tag=roamly060-20",
+    href: "https://www.amazon.com/s?k=travel+gear+essentials&tag=roamly02e-20",
     icon: (
       <ShoppingBag className="h-7 w-7" strokeWidth={1.8} aria-hidden="true" />
     )
@@ -64,15 +64,15 @@ const DEALS = [
 export function FindsTravelDeals() {
   return (
     <section aria-label="Travel deals" className="mx-auto w-full max-w-xl px-2 py-10 sm:py-14">
-      <h2 className="text-center text-3xl font-extrabold tracking-tight text-[#223354] sm:text-4xl">
+      <h2 className="text-center text-3xl font-extrabold tracking-tight text-chead sm:text-4xl">
         Travel deals
       </h2>
-      <p className="mx-auto mt-3 max-w-md text-center text-[0.95rem] leading-6 text-slate-600">
-        <span className="font-extrabold text-[#223354]">Roamly&apos;s</span> hand-picked partners for
+      <p className="mx-auto mt-3 max-w-md text-center text-[0.95rem] leading-6 text-cgray">
+        <span className="font-extrabold text-chead">Roamly&apos;s</span> hand-picked partners for
         hotels, flights, tours, transfers, rental cars, eSIM &amp; travel gear.
       </p>
 
-      <div aria-hidden="true" className="my-6 border-t-2 border-dashed border-[#DCE5F0]" />
+      <div aria-hidden="true" className="my-6 border-t-2 border-dashed border-chair" />
 
       <div className="grid gap-4">
         {DEALS.map((deal) => (
@@ -81,28 +81,28 @@ export function FindsTravelDeals() {
             href={deal.href}
             target="_blank"
             rel="sponsored nofollow noopener"
-            className="group flex items-center gap-4 rounded-[1.4rem] bg-white p-4 shadow-bui-card bui-lift sm:p-5"
+            className="bui-press bui-tap group flex items-center gap-4 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card bui-lift sm:p-5"
           >
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#E6EFFA] text-[#087BFF]">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-csoft text-cblue">
               {deal.icon}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-lg font-extrabold tracking-tight text-[#223354]">
+              <span className="block text-lg font-extrabold tracking-tight text-chead">
                 {deal.title}
               </span>
-              <span className="mt-0.5 block truncate text-sm text-slate-500">{deal.via}</span>
+              <span className="mt-0.5 block truncate text-sm text-cgray">{deal.via}</span>
             </span>
             <ArrowUpRight
               aria-hidden="true"
               size={20}
               strokeWidth={2.5}
-              className="shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+              className="shrink-0 text-cgray2 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
             />
           </a>
         ))}
       </div>
 
-      <p className="mx-auto mt-8 max-w-md text-center text-xs leading-5 text-slate-500">
+      <p className="mx-auto mt-8 max-w-md text-center text-xs leading-5 text-cgray">
         These are affiliate links: if you book or buy through them, Roamly may earn a commission at
         no extra cost to you. It keeps the travel content free.
       </p>

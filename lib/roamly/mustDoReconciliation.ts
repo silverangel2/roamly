@@ -1,4 +1,5 @@
 import { namedMustSeeMiss } from "@/lib/roamly/engine/understand";
+import { fuzzyPlaceWinner } from "@/lib/roamly/engine/placeNameMatch";
 import { normText } from "@/lib/roamly/engine/util";
 import type { RoamlyActivitySeed, RoamlyDayPlan, RoamlyItinerary } from "@/lib/itinerary";
 
@@ -72,6 +73,9 @@ export interface MustDoSpecLike {
   patterns?: string[];
   requiredPatterns?: string[];
   requiredKinds?: string[];
+  /** Pure named-place anchor — the shape the typo-tolerance
+   *  tier may serve (see evaluateMustDoVerdicts). */
+  requiredNameAnchor?: boolean;
 }
 
 export interface MustDoVerdictLike {
@@ -84,6 +88,7 @@ export interface MustDoVerdictLike {
   patterns?: string[];
   requiredPatterns?: string[];
   requiredKinds?: string[];
+  requiredNameAnchor?: boolean;
 }
 
 const RELATED_ONLY_REASON =
@@ -204,11 +209,30 @@ export function evaluateMustDoVerdicts(itinerary: RoamlyItinerary, specs: MustDo
       status: "exempt",
       patterns: spec.patterns || [],
       requiredPatterns,
-      requiredKinds
+      requiredKinds,
+      requiredNameAnchor: spec.requiredNameAnchor
     };
     if (!requiredPatterns.length && !requiredKinds.length) return base;
     const probe: MustDoVerdictLike = { ...base, status: "unmet" };
-    const satisfying = activities.find((item) => itemSatisfies(item, probe));
+    let satisfying = activities.find((item) => itemSatisfies(item, probe));
+    if (!satisfying && spec.requiredNameAnchor && !requiredKinds.length && requiredPatterns.length) {
+      // Typo tolerance (owner requirement, 2026-11-09), the same
+      // ONE tier the solver and the staged verification consult
+      // (engine/placeNameMatch.ts): the exact satisfaction test
+      // failed only because the traveller's spelling differs from
+      // the record's true name. A unique unmistakable near-match
+      // among the non-leg activities satisfies; anything less
+      // certain leaves the verdict UNMET. The annotation strip
+      // tests (itemSatisfies / itemRelatedToUnmet) stay exact —
+      // fuzz never rescues a related place from being stripped,
+      // and never strips anything itself.
+      const named = activities.filter((item) => item.item_type !== "transfer" && item.item_type !== "travel");
+      const winner = fuzzyPlaceWinner(
+        requiredPatterns,
+        named.map((item) => ({ name: `${item.title || ""} ${item.location_name || ""}`, item }))
+      );
+      if (winner) satisfying = winner.item;
+    }
     if (satisfying) return { ...base, status: "satisfied" as const, item: satisfying.title };
     const relatedOnly = activities.some((item) => itemRelatedToUnmet(item, probe));
     return { ...base, status: "unmet" as const, reason: relatedOnly ? RELATED_ONLY_REASON : NO_MATCH_REASON };

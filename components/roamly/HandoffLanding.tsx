@@ -41,7 +41,7 @@ export function HandoffLanding(props: { token: string }) {
   }, [props.token, router]);
 
   return (
-    <main className="min-h-screen bg-[#f2f6f4]">
+    <main className="min-h-screen bg-cbg">
       {failed ? <HandoffFreshCodeView /> : <HandoffOpeningView />}
     </main>
   );

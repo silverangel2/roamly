@@ -17,7 +17,7 @@ export function HotelPartnerChoices({ partners, tripId, title, recommendationId 
   return (
     <div className="mt-3 min-w-0 max-w-lg">
       {priceNote ? <p className="text-sm font-medium text-ink">{priceNote}</p> : null}
-      <p className={`${priceNote ? "mt-0.5 " : ""}text-[0.8125rem] leading-5 text-slate-500`}>
+      <p className={`${priceNote ? "mt-0.5 " : ""}text-[0.8125rem] leading-5 text-cgray`}>
         {single
           ? `Book stay options on ${partners[0].label}. Opens their search for these dates.`
           : "Same dates and area. Choose a partner."}
@@ -43,7 +43,7 @@ export function HotelPartnerChoices({ partners, tripId, title, recommendationId 
           );
         })}
       </div>
-      <p className="mt-2 text-[0.75rem] leading-5 text-slate-400">
+      <p className="mt-2 text-[0.75rem] leading-5 text-cgray2">
         Roamly may earn a commission if you book. We don’t set the price.
       </p>
     </div>

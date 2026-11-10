@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { BuiNotice } from "@/components/boardui/Notice";
 import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
 import { closeTravelerSentence } from "@/lib/roamly/itineraryPresentation";
@@ -258,7 +259,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
 
   return (
     <section aria-labelledby="gmail-import-title" className="mx-auto w-full max-w-5xl px-4 sm:px-6">
-      <div className="bui-enter mt-6 rounded-bui-card border border-chair bg-white p-4 shadow-bui-card sm:p-6">
+      <BuiCard className="bui-enter mt-6 p-4 sm:p-6">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Email import</p>
         <h2 id="gmail-import-title" className="mt-1 text-xl font-black tracking-tight text-ink">
           Bookings from your inbox
@@ -270,6 +271,14 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
         </p>
 
         <div className="mt-4 rounded-bui-card border border-chair bg-cbg p-4">
+          {/* The recon state line (owner wording law): the connection
+              state reads exactly "activated" / "not activated" — one
+              quiet line, no internal vocabulary. A disconnected or
+              expired connection is "not activated", same as the trip
+              page's state line and the setup cascade. */}
+          <p className="mb-3 text-sm font-semibold text-slate-600">
+            Booking Recon: <span className="font-black text-ink">{connected ? "activated" : "not activated"}</span>
+          </p>
           {connected ? (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
@@ -416,7 +425,7 @@ export function GmailImportPanel({ tripId, locale }: { tripId: string; locale: R
 
         {error ? <BuiNotice tone="error" title={error} className="mt-3" /> : null}
         {notice ? <BuiNotice tone="success" title={notice} className="mt-3" /> : null}
-      </div>
+      </BuiCard>
     </section>
   );
 }

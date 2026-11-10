@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { cx } from "@/components/boardui/cx";
 
 type Settings = {
   location_tracking_enabled?: boolean;
@@ -57,50 +59,56 @@ export function LocationTrackingSettings() {
   const tracking = Boolean(settings?.location_tracking_enabled);
   const notifications = settings?.notification_enabled !== false;
 
+  // Batch 7 (2026-11-09): the toggles ride the BoardUI button recipe
+  // — ON is the brand primary (solid cblue, the same recipe as
+  // BuiButton primary), OFF is the white secondary card. The old
+  // cyan/orange gradients were off-token (the generic-AI-look tell)
+  // and the two settings no longer wear two different colours: one
+  // brand, one meaning (on/off). Save behaviour is untouched — a tap
+  // still saves immediately, exactly as before.
+  const toggleClass = (on: boolean) =>
+    cx(
+      "bui-press bui-touch inline-flex min-h-12 items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition-colors duration-200 ease-bui focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 disabled:pointer-events-none disabled:opacity-60",
+      on
+        ? "bg-cblue text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)] hover:bg-[#0A6FE0]"
+        : "border border-chair bg-white text-chead shadow-bui-card hover:border-cblue/50 hover:text-cblue"
+    );
+
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl bg-mist p-4">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Live trip sensing</p>
-        <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-          Roamly uses your location only to activate trip mode, show nearby activities, and help with your travel timeline.
-          Turn trip sensing off anytime to stop updates and clear the last saved location.
-        </p>
-      </div>
+      <BuiNotice tone="info" title="Live trip sensing">
+        Roamly uses your location only to activate trip mode, show nearby activities, and help with your travel timeline.
+        Turn trip sensing off anytime to stop updates and clear the last saved location.
+      </BuiNotice>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <button
           type="button"
           disabled={busy}
+          aria-pressed={tracking}
           onClick={() => save({ ...settings, location_tracking_enabled: !tracking })}
-          className={`rounded-2xl px-4 py-3 text-sm font-black shadow-soft transition disabled:opacity-60 ${
-            tracking
-              ? "bg-gradient-to-r from-cyan-500 to-sky-500 text-white shadow-lg shadow-cyan-500/20"
-              : "bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-cyan-300 hover:text-cyan-700"
-          }`}
+          className={toggleClass(tracking)}
         >
           {tracking ? "Trip sensing on" : "Trip sensing off"}
         </button>
         <button
           type="button"
           disabled={busy}
+          aria-pressed={notifications}
           onClick={() => save({ ...settings, notification_enabled: !notifications })}
-          className={`rounded-2xl px-4 py-3 text-sm font-black shadow-soft transition disabled:opacity-60 ${
-            notifications
-              ? "bg-gradient-to-r from-orange-400 to-rose-400 text-white shadow-lg shadow-orange-400/20"
-              : "bg-white text-slate-700 ring-1 ring-slate-200 hover:ring-cyan-300 hover:text-cyan-700"
-          }`}
+          className={toggleClass(notifications)}
         >
           {notifications ? "Notifications on" : "Notifications off"}
         </button>
       </div>
 
       {settings?.last_permission_state ? (
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-cgray2">
           Last permission: {settings.last_permission_state}
         </p>
       ) : null}
-      {notice ? <p className="rounded-2xl bg-cblue/10 px-4 py-3 text-sm font-black text-cblue">{notice}</p> : null}
-      {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
+      {notice ? <BuiNotice tone="success" title={notice} /> : null}
+      {error ? <BuiNotice tone="error" title={error} /> : null}
     </div>
   );
 }

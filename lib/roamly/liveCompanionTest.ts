@@ -475,6 +475,7 @@ export async function simulateCheckIn(tripId: string) {
   const activity = await pickActivityForAction(supabase, tripId, "check_in");
   const location = await ensureActivityCoordinates(supabase, trip, activity);
   const result = await performActivityAction(supabase, {
+    activityTransition: "service",
     tripId,
     activityId: activity.id,
     action: "check_in",
@@ -490,6 +491,7 @@ export async function simulateSkip(tripId: string) {
   const supabase = admin();
   const activity = await pickActivityForAction(supabase, tripId, "skip");
   const result = await performActivityAction(supabase, {
+    activityTransition: "service",
     tripId,
     activityId: activity.id,
     action: "skip",
@@ -503,6 +505,7 @@ export async function simulateComplete(tripId: string) {
   const supabase = admin();
   const activity = await pickActivityForAction(supabase, tripId, "complete");
   const result = await performActivityAction(supabase, {
+    activityTransition: "service",
     tripId,
     activityId: activity.id,
     action: "complete",

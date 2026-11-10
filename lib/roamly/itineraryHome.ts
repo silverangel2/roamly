@@ -185,22 +185,63 @@ export type HomeRow = {
    *  labels such links as a search, never as the place itself. */
   mapLinkSearchOnly: boolean;
   /** True when this row may appear on the Map tab's stop list
-   *  (segment-link fix, 2026-11-08): the list is a list of PLACES,
-   *  and a row whose query is only a segment label ("Getting
-   *  there"), a bare generic placeholder ("Free time"), an
-   *  unverified title, or an unbooked generic stay placeholder
-   *  names no place — it gets no map card and no place-search
-   *  links. The row itself still renders in the List view. */
+   *  (segment-link fix, 2026-11-08; owner walk, 2026-11-09): the
+   *  list is a list of PLACES, and a row whose query is only a
+   *  segment label ("Getting there"), a bare generic placeholder
+   *  ("Free time"), an unverified title, an unbooked generic stay
+   *  placeholder, or an area/listing phrase names no place — it
+   *  gets no map card and no place-search links. Segment rows
+   *  (travel / arrival) never list, even when their query names
+   *  the destination city; a hotel check-in row lists because its
+   *  title IS the property. The row itself still renders in the
+   *  List view. */
   mapListed: boolean;
 };
+
+/** A row title or map query that names NO place (owner walk,
+ *  2026-11-09 — the second sighting of walk finding 1's disease, on
+ *  the Map surface this time): a bare segment label ("Getting
+ *  there", "Travel", "Arrival", "Check-in"), or a listing phrase
+ *  that names an area's category instead of a venue ("Events in
+ *  Montreal city center"). Such a row keeps its List row — the
+ *  list is the day's plan — but it must never become a Map place
+ *  card or drive a place search. Exact bare labels only, plus the
+ *  "Events in …" listing shape: a real venue whose name merely
+ *  CONTAINS one of these words ("Travelodge", "Arrival Hotel") is
+ *  never matched. */
+export function isNonPlaceMapLabel(value: string): boolean {
+  const clean = getString(value).toLowerCase().replace(/\s+/g, " ").trim();
+  if (!clean) return false;
+  if (
+    clean === "getting there" ||
+    clean === "travel" ||
+    clean === "transfer" ||
+    clean === "arrival" ||
+    clean === "departure" ||
+    clean === "check-in" ||
+    clean === "check in" ||
+    clean === "check-out" ||
+    clean === "check out"
+  ) {
+    return true;
+  }
+  return /^events in\b/.test(clean);
+}
 
 /** One Map-tab link entry (map-honesty fix, 2026-11-07): the same
  *  deduped query as `mapStops`, plus the first row that produced
  *  it — its stored coordinates when it has them (the links then
  *  point at the exact place, not the words) and whether the links
- *  are only a text search (see HomeRow.mapLinkSearchOnly). */
+ *  are only a text search (see HomeRow.mapLinkSearchOnly). The
+ *  `name`/`time` are the producing row's own face values (BoardUI
+ *  map pass, 2026-11-09): the card is titled by the PLACE NAME the
+ *  traveller sees in the list — never by the raw stored query,
+ *  which can be a composed search string ("Events in Montreal to
+ *  Montreal") that names no place at all. */
 export type HomeMapStopDetail = {
   query: string;
+  name: string;
+  time: string;
   latitude: number | null;
   longitude: number | null;
   searchOnly: boolean;
@@ -454,27 +495,30 @@ export function toHomeRow(
     getString(item.itemType).toLowerCase() === "hotel" &&
     isGenericStayTitle(getString(item.title)) &&
     item.authority !== "confirmed";
-  // Whether this row may appear on the Map tab's stop list
-  // (segment-link fix, 2026-11-08). The list is a list of PLACES:
-  // a row with stored coordinates always belongs (its links target
-  // the point, not the words). Without coordinates the row must
-  // name an identified place — not an unverified title, not a bare
-  // generic placeholder, not an unbooked generic stay placeholder.
-  // A segment row (travel leg, arrival) is a movement, not a
-  // place: it belongs only when its query carries a place its own
-  // label does not (a stored map query / location distinct from
-  // the title — the engine's arrival leg queries the destination
-  // city), or when it is a hotel check-in, whose title IS the
-  // property. A segment whose query is just its label ("Getting
-  // there") names no place and gets no map card.
+  // Whether this row may appear on the Map tab's stop list. The
+  // list is a list of PLACES (segment-link fix, 2026-11-08; owner
+  // walk, 2026-11-09 — the rule restated after his Montreal map
+  // still showed label cards): a row with stored coordinates
+  // always belongs (its links target the point, not the words).
+  // Without coordinates the row must name an identified place —
+  // not an unverified title, not a bare generic placeholder, not
+  // an unbooked generic stay placeholder, and not a non-place
+  // label (a bare segment label or an "Events in …" listing
+  // phrase — see isNonPlaceMapLabel). A segment row (travel leg,
+  // arrival) is a MOVEMENT, not a place: it never becomes a map
+  // card, even when its query names the destination city — an
+  // area is not a place card. The one exception is a hotel
+  // check-in row, whose title IS the property. Rows stay in the
+  // List view untouched; only the map list changes.
   const mapListed =
     hasCoordinates ||
     (!unverified &&
       !genericStayUnbooked &&
       !isGenericStopText(mapQuery) &&
+      !isNonPlaceMapLabel(getString(item.title)) &&
+      !isNonPlaceMapLabel(mapQuery) &&
       (kind === "venue" ||
         kind === "return-to-stay" ||
-        mapQuery.toLowerCase() !== getString(item.title).toLowerCase() ||
         getString(item.itemType).toLowerCase() === "hotel"));
   return {
     key: `${index}-${homeRowTime(item.time)}-${getString(item.title)}`,
@@ -582,9 +626,14 @@ export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView 
     mapStops.push(query);
     // The first row that produced the query owns its link detail
     // (map-honesty fix, 2026-11-07): its coordinates when it has
-    // them, and its search-only flag when it does not.
+    // them, and its search-only flag when it does not. Its NAME
+    // and TIME ride along for the card face (BoardUI map pass,
+    // 2026-11-09) — the card shows the place name from the list,
+    // never the raw query.
     mapStopDetails.push({
       query,
+      name: row.title,
+      time: row.time,
       latitude: row.latitude ?? null,
       longitude: row.longitude ?? null,
       searchOnly: row.mapLinkSearchOnly

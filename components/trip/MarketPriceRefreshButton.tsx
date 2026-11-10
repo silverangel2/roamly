@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
 
 export function MarketPriceRefreshButton({ tripId }: { tripId: string }) {
   const router = useRouter();
@@ -37,14 +38,9 @@ export function MarketPriceRefreshButton({ tripId }: { tripId: string }) {
 
   return (
     <div className="roamly-no-print flex flex-col gap-2">
-      <button
-        type="button"
-        onClick={refreshPrices}
-        disabled={busy}
-        className="w-fit rounded-full border border-cblue/20 bg-white px-4 py-2 text-sm font-black text-cblue shadow-[0_10px_24px_rgba(16,32,51,0.08)] transition hover:border-cblue/40 hover:bg-cblue/5 disabled:opacity-60"
-      >
+      <BuiButton variant="secondary" onClick={refreshPrices} busy={busy} className="w-fit">
         {busy ? "Refreshing prices..." : "Refresh prices"}
-      </button>
+      </BuiButton>
       {message ? <p className="text-xs font-bold leading-5 text-cblue">{message}</p> : null}
       {error ? <p className="text-xs font-bold leading-5 text-coral">{error}</p> : null}
     </div>

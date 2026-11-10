@@ -1,5 +1,6 @@
 import { extractConstraints } from "@/lib/roamly/engine/understand";
 import { deriveMustSees } from "@/lib/roamly/engine/generate";
+import { fuzzyPlaceWinner } from "@/lib/roamly/engine/placeNameMatch";
 import { applyMustDoVerdicts } from "@/lib/roamly/mustDoReconciliation";
 import { normText, type EnginePack } from "@/lib/roamly/engine/util";
 import type { RoamlyActivitySeed, RoamlyItinerary } from "@/lib/itinerary";
@@ -48,6 +49,12 @@ import type { TripPlannerPayload } from "@/lib/trip-planner";
  *   otherwise UNMET and named — here exactly as in the solver.
  *   Labels with neither a head noun nor a named place carry no
  *   requirement and remain EXEMPT (the historical behaviour).
+ * - Typo tolerance (2026-11-09): when the exact name test fails
+ *   for a pure name-anchor must-do, the ONE fuzzy tier
+ *   (engine/placeNameMatch.ts — the solver's own) may still
+ *   satisfy it from a unique unmistakable near-match among the
+ *   activities; kind requirements never fuzz, and anything less
+ *   certain stays UNMET.
  * - An unsatisfied must-do is never dropped and never silently
  *   substituted: it is reported through the same honest surface
  *   the zero-engine uses — the namedMustSeeMiss sentence, appended
@@ -75,6 +82,9 @@ export interface StagedMustDoResult {
   patterns?: string[];
   requiredPatterns?: string[];
   requiredKinds?: string[];
+  /** Carried from the spec: the requirement is a pure named-place
+   *  anchor — the shape the typo-tolerance tier may serve. */
+  requiredNameAnchor?: boolean;
 }
 
 const RELATED_ONLY_REASON =
@@ -165,7 +175,8 @@ export function verifyStagedMustDos(
         status: "exempt" as const,
         patterns: spec.patterns || [],
         requiredPatterns,
-        requiredKinds
+        requiredKinds,
+        requiredNameAnchor: spec.requiredNameAnchor
       };
     }
     // A leg (transfer / travel item) is movement TOWARD a place:
@@ -176,13 +187,30 @@ export function verifyStagedMustDos(
     // crossing carries the ferry kind in its mode), which the
     // kind test captures. Non-leg activities satisfy by naming
     // the experience/kind or by carrying its kind.
-    const satisfying = activities.find((item) => {
+    let satisfying = activities.find((item) => {
       const isLeg = item.item_type === "transfer" || item.item_type === "travel";
       return (
         (!isLeg && activityNamesRequirement(item, requiredPatterns)) ||
         activityCarriesKind(item, requiredKinds, requiredPatterns)
       );
     });
+    if (!satisfying && spec.requiredNameAnchor && !requiredKinds.length && requiredPatterns.length) {
+      // Typo tolerance (owner requirement, 2026-11-09), the same
+      // ONE tier the solver consults (placeNameMatch.ts): the
+      // staged model wrote the place under its true name while
+      // the traveller's ask carries a misspelling, so the exact
+      // name test above missed the very activity that delivers
+      // the ask. A unique, unmistakable near-match among the
+      // non-leg activities satisfies; anything less certain
+      // leaves the must-do honestly unmet below. Pure name-anchor
+      // asks only — kind requirements never fuzz.
+      const named = activities.filter((item) => item.item_type !== "transfer" && item.item_type !== "travel");
+      const winner = fuzzyPlaceWinner(
+        requiredPatterns,
+        named.map((item) => ({ name: `${item.title || ""} ${item.location_name || ""}`, item }))
+      );
+      if (winner) satisfying = winner.item;
+    }
     if (satisfying) {
       return {
         id: spec.id,
@@ -191,7 +219,8 @@ export function verifyStagedMustDos(
         item: satisfying.title,
         patterns: spec.patterns || [],
         requiredPatterns,
-        requiredKinds
+        requiredKinds,
+        requiredNameAnchor: spec.requiredNameAnchor
       };
     }
     const context = labelContextTokens(spec.label, requiredPatterns);
@@ -206,7 +235,8 @@ export function verifyStagedMustDos(
       reason: relatedOnly ? RELATED_ONLY_REASON : NO_MATCH_REASON,
       patterns: spec.patterns || [],
       requiredPatterns,
-      requiredKinds
+      requiredKinds,
+      requiredNameAnchor: spec.requiredNameAnchor
     };
   });
 }

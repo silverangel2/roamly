@@ -3,6 +3,8 @@
 import Script from "next/script";
 import { ArrowUpRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import {
   isTrustedTravelpayoutsWidgetUrl,
   type FindsPromoConfig,
@@ -108,11 +110,11 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
   }, [config.id, config.src, retryNonce, visible]);
 
   return <div className="min-w-0 overflow-hidden" aria-busy={state === "loading"}>
-    {state === "unavailable" ? <div className="rounded-2xl border border-dashed border-[#c8ddd0] bg-[#f7fbf7] px-4 py-5 text-sm leading-6 text-[#60766d]" role="status" aria-live="polite">
+    {state === "unavailable" ? <BuiCard className="border-dashed bg-mist px-4 py-5 text-sm leading-6 text-cgray" role="status" aria-live="polite">
       <p>Live offers aren’t available right now.</p>
       <p className="mt-1">Nothing has been substituted or guessed.</p>
-      <button type="button" onClick={() => { setState("loading"); setRetryNonce((value) => value + 1); }} className="mt-4 inline-flex min-h-11 items-center rounded-full bg-[#087BFF] px-5 font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/25">Retry</button>
-    </div> : null}
+      <BuiButton type="button" onClick={() => { setState("loading"); setRetryNonce((value) => value + 1); }} className="mt-4 rounded-full">Retry</BuiButton>
+    </BuiCard> : null}
     <div ref={hostRef} aria-label={state === "unavailable" ? undefined : config.heading} aria-hidden={state === "unavailable"} style={{ minHeight: state === "unavailable" ? 0 : `${visible ? config.minHeight : 72}px`, display: state === "unavailable" ? "none" : undefined }} className="min-w-0 overflow-hidden" />
   </div>;
 }
@@ -120,21 +122,21 @@ export function TravelpayoutsWidget({ config }: { config: FindsWidgetConfig }) {
 export function FindsWidgetSection({ config, heading = true, className = "" }: { config: FindsWidgetConfig; heading?: boolean; className?: string }) {
   return <section className={`min-w-0 ${className}`} aria-labelledby={heading ? `${config.id}-heading` : undefined}>
     {heading ? <div className="mb-4">
-      <p className="text-xs font-black uppercase tracking-[0.2em] text-[#087BFF]">{config.eyebrow}</p>
-      <h3 id={`${config.id}-heading`} className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">{config.heading}</h3>
-      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#60766d]">{config.description}</p>
+      <p className="text-xs font-black uppercase tracking-[0.2em] text-cblue">{config.eyebrow}</p>
+      <h3 id={`${config.id}-heading`} className="mt-2 text-2xl font-black tracking-tight text-chead">{config.heading}</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-cgray">{config.description}</p>
     </div> : null}
     <TravelpayoutsWidget config={config} />
   </section>;
 }
 
 export function FindsTrackedLink({ href, eyebrow, headline, description, action = "Explore" }: { href: string; eyebrow: string; headline: string; description: string; action?: string }) {
-  return <article className="rounded-[1.75rem] bg-[#e8f4ec] p-6 sm:p-8">
-    <p className="text-xs font-black uppercase tracking-[0.2em] text-[#087BFF]">{eyebrow}</p>
-    <h3 className="mt-2 text-2xl font-black tracking-tight text-[#203c43]">{headline}</h3>
-    <p className="mt-2 max-w-xl text-sm leading-6 text-[#60766d]">{description}</p>
-    <a href={href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-[#087BFF] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/25">{action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
-  </article>;
+  return <BuiCard className="bg-csoft p-6 sm:p-8">
+    <p className="text-xs font-black uppercase tracking-[0.2em] text-cblue">{eyebrow}</p>
+    <h3 className="mt-2 text-2xl font-black tracking-tight text-chead">{headline}</h3>
+    <p className="mt-2 max-w-xl text-sm leading-6 text-cgray">{description}</p>
+    <a href={href} target="_blank" rel="noopener noreferrer" className="mt-5 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25">{action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
+  </BuiCard>;
 }
 
 /** A20 (Jakob's Law round, 2026-11-03): the promo CTA names the partner

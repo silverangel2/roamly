@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import type { StaticImageData } from "next/image";
 import commonsPhotos from "../../content/roamly-puzzle-commons-attribution.json";
 import amalfi from "../../content/social/roamly-25-day-reel-campaign/sources/amalfi-couple-01.png";
@@ -107,40 +109,40 @@ export function CityPuzzle() {
   }
 
   return <section id="destination-puzzle" aria-labelledby="puzzle-title" className="mx-auto w-full max-w-7xl px-5 py-6 sm:px-8 sm:py-8 lg:px-12">
-    <div className="overflow-hidden rounded-[1.35rem] border border-[#dce9df] bg-white shadow-[0_12px_38px_rgba(39,88,80,0.07)]">
+    <BuiCard className="overflow-hidden">
       <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
-        <div className="flex flex-col justify-center bg-[#f5faf5] p-6 sm:p-8 lg:p-9">
-          <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-[#087BFF]">A small travel break · {destinationIndex + 1} of {destinations.length}</p>
-          <h2 id="puzzle-title" className="mt-3 text-2xl font-bold tracking-tight text-[#203c43] sm:text-3xl">Where will the pieces take you?</h2>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-[#5f756c]">Swap two pieces at a time to discover somewhere new. Solve the picture when you feel like playing, then decide whether it belongs on your trip.</p>
-          <p aria-live="polite" className="mt-4 text-xs font-bold text-[#547067]">{solved ? `Solved in ${moves} swaps` : selected === null ? `Choose a piece · ${moves} ${moves === 1 ? "swap" : "swaps"}` : "Now choose another piece to swap."}</p>
-          <p className="mt-5 text-[0.68rem] leading-5 text-[#526b62]">Explore 100 destinations through travel photos and destination illustrations. Planning remains one tap away above.</p>
+        <div className="flex flex-col justify-center bg-cbg p-6 sm:p-8 lg:p-9">
+          <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-cblue">A small travel break · {destinationIndex + 1} of {destinations.length}</p>
+          <h2 id="puzzle-title" className="mt-3 text-2xl font-bold tracking-tight text-chead sm:text-3xl">Where will the pieces take you?</h2>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-cink">Swap two pieces at a time to discover somewhere new. Solve the picture when you feel like playing, then decide whether it belongs on your trip.</p>
+          <p aria-live="polite" className="mt-4 text-xs font-bold text-cgray">{solved ? `Solved in ${moves} swaps` : selected === null ? `Choose a piece · ${moves} ${moves === 1 ? "swap" : "swaps"}` : "Now choose another piece to swap."}</p>
+          <p className="mt-5 text-[0.68rem] leading-5 text-cgray">Explore 100 destinations through travel photos and destination illustrations. Planning remains one tap away above.</p>
         </div>
         <div className="p-4 sm:p-7 lg:p-9">
-          <div role="group" aria-label={`Jigsaw puzzle ${destination.kind === "photo" ? "photo of" : "illustration inspired by"} ${destination.city}, ${destination.country}`} className="mx-auto grid aspect-square w-full max-w-[29rem] grid-cols-3 gap-1.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-[0_10px_34px_rgba(39,88,80,0.12)] sm:gap-2 sm:p-2">
+          <div role="group" aria-label={`Jigsaw puzzle ${destination.kind === "photo" ? "photo of" : "illustration inspired by"} ${destination.city}, ${destination.country}`} className="mx-auto grid aspect-square w-full max-w-[29rem] grid-cols-3 gap-1.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-bui-card sm:gap-2 sm:p-2">
             {order.map((piece, position) => {
               const row = Math.floor(piece / 3);
               const column = piece % 3;
               const imageSrc = typeof destination.image === "string" ? destination.image : destination.image.src;
-              return <button key={position} type="button" onClick={() => selectPiece(position)} aria-label={`Puzzle piece ${position + 1}${selected === position ? ", selected" : ""}`} aria-pressed={selected === position} className={`relative min-h-0 overflow-hidden rounded-lg transition duration-200 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF] ${selected === position ? "z-[1] scale-[0.96] ring-4 ring-[#087BFF]" : "hover:brightness-105"}`} style={{ backgroundImage: `url("${imageSrc}")`, backgroundSize: "300% 300%", backgroundPosition: `${column * 50}% ${row * 50}%` }} />;
+              return <button key={position} type="button" onClick={() => selectPiece(position)} aria-label={`Puzzle piece ${position + 1}${selected === position ? ", selected" : ""}`} aria-pressed={selected === position} className={`relative min-h-0 overflow-hidden rounded-lg transition duration-200 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue ${selected === position ? "z-[1] scale-[0.96] ring-4 ring-cblue" : "hover:brightness-105"}`} style={{ backgroundImage: `url("${imageSrc}")`, backgroundSize: "300% 300%", backgroundPosition: `${column * 50}% ${row * 50}%` }} />;
             })}
           </div>
-          <p className="mx-auto mt-3 max-w-[29rem] text-center text-[0.68rem] leading-5 text-[#526b62]">
+          <p className="mx-auto mt-3 max-w-[29rem] text-center text-[0.68rem] leading-5 text-cgray">
             {destination.kind === "photo" ? <>Photo: <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || "Photographer"}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a> · reduced-size Commons thumbnail</> : "A destination illustration."}
           </p>
-          {solved ? <div className="roamly-enter mx-auto mt-5 max-w-[29rem] rounded-2xl border border-[#dce9df] bg-[#f5faf5] p-4 sm:p-5">
-            <p role="status" aria-live="polite" className="text-lg font-black text-[#203c43]">You found {destination.city}, {destination.country}!</p>
-            <p className="mt-1 text-sm leading-6 text-[#60766e]">Make it a real trip. Explore planning, compare current fares, or find a stay through the seller.</p>
+          {solved ? <div className="roamly-enter mx-auto mt-5 max-w-[29rem] rounded-2xl border border-chair bg-cbg p-4 sm:p-5">
+            <p role="status" aria-live="polite" className="text-lg font-black text-chead">You found {destination.city}, {destination.country}!</p>
+            <p className="mt-1 text-sm leading-6 text-cink">Make it a real trip. Explore planning, compare current fares, or find a stay through the seller.</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <a href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#087BFF] px-5 text-xs font-extrabold text-white hover:bg-[#0e605a] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/20">Plan a trip</a>
-              <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/20">Check flights</a>
-              <a href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#b8d6ca] bg-white px-5 text-xs font-extrabold text-[#28665d] hover:bg-[#f1f8f2] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/20">Find hotels</a>
-              <button type="button" onClick={nextPuzzle} className="inline-flex min-h-11 items-center justify-center rounded-full px-4 text-xs font-extrabold text-[#087BFF] hover:bg-white">Next puzzle <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} className="ml-1" /></button>
+              <BuiButtonLink href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="rounded-full">Plan a trip</BuiButtonLink>
+              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} variant="secondary" className="rounded-full">Check flights</BuiButtonLink>
+              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} variant="secondary" className="rounded-full">Find hotels</BuiButtonLink>
+              <BuiButton type="button" variant="ghost" onClick={nextPuzzle} className="rounded-full">Next puzzle <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} /></BuiButton>
             </div>
-            <p className="mt-3 text-[0.68rem] leading-5 text-[#526b62]">Availability depends on the seller. Prices and booking are confirmed before you commit.</p>
-          </div> : <p className="mx-auto mt-3 max-w-[29rem] text-center text-xs text-[#526b62]">Tap a tile, then another tile to swap them.</p>}
+            <p className="mt-3 text-[0.68rem] leading-5 text-cgray">Availability depends on the seller. Prices and booking are confirmed before you commit.</p>
+          </div> : <p className="mx-auto mt-3 max-w-[29rem] text-center text-xs text-cgray">Tap a tile, then another tile to swap them.</p>}
         </div>
       </div>
-    </div>
+    </BuiCard>
   </section>;
 }

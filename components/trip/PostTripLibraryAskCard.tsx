@@ -1,5 +1,6 @@
 import { getItinerarySubmissionForTrip, isTripCompletedForLibrary } from "@/lib/roamly/itineraryLibrary";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+import { BuiCard } from "@/components/boardui/Card";
 
 /**
  * Post-trip ask moment on completed trips. Carries BOTH asks:
@@ -43,20 +44,20 @@ export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
     if (!needsRating && !needsSharing) return null;
 
     return (
-      <section aria-label="Share your trip experience" className="roamly-enter mt-4 rounded-3xl border border-cblue/25 bg-white/90 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.06)] sm:px-7">
+      <BuiCard role="region" aria-label="Share your trip experience" className="bui-enter mt-4 px-5 py-6 sm:px-7">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Trip completed</p>
         <h2 className="mt-2 text-xl font-black tracking-tight text-ink">How was it, really?</h2>
-        <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+        <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-cgray">
           Your experience is booking-proof — it helps Roamly suggest proven options to future travelers.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {needsRating ? (
             <a
               href={`/trip/${tripId}/feedback`}
-              className="rounded-2xl border border-cblue/25 bg-cblue/5 px-5 py-4 transition hover:bg-cblue/10"
+              className="bui-press bui-tap bui-squircle block rounded-bui-card border border-chair bg-csoft px-5 py-4 shadow-bui-card transition hover:bg-mist focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
             >
               <p className="text-sm font-black text-ink">Rate your booked items</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-1 text-sm font-semibold leading-6 text-cgray">
                 Tell Roamly what worked and what didn&apos;t — it tunes your future trips.
               </p>
               <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-cblue px-4 text-sm font-bold text-white">
@@ -67,10 +68,10 @@ export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
           {needsSharing ? (
             <a
               href={`/trips/share?trip=${tripId}`}
-              className="rounded-2xl border border-cblue/25 bg-cblue/5 px-5 py-4 transition hover:bg-cblue/10"
+              className="bui-press bui-tap bui-squircle block rounded-bui-card border border-chair bg-csoft px-5 py-4 shadow-bui-card transition hover:bg-mist focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
             >
               <p className="text-sm font-black text-ink">Share your proven itinerary</p>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-1 text-sm font-semibold leading-6 text-cgray">
                 Publish this trip to the Itinerary Library so future travelers learn from real bookings.
               </p>
               <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-cblue px-4 text-sm font-bold text-white">
@@ -79,7 +80,7 @@ export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
             </a>
           ) : null}
         </div>
-      </section>
+      </BuiCard>
     );
   } catch {
     return null;

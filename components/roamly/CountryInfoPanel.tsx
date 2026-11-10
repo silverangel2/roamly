@@ -37,6 +37,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Clock, Cloud, Flag, MapPin, MessageCircle, Plug } from "lucide-react";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { COUNTRY_INFO_TABS } from "@/lib/roamly/countryInfoPanelTypes";
 import type { CountryInfoPanelModel, CountryInfoTabId } from "@/lib/roamly/countryInfoPanelTypes";
 import {
@@ -363,7 +365,7 @@ export function CountryInfoPanel({
           <h2 className="text-[19px] font-bold tracking-[-0.018em] text-chead">Key information</h2>
           <dl className="mt-3 grid grid-cols-3 gap-2">
             {model.grid.map((cell) => (
-              <div key={cell.key} className="flex min-w-0 gap-2 rounded-bui-card border border-chair bg-cbg px-2 py-3 shadow-bui-card">
+              <BuiCard key={cell.key} className="flex min-w-0 gap-2 bg-cbg px-2 py-3">
                 <GridIcon cellKey={cell.key} countryValue={cell.key === "country" ? (cell.valueLines?.join(" ") ?? cell.value ?? null) : null} />
                 <div className="min-w-0">
                   <dt className="text-[12px] font-normal leading-4 text-cgray">{cell.label}</dt>
@@ -386,7 +388,7 @@ export function CountryInfoPanel({
                     <dd className="mt-0.5 break-words text-[12px] font-normal leading-snug text-cgray">{cell.unavailable}</dd>
                   )}
                 </div>
-              </div>
+              </BuiCard>
             ))}
           </dl>
 
@@ -402,15 +404,19 @@ export function CountryInfoPanel({
             </div>
           </div>
 
-          <a
+          {/* Batch 7: the panel's closing CTA rides BuiButtonLink;
+              the picture's right-edge chevron is kept as an absolute
+              child slot inside the button (the ux-picture2 suite pins
+              the picture shape: full width, chevron at the edge). */}
+          <BuiButtonLink
             href={model.itineraryHref}
-            className="bui-press bui-touch relative mt-6 flex min-h-12 items-center justify-center rounded-bui-card bg-cblue px-5 text-[16.5px] font-semibold text-white shadow-bui-card"
+            className="relative mt-6 min-h-12 w-full rounded-bui-card px-5 text-[16.5px]"
           >
             See full itinerary
             <span aria-hidden className="absolute right-4 flex items-center">
               <ChevronRight size={20} strokeWidth={2} />
             </span>
-          </a>
+          </BuiButtonLink>
         </div>
       ) : null}
 

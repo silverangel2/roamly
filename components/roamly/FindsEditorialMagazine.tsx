@@ -1,8 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight, Minus, Plus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { BuiAccordion } from "@/components/boardui/Accordion";
+import { BuiCard } from "@/components/boardui/Card";
 import { GuardedImage } from "@/components/roamly/GuardedImage";
 import type { FindsCard } from "@/lib/roamly/findsMarketCore";
 import { findsTravelServices, findsWidgets, type FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
@@ -98,17 +100,17 @@ function PhotoStory({ story, feature = false }: { story: DestinationStory; featu
     touchStartX.current = null;
     if (start === null || end === undefined || Math.abs(end - start) < 48 || story.images.length < 2) return;
     move(end < start ? 1 : -1);
-  }} className={`group relative isolate overflow-hidden rounded-[1.5rem] bg-[#223354] text-white shadow-[0_24px_70px_rgba(7, 30, 85,0.13)] sm:rounded-[2rem] ${feature ? "min-h-[27rem] sm:min-h-[34rem] lg:min-h-[39rem]" : "min-h-[20rem] sm:min-h-[25rem]"}`}>
+  }} className={`group relative isolate overflow-hidden rounded-[1.5rem] bg-chead text-white shadow-[0_24px_70px_rgba(7,30,85,0.13)] sm:rounded-[2rem] ${feature ? "min-h-[27rem] sm:min-h-[34rem] lg:min-h-[39rem]" : "min-h-[20rem] sm:min-h-[25rem]"}`}>
     {story.images.map((image, index) => <Image key={image} src={image} alt={`${story.city}, ${story.country}`} aria-hidden={index !== slide} fill sizes={feature ? "(min-width: 1024px) 75vw, 100vw" : "(min-width: 768px) 50vw, 100vw"} priority={feature && index === 0} loading={feature && index === 0 ? "eager" : "lazy"} className={`object-cover transition-opacity duration-1000 motion-reduce:transition-none ${index === slide ? "opacity-100" : "opacity-0"}`} />)}
-    <div className="absolute inset-0 bg-gradient-to-t from-[#071E55]/90 via-[#071E55]/15 to-transparent" aria-hidden="true" />
+    <div className="absolute inset-0 bg-gradient-to-t from-cnavy/90 via-cnavy/15 to-transparent" aria-hidden="true" />
     <div className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-9 lg:p-11">
-      {feature ? <p className="mb-3 inline-flex rounded-full border border-white/35 bg-[#071E55]/30 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm">A Roamly travel story</p> : null}
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#d8f1dd]">{story.city}, {story.country}</p>
+      {feature ? <p className="mb-3 inline-flex rounded-full border border-white/35 bg-cnavy/30 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white backdrop-blur-sm">A Roamly travel story</p> : null}
+      <p className="text-xs font-black uppercase tracking-[0.22em] text-csoft">{story.city}, {story.country}</p>
       <h2 className={`${feature ? "text-4xl sm:text-6xl" : "text-3xl sm:text-4xl"} mt-3 max-w-2xl font-black leading-[0.98] tracking-[-0.05em]`}>{story.title}</h2>
       <p className="mt-4 max-w-xl text-sm leading-6 text-white/85 sm:text-base">{story.dek}</p>
-      <a href={`/plan?destination=${encodeURIComponent(story.city)}`} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-white px-5 text-sm font-black text-[#071E55] transition hover:bg-[#E6EFFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50">Plan around {story.city}<ArrowRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
+      <a href={`/plan?destination=${encodeURIComponent(story.city)}`} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-white px-5 text-sm font-black text-cnavy transition hover:bg-csoft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/50">Plan around {story.city}<ArrowRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a>
     </div>
-    {story.images.length > 1 ? <div className="absolute right-5 top-5 z-10 flex items-center gap-2 rounded-full border border-white/25 bg-black/20 p-1 backdrop-blur-sm">
+    {story.images.length > 1 ? <div className="absolute right-5 top-5 z-10 flex items-center gap-2 rounded-full border border-white/25 bg-cnavy/45 p-1 backdrop-blur-sm">
       <button type="button" aria-label="Previous image" onClick={() => move(-1)} className="bui-touch bui-touch-square grid h-9 w-9 place-items-center rounded-full text-lg text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"><ChevronLeft aria-hidden="true" size={18} strokeWidth={2.5} /></button>
       <span className="px-1 text-xs font-bold text-white" aria-live="polite">{slide + 1} / {story.images.length}</span>
       <button type="button" aria-label="Next image" onClick={() => move(1)} className="bui-touch bui-touch-square grid h-9 w-9 place-items-center rounded-full text-lg text-white hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"><ChevronRight aria-hidden="true" size={18} strokeWidth={2.5} /></button>
@@ -118,30 +120,31 @@ function PhotoStory({ story, feature = false }: { story: DestinationStory; featu
 
 function LiveCard({ card, kind, featured = false, index = 0 }: { card: FindsCard; kind: "product" | "activity" | "hotel"; featured?: boolean; index?: number }) {
   const product = kind === "product";
-  return <article style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties} className={`bui-enter bui-lift snap-start overflow-hidden rounded-[1.25rem] bg-white shadow-bui-card ${featured ? "grid md:grid-cols-[1.15fr_0.85fr]" : `min-w-[14rem] ${product ? "sm:min-w-[17rem]" : "sm:min-w-[20rem]"}`}`}>
-    <div className={`relative ${featured ? "min-h-64 aspect-[1.35/1] md:aspect-auto" : product ? "aspect-square bg-[#E6EFFA]" : "aspect-[1.35/1] bg-[#E6EFFA]"}`}>
+  return <BuiCard style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties} className={`bui-enter bui-lift snap-start overflow-hidden ${featured ? "grid md:grid-cols-[1.15fr_0.85fr]" : `min-w-[14rem] ${product ? "sm:min-w-[17rem]" : "sm:min-w-[20rem]"}`}`}>
+    <div className={`relative ${featured ? "min-h-64 aspect-[1.35/1] md:aspect-auto" : product ? "aspect-square bg-csoft" : "aspect-[1.35/1] bg-csoft"}`}>
       {card.image ? (/^https?:\/\//i.test(card.image) ? <GuardedImage src={card.image} alt={card.imageAlt} fill loading="lazy" sizes={featured ? "(min-width: 768px) 55vw, 100vw" : "(min-width: 768px) 20rem, 82vw"} className={product ? "object-contain p-5" : "object-cover"} /> : <Image src={card.image} alt={card.imageAlt} fill loading="lazy" sizes={featured ? "(min-width: 768px) 55vw, 100vw" : "(min-width: 768px) 20rem, 82vw"} className={product ? "object-contain p-5" : "object-cover"} />) : null}
-      {!card.image ? <div className="absolute inset-0 grid place-items-center bg-[#E6EFFA] p-6 text-center text-sm text-[#657795]">No verified photo was supplied for this listing.</div> : null}
+      {!card.image ? <div className="absolute inset-0 grid place-items-center bg-csoft p-6 text-center text-sm text-cgray">No verified photo was supplied for this listing.</div> : null}
     </div>
     <div className={featured ? "flex flex-col justify-center p-6 sm:p-9" : "p-4"}>
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#087BFF]">{card.eyebrow}</p>
-      <h3 className="line-clamp-2 text-base font-black leading-tight text-[#223354]">{card.title}</h3>
-      {card.price ? <p className="mt-2 bui-display-number text-sm font-bold text-[#087BFF]">{card.price}</p> : null}
-      <p className="mt-2 line-clamp-2 text-xs leading-5 text-[#657795]">{card.description}</p>
-      <a href={card.href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center text-xs font-black text-[#087BFF] underline decoration-[#9CC2F5] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]">{card.action}<ArrowUpRight aria-hidden="true" size={14} strokeWidth={2.5} className="ml-1" /></a>
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cblue">{card.eyebrow}</p>
+      <h3 className="line-clamp-2 text-base font-black leading-tight text-chead">{card.title}</h3>
+      {card.price ? <p className="mt-2 bui-display-number text-sm font-bold text-cblue">{card.price}</p> : null}
+      {card.price ? <p className="mt-1 text-[11px] leading-4 text-cgray2">{[card.priceNote, card.provider].filter(Boolean).join(" · ")}</p> : null}
+      <p className="mt-2 line-clamp-2 text-xs leading-5 text-cgray">{card.description}</p>
+      <a href={card.href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center text-xs font-black text-cblue underline decoration-cblue/40 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cblue">{card.action}<ArrowUpRight aria-hidden="true" size={14} strokeWidth={2.5} className="ml-1" /></a>
     </div>
-  </article>;
+  </BuiCard>;
 }
 
 function CuratedProductCard({ card, index = 0 }: { card: FindsCard; index?: number }) {
   const presentation = curatedAmazonFindPresentation(card.id);
-  return <article style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties} className="bui-enter bui-lift snap-start w-[calc(100%_-_3rem)] shrink-0 overflow-hidden rounded-[1.5rem] bg-white shadow-bui-card md:w-auto md:min-w-0 md:shrink md:basis-auto">
-    <a href={card.href} target="_blank" rel="noopener noreferrer" aria-label={`${card.action}: ${card.title} (illustrative category image)`} className="group relative block aspect-[1.2/1] overflow-hidden bg-[#E6EFFA] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[#087BFF]/50">
+  return <BuiCard style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties} className="bui-enter bui-lift snap-start w-[calc(100%_-_3rem)] shrink-0 overflow-hidden md:w-auto md:min-w-0 md:shrink md:basis-auto">
+    <a href={card.href} target="_blank" rel="noopener noreferrer" aria-label={`${card.action}: ${card.title} (illustrative category image)`} className="group relative block aspect-[1.2/1] overflow-hidden bg-csoft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-cblue/50">
       <Image src={presentation.illustration} alt={presentation.illustrationAlt} fill sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 82vw" loading="lazy" className="object-cover transition-transform duration-700 group-hover:scale-[1.035] motion-reduce:transform-none motion-reduce:transition-none" />
-      <span className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-[10px] font-bold text-[#657795] shadow-sm backdrop-blur-sm sm:left-4 sm:top-4">Illustrative image</span>
+      <span className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-[10px] font-bold text-cgray shadow-sm backdrop-blur-sm sm:left-4 sm:top-4">Illustrative image</span>
     </a>
-    <div className="p-4 sm:p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#087BFF]">Amazon category</p><h3 className="mt-2 text-lg font-black leading-tight text-[#223354]">{card.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-5 text-[#657795]">{card.description}</p><a href={card.href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm font-black text-[#087BFF] underline decoration-[#9CC2F5] underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087BFF]">{card.action}<ArrowUpRight aria-hidden="true" size={14} strokeWidth={2.5} className="ml-1" /></a></div>
-  </article>;
+    <div className="p-4 sm:p-5"><p className="text-[10px] font-black uppercase tracking-[0.18em] text-cblue">Amazon category</p><h3 className="mt-2 text-lg font-black leading-tight text-chead">{card.title}</h3><p className="mt-2 line-clamp-2 text-sm leading-5 text-cgray">{card.description}</p><a href={card.href} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center text-sm font-black text-cblue underline decoration-cblue/40 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cblue">{card.action}<ArrowUpRight aria-hidden="true" size={14} strokeWidth={2.5} className="ml-1" /></a></div>
+  </BuiCard>;
 }
 
 function RentalWidgetDisclosure() {
@@ -155,27 +158,36 @@ function RentalWidgetDisclosure() {
     return () => query.removeEventListener("change", update);
   }, []);
 
-  return <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="mx-auto max-w-3xl rounded-[1.5rem] border border-[#DCE5F0] bg-white/70 p-4 lg:border-0 lg:bg-transparent lg:p-0">
-    <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 rounded-xl px-2 text-sm font-black text-[#223354] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/15 lg:hidden">
-      <span><span className="block text-xs font-black uppercase tracking-[0.18em] text-[#087BFF]">Need a car?</span><span className="mt-1 block">Keep the journey moving</span></span>
-      <span aria-hidden="true" className="text-xl text-[#087BFF]">{open ? <Minus size={16} strokeWidth={2.5} /> : <Plus size={16} strokeWidth={2.5} />}</span>
-    </summary>
+  // Batch 5 (2026-11-09): the native details element became the
+  // BoardUI accordion in its controlled mode — the media query above
+  // still owns the open state (closed on phones, open on desktop),
+  // the header hides on desktop exactly as the old summary did, and
+  // the panel is forced open at desktop widths so the widget is
+  // never hidden behind a toggle that isn't rendered there.
+  return <BuiAccordion
+    open={open}
+    onOpenChange={setOpen}
+    title={<span><span className="block text-xs font-black uppercase tracking-[0.18em] text-cblue">Need a car?</span><span className="mt-1 block">Keep the journey moving</span></span>}
+    className="mx-auto max-w-3xl rounded-bui-panel border border-chair bg-white/70 p-4 lg:border-0 lg:bg-transparent lg:p-0"
+    buttonClassName="min-h-12 rounded-xl px-2 text-sm font-black text-chead lg:hidden"
+    panelClassName="lg:grid-rows-[1fr]"
+  >
     <div className="pt-4 lg:pt-0"><FindsWidgetSection config={findsWidgets.cars} heading={false} className="mx-auto" /></div>
-  </details>;
+  </BuiAccordion>;
 }
 
 function EditorialFlight({ card }: { card: FindsCard }) {
-  return <article className="flex flex-col justify-between gap-5 rounded-[1.75rem] bg-[#E6EFFA] p-6 sm:flex-row sm:items-center sm:p-8">
-    <div><h3 className="text-2xl font-black tracking-tight text-[#223354]">{card.title}</h3><p className="mt-2 max-w-xl text-sm leading-6 text-[#657795]">{card.description}</p></div>
-    <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end"><p className="bui-display-number text-lg font-black text-[#223354]">{card.price || "Current option found"}</p><a href={card.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-full bg-[#087BFF] px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/25">{card.action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a></div>
-  </article>;
+  return <BuiCard className="flex flex-col justify-between gap-5 bg-csoft p-6 sm:flex-row sm:items-center sm:p-8">
+    <div><h3 className="text-2xl font-black tracking-tight text-chead">{card.title}</h3><p className="mt-2 max-w-xl text-sm leading-6 text-cgray">{card.description}</p></div>
+    <div className="flex shrink-0 flex-col items-start gap-3 sm:items-end"><div><p className="bui-display-number text-lg font-black text-chead">{card.price || "Current option found"}</p>{card.price ? <p className="mt-1 text-[11px] leading-4 text-cgray2">{[card.priceNote, card.provider].filter(Boolean).join(" · ")}</p> : null}</div><a href={card.href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25">{card.action}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a></div>
+  </BuiCard>;
 }
 
 function SectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description?: string; id?: string }) {
   return <header className="mb-5 max-w-2xl">
-    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#087BFF]">{eyebrow}</p>
-    <h2 id={id} className="mt-2 text-[1.7rem] font-black leading-tight tracking-[-0.04em] text-[#223354] sm:text-3xl">{title}</h2>
-    {description ? <p className="mt-2 max-w-xl text-sm leading-6 text-[#657795]">{description}</p> : null}
+    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cblue">{eyebrow}</p>
+    <h2 id={id} className="mt-2 text-[1.7rem] font-black leading-tight tracking-[-0.04em] text-chead sm:text-3xl">{title}</h2>
+    {description ? <p className="mt-2 max-w-xl text-sm leading-6 text-cgray">{description}</p> : null}
   </header>;
 }
 
@@ -195,11 +207,11 @@ export function FindsEditorialMagazine({ cards, destination, disclosures, active
 
   return <section className="mt-7 sm:mt-10" aria-label="Editorial travel magazine">
     <header className="mb-5 flex flex-col gap-3 sm:mb-7 sm:flex-row sm:items-end sm:justify-between">
-      <div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#087BFF]">Roamly Deals <span className="px-1 text-[#9AA5B8]">/</span> The travel edit</p><h1 className="mt-3 max-w-3xl text-[2.15rem] font-black leading-[1.02] tracking-[-0.055em] text-[#223354] sm:text-5xl lg:text-[3.6rem]">Deals for <span className="text-[#087BFF]">{destinationLabel}.</span></h1></div>
-      <p className="max-w-sm text-sm leading-6 text-[#657795] sm:pb-1 sm:text-right">Stories for wherever you’re going—thoughtful trip essentials and real options to explore.</p>
+      <div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-cblue">Roamly Deals <span className="px-1 text-cgray2">/</span> The travel edit</p><h1 className="mt-3 max-w-3xl text-[2.15rem] font-black leading-[1.02] tracking-[-0.055em] text-chead sm:text-5xl lg:text-[3.6rem]">Deals for <span className="text-cblue">{destinationLabel}.</span></h1></div>
+      <p className="max-w-sm text-sm leading-6 text-cgray sm:pb-1 sm:text-right">Stories for wherever you’re going—thoughtful trip essentials and real options to explore.</p>
     </header>
     <nav aria-label="Explore this page" className="mb-6 flex flex-wrap gap-2 sm:mb-8">
-      {[["worth-packing", "Worth packing"], ["stay-heading", "Stays"], ["flights-heading", "Flights"], ["activities-heading", "Things to do"], ["travel-tools-heading", "More to explore"]].map(([href, label]) => <a key={href} href={`#${href}`} className="inline-flex min-h-10 items-center rounded-full border border-[#DCE5F0] bg-white/80 px-4 py-2 text-xs font-bold text-[#657795] transition hover:border-[#9CC2F5] hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/20">{label}</a>)}
+      {[["worth-packing", "Worth packing"], ["stay-heading", "Stays"], ["flights-heading", "Flights"], ["activities-heading", "Things to do"], ["travel-tools-heading", "More to explore"]].map(([href, label]) => <a key={href} href={`#${href}`} className="inline-flex min-h-10 items-center rounded-full border border-chair bg-white/80 px-4 py-2 text-xs font-bold text-cgray transition hover:border-cblue/50 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20">{label}</a>)}
     </nav>
     {searchEntry}
     {liveTools ? <div id="finds-live-options" className="scroll-mt-8">{searchOpen ? liveTools : null}</div> : null}
@@ -207,19 +219,19 @@ export function FindsEditorialMagazine({ cards, destination, disclosures, active
 
     <section id="worth-packing" className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="worth-packing-heading">
       <SectionHeading eyebrow="For the journey" title="Worth packing" description="A curated travel essentials edit—browse categories for little things that make the way there feel easier." id="worth-packing-heading" />
-      {products.length ? <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{products.slice(0, 6).map((card, cardIndex) => <LiveCard key={card.id} card={card} kind="product" index={cardIndex} />)}</div> : <><div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:gap-4 sm:px-0 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-4">{curatedProducts.map((card, cardIndex) => <CuratedProductCard key={card.id} card={card} index={cardIndex} />)}</div><p className="mt-1 text-xs leading-5 text-[#657795]">These are ideas, not live product listings or price claims. Browse categories on Amazon; product selection, price and availability are set by the seller.</p></>}
+      {products.length ? <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{products.slice(0, 6).map((card, cardIndex) => <LiveCard key={card.id} card={card} kind="product" index={cardIndex} />)}</div> : <><div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:gap-4 sm:px-0 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-4">{curatedProducts.map((card, cardIndex) => <CuratedProductCard key={card.id} card={card} index={cardIndex} />)}</div><p className="mt-1 text-xs leading-5 text-cgray">These are ideas, not live product listings or price claims. Browse categories on Amazon; product selection, price and availability are set by the seller.</p></>}
     </section>
 
-    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="stay-heading"><SectionHeading eyebrow="A place to begin" title="Where to stay" description="Find a place that fits the way you want to travel." id="stay-heading" />{hotels[0] ? <LiveCard card={hotels[0]} kind="hotel" featured /> : <article className="rounded-[1.5rem] bg-[#E6EFFA] p-6 sm:rounded-[2rem] sm:p-10"><p className="text-xs font-bold uppercase tracking-[0.15em] text-[#657795]">Stay somewhere that feels right</p><h3 className="mt-3 max-w-xl text-2xl font-black tracking-tight text-[#223354] sm:text-3xl">Make the destination feel like yours.</h3><p className="mt-3 max-w-2xl text-sm leading-6 text-[#657795]">Browse stays for {destinationLabel} and confirm the latest price and availability with the booking partner.</p><a href={findsTravelServices.stays.href} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex min-h-12 items-center rounded-full bg-[#087BFF] px-6 text-sm font-black text-white transition hover:bg-[#0A6FE0] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#087BFF]/25">Open Stay22 for {destinationLabel}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a></article>}</section>
+    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="stay-heading"><SectionHeading eyebrow="A place to begin" title="Where to stay" description="Find a place that fits the way you want to travel." id="stay-heading" />{hotels[0] ? <LiveCard card={hotels[0]} kind="hotel" featured /> : <BuiCard className="bg-csoft p-6 sm:p-10"><p className="text-xs font-bold uppercase tracking-[0.15em] text-cgray">Stay somewhere that feels right</p><h3 className="mt-3 max-w-xl text-2xl font-black tracking-tight text-chead sm:text-3xl">Make the destination feel like yours.</h3><p className="mt-3 max-w-2xl text-sm leading-6 text-cgray">Browse stays for {destinationLabel} and confirm the latest price and availability with the booking partner.</p><a href={findsTravelServices.stays.href} target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex min-h-12 items-center rounded-full bg-cblue px-6 text-sm font-black text-white transition hover:bg-[#0A6FE0] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25">Open Stay22 for {destinationLabel}<ArrowUpRight aria-hidden="true" size={16} strokeWidth={2.5} className="ml-2" /></a></BuiCard>}</section>
 
-    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="flights-heading"><SectionHeading eyebrow="The journey there" title="Flights worth checking" description="Explore current fare ideas for your next trip." id="flights-heading" />{flights.length ? <div className="mb-6 space-y-4">{flights.slice(0, 3).map((card) => <EditorialFlight key={card.id} card={card} />)}</div> : null}<div className="grid items-stretch gap-5 lg:grid-cols-2"><div id="finds-flight-widget" className="scroll-mt-6 flex min-w-0 items-center overflow-hidden rounded-[1.5rem] border border-[#DCE5F0] bg-white p-4 sm:rounded-[2rem] sm:p-7 lg:p-8"><FindsTrackedLink href={findsTravelServices.flights.href} eyebrow={findsTravelServices.flights.eyebrow} headline={findsTravelServices.flights.headline} description={findsTravelServices.flights.description} action="Find cheap flights" /></div><PhotoStory story={flightStory} /></div></section>
+    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="flights-heading"><SectionHeading eyebrow="The journey there" title="Flights worth checking" description="Explore current fare ideas for your next trip." id="flights-heading" />{flights.length ? <div className="mb-6 space-y-4">{flights.slice(0, 3).map((card) => <EditorialFlight key={card.id} card={card} />)}</div> : null}<div className="grid items-stretch gap-5 lg:grid-cols-2"><BuiCard id="finds-flight-widget" className="flex min-w-0 scroll-mt-6 items-center overflow-hidden p-4 sm:p-7 lg:p-8"><FindsTrackedLink href={findsTravelServices.flights.href} eyebrow={findsTravelServices.flights.eyebrow} headline={findsTravelServices.flights.headline} description={findsTravelServices.flights.description} action="Find cheap flights" /></BuiCard><PhotoStory story={flightStory} /></div></section>
 
-    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="activities-heading"><SectionHeading eyebrow="Make a day of it" title="Things worth doing" description="Real experiences, local events and ideas for the days between." id="activities-heading" />{activities.length ? <><LiveCard card={activities[0]} kind="activity" featured />{activities.length > 1 ? <div className="-mx-4 mt-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{activities.slice(1, 6).map((card, cardIndex) => <LiveCard key={card.id} card={card} kind="activity" index={cardIndex + 1} />)}</div> : null}</> : null}<div className="mt-7 overflow-hidden rounded-[1.5rem] border border-[#DCE5F0] bg-white p-4 sm:mt-9 sm:rounded-[2rem] sm:p-7 lg:p-9"><FindsWidgetSection config={findsWidgets.experiences107} heading={false} className="mx-auto max-w-5xl" /></div><div className="mt-7 grid gap-5 sm:mt-8 lg:grid-cols-2"><PhotoStory story={experienceStory} /><div className="flex min-h-full flex-col justify-center rounded-[1.5rem] bg-[#E6EFFA] p-6 sm:rounded-[2rem] sm:p-9"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#657795]">Leave room for a detour</p><h3 className="mt-3 text-2xl font-black tracking-tight text-[#223354]">The best day might be the one you didn’t plan.</h3><p className="mt-3 text-sm leading-6 text-[#657795]">Keep browsing real things to do, and choose what fits once you know the dates.</p><div className="mt-7 border-t border-[#DCE5F0] pt-5"><FindsWidgetSection config={findsWidgets.experiences121} heading={false} /></div></div></div></section>
+    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="activities-heading"><SectionHeading eyebrow="Make a day of it" title="Things worth doing" description="Real experiences, local events and ideas for the days between." id="activities-heading" />{activities.length ? <><LiveCard card={activities[0]} kind="activity" featured />{activities.length > 1 ? <div className="-mx-4 mt-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">{activities.slice(1, 6).map((card, cardIndex) => <LiveCard key={card.id} card={card} kind="activity" index={cardIndex + 1} />)}</div> : null}</> : null}<BuiCard className="mt-7 overflow-hidden p-4 sm:mt-9 sm:p-7 lg:p-9"><FindsWidgetSection config={findsWidgets.experiences107} heading={false} className="mx-auto max-w-5xl" /></BuiCard><div className="mt-7 grid gap-5 sm:mt-8 lg:grid-cols-2"><PhotoStory story={experienceStory} /><BuiCard className="flex min-h-full flex-col justify-center bg-csoft p-6 sm:p-9"><p className="text-xs font-bold uppercase tracking-[0.16em] text-cgray">Leave room for a detour</p><h3 className="mt-3 text-2xl font-black tracking-tight text-chead">The best day might be the one you didn’t plan.</h3><p className="mt-3 text-sm leading-6 text-cgray">Keep browsing real things to do, and choose what fits once you know the dates.</p><div className="mt-7 border-t border-chair pt-5"><FindsWidgetSection config={findsWidgets.experiences121} heading={false} /></div></BuiCard></div></section>
 
     <section className="mt-12"><PhotoStory story={secondaryStory} /></section>
 
-    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="travel-tools-heading"><SectionHeading eyebrow="The little things that help" title="More ways to explore" description="A few useful extras, ready when you need them." id="travel-tools-heading" /><div className="grid gap-4 lg:grid-cols-2">{activePromo ? <FindsPromo promo={activePromo} /> : null}<FindsTrackedLink href={findsTravelServices.airportTransfer.href} eyebrow={findsTravelServices.airportTransfer.eyebrow} headline={findsTravelServices.airportTransfer.headline} description={findsTravelServices.airportTransfer.description} action="Find an airport transfer" /></div><div className="mt-6 grid items-start gap-5 lg:grid-cols-2"><div id="finds-esim-widget" className="scroll-mt-6 rounded-[1.5rem] bg-white p-5 sm:rounded-[2rem] sm:p-7"><FindsWidgetSection config={findsWidgets.esim} /></div><div className="rounded-[1.5rem] bg-white p-5 sm:rounded-[2rem] sm:p-7"><FindsWidgetSection config={findsWidgets.travel} /></div></div><div className="mt-6"><PhotoStory story={utilityStory} /></div><div className="mt-6"><RentalWidgetDisclosure /></div></section>
+    <section className="mt-14 scroll-mt-8 sm:mt-20" aria-labelledby="travel-tools-heading"><SectionHeading eyebrow="The little things that help" title="More ways to explore" description="A few useful extras, ready when you need them." id="travel-tools-heading" /><div className="grid gap-4 lg:grid-cols-2">{activePromo ? <FindsPromo promo={activePromo} /> : null}<FindsTrackedLink href={findsTravelServices.airportTransfer.href} eyebrow={findsTravelServices.airportTransfer.eyebrow} headline={findsTravelServices.airportTransfer.headline} description={findsTravelServices.airportTransfer.description} action="Find an airport transfer" /></div><div className="mt-6 grid items-start gap-5 lg:grid-cols-2"><BuiCard id="finds-esim-widget" className="scroll-mt-6 p-5 sm:p-7"><FindsWidgetSection config={findsWidgets.esim} /></BuiCard><BuiCard className="p-5 sm:p-7"><FindsWidgetSection config={findsWidgets.travel} /></BuiCard></div><div className="mt-6"><PhotoStory story={utilityStory} /></div><div className="mt-6"><RentalWidgetDisclosure /></div></section>
 
-    <p className="mt-6 max-w-3xl text-xs leading-5 text-[#657795]">Some links may earn Roamly a commission. The seller sets final prices, availability, and booking terms.{disclosures.length ? ` ${disclosures.join(" ")}` : null}</p>
+    <p className="mt-6 max-w-3xl text-xs leading-5 text-cgray">Some links may earn Roamly a commission. The seller sets final prices, availability, and booking terms.{disclosures.length ? ` ${disclosures.join(" ")}` : null}</p>
   </section>;
 }

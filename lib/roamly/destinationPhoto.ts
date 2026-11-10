@@ -852,13 +852,47 @@ async function fetchDestinationPhoto(
   return findOpenversePhoto(label, contextLabel);
 }
 
+/** Composition batch (2026-11-09): per-render shared state for the
+ *  photo lookups one page render fans out (the trip page asks for the
+ *  destination photo plus one lookup per venue stop). The persisted
+ *  registry scan inside matchDestinationId reads the SAME row set for
+ *  every label, so a render that passes one shared object pays that
+ *  scan once instead of once per venue. The object lives only for
+ *  the render that created it — no cross-request caching, and the
+ *  scan's failure shape (no rows) is preserved per call. Callers
+ *  that pass nothing keep the exact previous behaviour. */
+export type DestinationPhotoSharedState = {
+  packDestinationRows?: Promise<Array<{ key: string; value: unknown }>>;
+};
+
+type PackDestinationRow = { key: string; value: unknown };
+
+async function fetchPackDestinationRows(
+  admin: NonNullable<ReturnType<typeof createSupabaseAdminClient>>
+): Promise<PackDestinationRow[]> {
+  try {
+    const { data } = await admin
+      .from(SETTINGS_TABLE)
+      .select("key,value")
+      .like("key", "pack_destination:v1:%")
+      .limit(500);
+    return (data || []) as PackDestinationRow[];
+  } catch {
+    // A failed scan proved no match before this batch (the caller's
+    // .catch settled the lookup to null); an empty row set lands in
+    // the same place without rejecting the shared promise.
+    return [];
+  }
+}
+
 /** Mirror of the engine's registry match (generate.ts
  *  resolveDestinationId): normalized-name containment over the
  *  compiled-in seeds plus the persisted registry rows. */
 async function matchDestinationId(
   admin: ReturnType<typeof createSupabaseAdminClient>,
   label: string,
-  country: string | null
+  country: string | null,
+  shared?: DestinationPhotoSharedState
 ): Promise<string | null> {
   const wanted = normalizedPlaceName(label);
   if (!wanted) return null;
@@ -877,12 +911,10 @@ async function matchDestinationId(
     }
   }
   if (admin) {
-    const { data } = await admin
-      .from(SETTINGS_TABLE)
-      .select("key,value")
-      .like("key", "pack_destination:v1:%")
-      .limit(500);
-    for (const row of (data || []) as Array<{ value?: { destinationId?: string; displayName?: string } }>) {
+    const rows = shared
+      ? await (shared.packDestinationRows ??= fetchPackDestinationRows(admin))
+      : await fetchPackDestinationRows(admin);
+    for (const row of rows as Array<{ value?: { destinationId?: string; displayName?: string } }>) {
       const dto = row.value;
       if (dto?.destinationId && dto.displayName && matches(dto.displayName)) return dto.destinationId;
     }
@@ -904,7 +936,7 @@ export async function getDestinationPhoto(input: {
    *  Feeds the Tier 1 coord-less context gate and the Tier 3
    *  context gate; never used as a photo label itself. */
   contextLabel?: string | null;
-}): Promise<DestinationPhoto | null> {
+}, shared?: DestinationPhotoSharedState): Promise<DestinationPhoto | null> {
   const label = (input.label || "").trim();
   if (!label) return null;
   const country = input.country?.trim() || null;
@@ -918,7 +950,7 @@ export async function getDestinationPhoto(input: {
 
   const work = (async (): Promise<DestinationPhoto | null> => {
     const admin = createSupabaseAdminClient();
-    const destinationId = await matchDestinationId(admin, label, country).catch(() => null);
+    const destinationId = await matchDestinationId(admin, label, country, shared).catch(() => null);
     const cacheKey = `${CACHE_PREFIX}${destinationId || `label:${normalizedPlaceName(label)}`}`;
 
     if (admin) {

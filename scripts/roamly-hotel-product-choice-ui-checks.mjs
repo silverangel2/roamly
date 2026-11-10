@@ -40,6 +40,12 @@ assert.match(picker, /selected hotel and trip remain unchanged/);
 assert.match(picker, /mutationInFlight\.current/);
 assert.match(picker, /disabled=\{Boolean\(busyProductId\)\}/);
 assert.match(picker, /role="status"/);
+// BATCH 4 (2026-11-09): the picker's save/clear notices render through
+// BuiNotice (components/boardui/Notice.tsx — role="status" for info,
+// role="alert" for error), so notice announcements are carried by the
+// primitive as well as by the still-present role="status" panel above.
+assert.match(picker, /<BuiNotice/);
+assert.match(picker, /from "@\/components\/boardui\/Notice"/);
 assert.match(picker, /aria-label={`Choose this hotel option/);
 assert.match(picker, /option\.eligibility === "ELIGIBLE"/);
 assert.match(picker, /option\.actionability === "PROPERTY_HANDOFF_AVAILABLE"/);

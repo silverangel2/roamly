@@ -2363,7 +2363,11 @@ const emailTemplates = read("lib/roamly/emailTemplates.ts");
   "renderRoamlyEmailFooter",
   "renderPlainText",
   "role=\"presentation\"",
-  "alt=\"Roamly\"",
+  /* Batch 10 re-pin (2026-11-10, justified): was alt="Roamly" (the logo
+   * image). The header is now the brand navy band with a white text
+   * wordmark — see BOARDUI-BATCH10-FINISH-REPORT.md. The needle now
+   * pins the band itself at greater strength. */
+  "bgcolor=\"#071E55\"",
   "View your itinerary"
 ].forEach((needle) => assert.ok(emailTemplates.includes(needle), `shared email layout missing ${needle}`));
 assert.ok(!emailTemplates.includes("display:inline-flex"), "email layout must avoid flex-only logo/header markup");

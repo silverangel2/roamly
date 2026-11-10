@@ -4,14 +4,16 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { localizeCustomerError } from "@/lib/i18n";
-// Toast API (components/roamly/Toast.tsx): the deferred-commit Undo
-// surface REQUIRES the ToastProvider the coordinator mounts in the
-// app shell. useToast() throws when the provider is absent, so this
-// component probes with the module's non-throwing useToastOptional()
-// instead — with the provider present it returns the identical API;
-// without it the component falls back to an immediate delete after
-// the confirm dialog (recorded in jakob-w7-log.md).
-import { useToastOptional } from "@/components/roamly/Toast";
+// Toast API (components/boardui/Toast.tsx — the ONE toast system,
+// batch 7): the deferred-commit Undo surface REQUIRES the
+// BuiToastProvider the coordinator mounts in the app shell.
+// useBuiToastContext() throws when the provider is absent, so this
+// component probes with the module's non-throwing
+// useBuiToastOptional() instead — with the provider present it
+// returns the identical API; without it the component falls back to
+// an immediate delete after the confirm dialog (recorded in
+// jakob-w7-log.md).
+import { useBuiToastOptional } from "@/components/boardui/Toast";
 import { buiPrefersReducedMotion } from "@/components/boardui/spring";
 
 type DeleteTripButtonProps = {
@@ -25,7 +27,7 @@ const UNDO_WINDOW_MS = 8000;
 export function DeleteTripButton({ tripId, tripTitle }: DeleteTripButtonProps) {
   const router = useRouter();
   const { locale, t } = useI18n();
-  const toastContext = useToastOptional();
+  const toastContext = useBuiToastOptional();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState(false);
@@ -101,7 +103,7 @@ export function DeleteTripButton({ tripId, tripTitle }: DeleteTripButtonProps) {
     if (isDeleting || pendingRemoval) return;
 
     if (!toastContext) {
-      // FALLBACK (no ToastProvider mounted): there is no Undo surface,
+      // FALLBACK (no BuiToastProvider mounted): there is no Undo surface,
       // so the delete commits immediately after the dialog — the same
       // timing the old window.confirm flow had, minus the native UI.
       void commitDelete();

@@ -35,6 +35,72 @@ function uniqueKey(value: string) {
   return clean(value).toLowerCase().replace(/\s+/g, " ");
 }
 
+/* ------------------------------------------------------------------ */
+/* Candidate coordinates (map-pins fix, 2026-11-09)                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A coordinate pair is carried onto a stored itinerary item ONLY when
+ * it is the candidate's own point: finite numbers, latitude within
+ * −90..90, longitude within −180..180. Anything else (missing,
+ * non-numeric, out of range, or the 0,0 parse-failure point) is
+ * malformed and yields null — the honest no-pin state the map
+ * already renders as a by-name search card. Never geocoded, never
+ * guessed, never the destination centre.
+ */
+export function validCoordinatePair(
+  latitude: unknown,
+  longitude: unknown
+): { latitude: number; longitude: number } | null {
+  if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+  if (latitude === 0 && longitude === 0) return null;
+  return { latitude, longitude };
+}
+
+function coordinatePairFromRecord(record: unknown): { latitude: number; longitude: number } | null {
+  if (!record || typeof record !== "object" || Array.isArray(record)) return null;
+  const value = record as Record<string, unknown>;
+  const nested =
+    value.coordinates && typeof value.coordinates === "object" && !Array.isArray(value.coordinates)
+      ? (value.coordinates as Record<string, unknown>)
+      : null;
+  return (
+    validCoordinatePair(value.latitude, value.longitude) ||
+    validCoordinatePair(value.lat, value.lon) ||
+    validCoordinatePair(value.lat, value.lng) ||
+    (nested ? coordinatePairFromRecord(nested) : null)
+  );
+}
+
+/**
+ * Where a market candidate's own coordinates live, by source:
+ *  - Booking.com hotels: metadata.providerPayload.coordinates
+ *    (hotelInventoryToMarketResults stamps the property's own point).
+ *  - Destination-pack records: metadata.coordinates, stamped by
+ *    packFallbackMarketResults from the pack candidate's own pos.
+ *  - Public events: metadata.public_event.latitude/longitude (the
+ *    venue point carried by the event evidence).
+ *  - Raw provider payloads (e.g. Klook): providerPayload latitude/
+ *    longitude fields on the candidate's own record.
+ * Returns null when the candidate carries no truthful point.
+ */
+export function marketResultCoordinates(
+  result: Pick<TravelMarketResult, "metadata">
+): { latitude: number; longitude: number } | null {
+  const metadata =
+    result.metadata && typeof result.metadata === "object" && !Array.isArray(result.metadata)
+      ? (result.metadata as Record<string, unknown>)
+      : {};
+  return (
+    coordinatePairFromRecord(metadata.providerPayload) ||
+    coordinatePairFromRecord(metadata.coordinates) ||
+    coordinatePairFromRecord(metadata.public_event) ||
+    coordinatePairFromRecord(metadata)
+  );
+}
+
 /**
  * Mirror of the validator's placeholder test (lib/itinerary.ts
  * isPlaceholderOrOperationalText), kept local so this module stays
@@ -197,6 +263,11 @@ export type PackNamedRecord = {
   name?: string | null;
   kind?: string | null;
   url?: string | null;
+  /** The pack candidate's own point (EngineCandidate.pos on the
+   *  assembled pack). Optional in this shared shape: recorded pack
+   *  fixtures may omit it, and a record without it simply grounds
+   *  identity without a pin. */
+  pos?: { lat: number; lon: number } | null;
 };
 
 /** The named inventory shape shared by the recorded pack fixtures and
@@ -267,6 +338,11 @@ export function packFallbackMarketResults(
       if (seenNames.has(key)) continue;
       seenNames.add(key);
       const mapsQuery = encodeURIComponent(`${name} ${destination}`);
+      // The pack candidate's own point rides into the market shape so
+      // the binding writers can carry it onto the stored item (the
+      // map-pins fix): identity was grounded from this record, so its
+      // pos is that place's own point. No pos → no stamp → null pin.
+      const packCoordinates = record?.pos ? validCoordinatePair(record.pos.lat, record.pos.lon) : null;
       results.push({
         id: `pack:${clean(record?.key || "") || packSlug(name)}`,
         category: group.category,
@@ -287,7 +363,8 @@ export function packFallbackMarketResults(
           source: "destination_pack",
           kf1_pack_fallback: true,
           pack_key: clean(record?.key || "") || undefined,
-          pack_url: clean(record?.url || "") || undefined
+          pack_url: clean(record?.url || "") || undefined,
+          ...(packCoordinates ? { coordinates: packCoordinates } : {})
         }
       });
       added++;

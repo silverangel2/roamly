@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { BuiButtonLink } from "@/components/boardui/Button";
 import type { ExploreCandidate } from "@/lib/roamly/exploreViewModel";
 
 /*
@@ -34,12 +34,12 @@ export function ExploreDiscovery({
   candidates: ExploreCandidate[];
 }) {
   return (
-    <div className="min-h-[calc(100dvh-5rem)] bg-[#F2F6FC] px-4 pb-8 pt-5 text-ink sm:px-6 sm:py-8 md:pb-10">
+    <div className="min-h-[calc(100dvh-5rem)] bg-cbg px-4 pb-8 pt-5 text-chead sm:px-6 sm:py-8 md:pb-10">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="border-b border-[#e8dfd0] pb-5">
+        <header className="border-b border-chair pb-5">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">For this trip</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Worth considering</h1>
-          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-cink">
             A short list of grounded ideas that fit the trip. Nothing is added unless you choose it.
           </p>
         </header>
@@ -51,22 +51,22 @@ export function ExploreDiscovery({
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Curated for your trip</p>
                 <h2 id="explore-results-heading" className="mt-1 text-2xl font-black tracking-tight">Start with these</h2>
               </div>
-              <span className="text-xs font-black text-slate-400">{candidates.length} options</span>
+              <span className="text-xs font-black text-cgray2">{candidates.length} options</span>
             </div>
 
-            <div className="mt-4 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
+            <div className="mt-4 divide-y divide-chair border-y border-chair">
               {candidates.map((candidate, index) => (
                 <article key={candidate.id} className="py-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className={`text-xs font-black uppercase tracking-[0.14em] ${index === 0 ? "text-cblue" : "text-slate-400"}`}>{index === 0 ? "Best fit for this trip" : candidate.evidenceLabel}</p>
+                        <p className={`text-xs font-black uppercase tracking-[0.14em] ${index === 0 ? "text-cblue" : "text-cgray2"}`}>{index === 0 ? "Best fit for this trip" : candidate.evidenceLabel}</p>
                       </div>
-                      <h3 className="mt-1 text-lg font-black text-ink">{candidate.title}</h3>
-                      <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-700">{candidate.reason}</p>
+                      <h3 className="mt-1 text-lg font-black text-chead">{candidate.title}</h3>
+                      <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-cink">{candidate.reason}</p>
                     </div>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-slate-500">
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-cgray">
                     {candidate.date ? <span>{candidate.date}</span> : null}
                     {candidate.time ? <span>{candidate.time}</span> : null}
                     {candidate.duration ? <span>{candidate.duration}</span> : null}
@@ -75,30 +75,38 @@ export function ExploreDiscovery({
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-4">
                     {candidate.href ? (
-                      <a href={candidate.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">
+                      /* External exit (A20: the label names the host it
+                         leads to) — a plain anchor with the primary
+                         button recipe; BuiButtonLink is next/link and
+                         stays for internal routes only. The recipe's
+                         nowrap is deliberately NOT carried: the A20
+                         label (place + host) is long by design and
+                         wrapped inside the button before this pass —
+                         it still does. */
+                      <a href={candidate.href} target="_blank" rel="noreferrer" className="bui-press bui-touch inline-flex min-h-11 items-center gap-2 rounded-xl bg-cblue px-4 py-3 text-left text-sm font-semibold leading-snug text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)] transition-colors duration-200 ease-bui hover:bg-[#0A6FE0] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/30">
                         {externalDetailsLabel(candidate)}
                       </a>
                     ) : null}
-                    {candidate.publicEvent ? <span className="text-xs font-bold text-slate-500">Public event details may change; verify the organizer&apos;s page.</span> : null}
+                    {candidate.publicEvent ? <span className="text-xs font-bold text-cgray">Public event details may change; verify the organizer&apos;s page.</span> : null}
                   </div>
                 </article>
               ))}
             </div>
           </section>
         ) : (
-          <section className="mt-8 border-y border-dashed border-[#e8dfd0] py-7">
+          <section className="mt-8 border-y border-dashed border-chair py-7">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Explore is intentionally quiet</p>
             <h2 className="mt-2 text-2xl font-black tracking-tight">Not enough grounded discoveries yet</h2>
-            <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
+            <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-cink">
               Roamly does not have enough trip-specific activity or event evidence to recommend something responsibly for these dates. Nothing is invented here. Check back when discoveries are ready, or open Finds for inspiration.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link href={`/finds?destination=${encodeURIComponent(destination)}`} className="inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">
+              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination)}`}>
                 Open Finds for {destination}
-              </Link>
-              <Link href={`/trip/${tripId}#day-by-day`} className="inline-flex min-h-11 items-center rounded-xl border border-cloud bg-white px-4 py-2 text-sm font-black text-ink">
+              </BuiButtonLink>
+              <BuiButtonLink variant="secondary" href={`/trip/${tripId}#day-by-day`}>
                 Return to your plan
-              </Link>
+              </BuiButtonLink>
             </div>
           </section>
         )}

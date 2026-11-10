@@ -1,6 +1,7 @@
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { listPlanComments } from "@/lib/roamly/planComments";
 import { TripCommentForm } from "@/components/trip/TripCommentForm";
+import { BuiCard } from "@/components/boardui/Card";
 
 /**
  * Plan-level comment box, mounted at the top of the Itinerary tab.
@@ -32,13 +33,14 @@ export async function TripCommentBox({ tripId }: { tripId: string }) {
     if (result.error) return null;
 
     return (
-      <section
+      <BuiCard
+        role="region"
         aria-label="Notes for your trip"
-        className="roamly-enter mb-5 rounded-3xl border border-cblue/25 bg-white/90 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.06)] sm:px-7"
+        className="bui-enter mb-5 px-5 py-6 sm:px-7"
       >
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Notes for your trip</p>
         <h2 className="mt-2 text-xl font-black tracking-tight text-ink">Tell us anything</h2>
-        <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-600">
+        <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-cgray">
           Your words steer your plan — pace, food, mobility, must-haves. Only you can see these notes.
         </p>
         {result.comments.length ? (
@@ -46,21 +48,21 @@ export async function TripCommentBox({ tripId }: { tripId: string }) {
             {result.comments.map((comment) => (
               <li
                 key={comment.id}
-                className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700"
+                className="rounded-2xl bg-csoft px-4 py-3 text-sm leading-6 text-ink"
               >
                 {comment.body}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="mt-4 text-sm font-medium leading-6 text-slate-500">
+          <p className="mt-4 text-sm font-medium leading-6 text-cgray">
             No notes yet — write the first one. &ldquo;No early mornings&rdquo; works perfectly.
           </p>
         )}
         <div className="mt-4">
           <TripCommentForm tripId={tripId} />
         </div>
-      </section>
+      </BuiCard>
     );
   } catch {
     return null;

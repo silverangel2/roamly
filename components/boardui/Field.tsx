@@ -91,14 +91,18 @@ export function useBuiField(validate: (value: string) => string): BuiField {
 /**
  * The reserved per-field error slot (rule 3). Always rendered, one
  * line tall (min-h-5 = the text-sm/leading-5 line it carries), so
- * the space exists before the error does. Adopters keep the two ids
- * side by side: the input's own id (the summary link's target, e.g.
- * "auth-email") and this slot's id (the input's aria-describedby,
- * e.g. "auth-email-error").
+ * the space exists before the error does. `reserveLines={2}` opts a
+ * field into a two-line reservation: the plan form uses it, because
+ * its messages are full sentences that wrap to two lines at phone
+ * width (measured 2026-11-03), so a one-line slot would still let
+ * the block below shift when the full message lands. Adopters keep
+ * the two ids side by side: the input's own id (the summary link's
+ * target, e.g. "auth-email") and this slot's id (the input's
+ * aria-describedby, e.g. "auth-email-error").
  */
-export function BuiFieldError({ id, message }: { id: string; message?: string }) {
+export function BuiFieldError({ id, message, reserveLines = 1 }: { id: string; message?: string; reserveLines?: 1 | 2 }) {
   return (
-    <p id={id} aria-live="polite" className={cx("mt-1.5 min-h-5 text-sm font-semibold leading-5", message ? "text-cred" : undefined)}>
+    <p id={id} aria-live="polite" className={cx(reserveLines === 2 ? "mt-1.5 min-h-10 text-sm font-semibold leading-5" : "mt-1.5 min-h-5 text-sm font-semibold leading-5", message ? "text-cred" : undefined)}>
       {message ?? ""}
     </p>
   );

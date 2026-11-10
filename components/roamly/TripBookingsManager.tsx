@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
 import { BuiCard, BuiSkeleton } from "@/components/boardui/Card";
 import { BuiNotice } from "@/components/boardui/Notice";
+import { BuiAccordion } from "@/components/boardui/Accordion";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import { formatRoamlyCurrency, formatRoamlyDate } from "@/lib/i18n";
 import { useI18n } from "@/components/i18n/I18nProvider";
@@ -109,7 +110,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
+      <span className="text-sm font-black text-chead">{label}</span>
       <input
         value={value}
         type={type}
@@ -143,7 +144,7 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
           longitude: booking.longitude
         })[0];
         return (
-          <article key={booking.id || booking.title} className="bui-enter bui-lift rounded-bui-card border border-chair bg-white p-4 shadow-bui-card">
+          <BuiCard key={booking.id || booking.title} className="bui-enter p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">{booking.booking_type}</p>
@@ -157,9 +158,11 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
                 {bookingCostLabel(booking, locale)}
               </div>
             </div>
-            <details className="mt-3 rounded-2xl bg-mist px-3 py-3">
-              <summary className="cursor-pointer text-sm font-black text-ink">Booking details</summary>
-              <div className="mt-3 grid gap-2 text-sm font-bold text-slate-600">
+            <BuiAccordion
+              title={<span className="text-sm font-black text-ink">Booking details</span>}
+              className="mt-3 rounded-2xl bg-mist px-3"
+            >
+              <div className="grid gap-2 pb-3 text-sm font-bold text-slate-600">
                 {booking.confirmation_number || booking.confirmation_code ? <p>Reference: <span className="bui-display-number">{booking.confirmation_number || booking.confirmation_code}</span></p> : null}
                 {booking.terminal ? <p>Terminal: {booking.terminal}</p> : null}
                 {booking.gate ? <p>Gate: {booking.gate}</p> : null}
@@ -167,13 +170,13 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
                 {booking.extraction_confidence ? <p>Extraction: {booking.extraction_confidence}</p> : null}
                 {!booking.confirmation_number && !booking.booking_status && !booking.extraction_confidence ? <p>No extra details saved.</p> : null}
               </div>
-            </details>
+            </BuiAccordion>
             {mapsLink ? (
               <BuiButtonLink href={mapsLink.href} target="_blank" rel="noreferrer" className="mt-3 w-full">
                 Open in Maps
               </BuiButtonLink>
             ) : null}
-          </article>
+          </BuiCard>
         );
       })}
     </div>
@@ -192,14 +195,14 @@ export function ExtractedBookingReviewCard({
   busy: boolean;
 }) {
   return (
-    <div className="bui-enter rounded-bui-panel border border-cblue/25 bg-csoft p-4">
+    <BuiCard className="bui-enter p-4">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Review extracted booking</p>
-      <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
+      <p className="mt-2 text-sm font-bold leading-6 text-cgray">
         Roamly extracted these details. Submit them for review; screenshot extraction alone does not confirm a booking.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-black uppercase tracking-[0.12em] text-slate-400">Type</span>
+          <span className="text-sm font-black text-chead">Type</span>
           <select
             value={booking.booking_type || "other"}
             onChange={(event) => setBooking({ ...booking, booking_type: event.target.value })}
@@ -242,7 +245,7 @@ export function ExtractedBookingReviewCard({
       <BuiButton type="button" onClick={onConfirm} busy={busy} className="mt-4">
         {busy ? "Saving for review..." : "Submit booking details for review"}
       </BuiButton>
-    </div>
+    </BuiCard>
   );
 }
 
@@ -358,10 +361,10 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
         {error ? <BuiNotice tone="error" title={error} /> : null}
         {notice ? <BuiNotice tone="success" title={notice} /> : null}
         {busy && !extracted ? (
-          <div className="flex items-center gap-3 rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card">
+          <BuiCard className="flex items-center gap-3 px-4 py-3">
             <BuiSkeleton className="h-4 w-24 shrink-0" />
             <p className="text-sm font-black text-ink">Reading screenshot...</p>
-          </div>
+          </BuiCard>
         ) : null}
       </div>
       <div className="space-y-4">

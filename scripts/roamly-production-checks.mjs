@@ -935,7 +935,13 @@ assert.ok(emailAdapter.includes("isBlockedProductionRecipientEmail") && emailAda
 );
 
 const emailTemplates = read("lib/roamly/emailTemplates.ts");
-["ROAMLY_LOGO_URL", "roamly-wordmark@2x.png", "renderPlainText", "role=\"presentation\"", "alt=\"Roamly\""].forEach((needle) =>
+/* Batch 10 re-pin (2026-11-10, justified): the header brand mark changed
+ * form — the logo <img alt="Roamly"> became the brand navy band with a
+ * white text wordmark (the PNG wordmark is primary-blue on transparent
+ * and cannot sit legibly on navy). The pin's intent (the shell carries
+ * the Roamly brand header) is kept and strengthened: it now pins the
+ * navy band itself, bgcolor="#071E55". ROAMLY_LOGO_URL stays exported. */
+["ROAMLY_LOGO_URL", "roamly-wordmark@2x.png", "renderPlainText", "role=\"presentation\"", "bgcolor=\"#071E55\""].forEach((needle) =>
   assert.ok(emailTemplates.includes(needle), `production email template missing ${needle}`)
 );
 

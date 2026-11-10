@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { X } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import {
   FindsTrackedLink,
   FindsWidgetSection
@@ -93,7 +95,7 @@ export function TripGapCards({ tripId }: { tripId: string }) {
       <div className="mb-4">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-cblue">Before you go</p>
         <h2 className="mt-1 text-xl font-black tracking-tight text-chead">A few gaps worth closing</h2>
-        <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+        <p className="mt-1 max-w-2xl text-sm leading-6 text-cgray">
           Based on what&apos;s already booked for this trip. Dismiss anything that doesn&apos;t fit — it won&apos;t come back.
         </p>
       </div>
@@ -101,7 +103,7 @@ export function TripGapCards({ tripId }: { tripId: string }) {
         {cards.map((card, index) => {
           const widgetConfig = widgetConfigFor(card);
           return (
-            <article key={card.type} className="bui-enter relative rounded-bui-panel border border-chair bg-white p-5 shadow-bui-card sm:p-6" style={{ "--bui-delay": `${index * 60}ms` } as CSSProperties}>
+            <BuiCard key={card.type} className="bui-enter relative p-5 sm:p-6" style={{ "--bui-delay": `${index * 60}ms` } as CSSProperties}>
               <button
                 type="button"
                 onClick={() => dismiss(card.type)}
@@ -110,7 +112,7 @@ export function TripGapCards({ tripId }: { tripId: string }) {
               >
                 <X aria-hidden="true" size={18} strokeWidth={2} />
               </button>
-              <p className="text-sm font-medium text-slate-500">{card.reason}</p>
+              <p className="text-sm font-medium text-cgray">{card.reason}</p>
               <div className="mt-3">
                 {widgetConfig ? (
                   <FindsWidgetSection config={widgetConfig} heading={false} />
@@ -124,14 +126,14 @@ export function TripGapCards({ tripId }: { tripId: string }) {
                   />
                 )}
               </div>
-              <p className="mt-3 text-xs leading-5 text-slate-400">
+              <p className="mt-3 text-xs leading-5 text-cgray2">
                 {GAP_AFFILIATE_DISCLOSURE} Provider: {card.providerLabel}.
               </p>
-            </article>
+            </BuiCard>
           );
         })}
       </div>
-      {error ? <p className="mt-2 text-xs text-slate-400">{error}</p> : null}
+      {error ? <BuiNotice tone="error" title={error} className="mt-2" /> : null}
     </section>
   );
 }

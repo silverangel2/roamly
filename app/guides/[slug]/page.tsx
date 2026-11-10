@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ROAMLY_PUBLIC_DOMAIN } from "@/lib/roamly/emailTemplates";
 
@@ -101,30 +102,30 @@ export default async function GuidePage({ params }: GuidePageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(page.json_ld).replace(/</g, "\u003c") }}
         />
       ) : null}
-      <Badge>Roamly Guide</Badge>
-      <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">{page.h1}</h1>
-      <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-slate-600">{page.meta_description}</p>
+      <BuiBadge>Roamly Guide</BuiBadge>
+      <h1 className="mt-4 text-4xl font-black tracking-tight text-chead sm:text-6xl">{page.h1}</h1>
+      <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-cink">{page.meta_description}</p>
       <div className="mt-6">
-        <Link href={ctaHref} className="inline-flex rounded-2xl bg-ink px-5 py-3 text-sm font-black text-white shadow-soft">
+        <BuiButtonLink href={ctaHref}>
           {ctaLabel}
-        </Link>
+        </BuiButtonLink>
       </div>
 
       <section className="mt-8 grid gap-5">
         {(content.headings || []).map((section) => (
-          <Card key={section.heading} className="p-5">
-            <h2 className="text-2xl font-black text-ink">{section.heading}</h2>
-            <p className="mt-3 text-sm font-bold leading-7 text-slate-600">{section.body}</p>
-          </Card>
+          <BuiCard key={section.heading} className="p-5">
+            <h2 className="text-2xl font-black text-chead">{section.heading}</h2>
+            <p className="mt-3 text-sm font-bold leading-7 text-cink">{section.body}</p>
+          </BuiCard>
         ))}
       </section>
 
       {guideLinks.length ? (
         <section className="mt-8">
-          <h2 className="text-2xl font-black text-ink">Useful Roamly links</h2>
+          <h2 className="text-2xl font-black text-chead">Useful Roamly links</h2>
           <div className="mt-4 flex flex-wrap gap-2">
             {guideLinks.map((link) => (
-              <Link key={link.href} href={link.href || "/plan"} className="rounded-xl bg-white px-4 py-2 text-sm font-black text-ink shadow-soft ring-1 ring-cloud">
+              <Link key={link.href} href={link.href || "/plan"} className="rounded-xl bg-white px-4 py-2 text-sm font-black text-chead shadow-soft ring-1 ring-chair">
                 {link.label || "Open Roamly"}
               </Link>
             ))}
@@ -134,20 +135,20 @@ export default async function GuidePage({ params }: GuidePageProps) {
 
       {content.faq?.length ? (
         <section className="mt-8">
-          <h2 className="text-2xl font-black text-ink">FAQ</h2>
+          <h2 className="text-2xl font-black text-chead">FAQ</h2>
           <div className="mt-4 grid gap-3">
             {content.faq.map((item) => (
-              <Card key={item.question} className="p-5">
-                <h3 className="text-lg font-black text-ink">{item.question}</h3>
-                <p className="mt-2 text-sm font-bold leading-7 text-slate-600">{item.answer}</p>
-              </Card>
+              <BuiCard key={item.question} className="p-5">
+                <h3 className="text-lg font-black text-chead">{item.question}</h3>
+                <p className="mt-2 text-sm font-bold leading-7 text-cink">{item.answer}</p>
+              </BuiCard>
             ))}
           </div>
         </section>
       ) : null}
 
       {content.affiliateDisclosure ? (
-        <p className="mt-8 rounded-xl bg-sun/15 px-4 py-3 text-sm font-bold leading-6 text-amber-900">{content.affiliateDisclosure}</p>
+        <p className="mt-8 rounded-xl bg-sun/15 px-4 py-3 text-sm font-bold leading-6 text-chead">{content.affiliateDisclosure}</p>
       ) : null}
     </div>
   );

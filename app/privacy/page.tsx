@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
+import { BuiBadge } from "@/components/boardui/Badge";
+import { BuiCard } from "@/components/boardui/Card";
 
 // SEO (consolidation 2026-11-06, Block I / SEO-FIX-3): this page
 // shipped the HOMEPAGE title + description with og:url at the
@@ -38,14 +38,14 @@ const sections = [
 export default function PrivacyPage() {
   return (
     <main className="safe-bottom mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
-      <Badge>Privacy</Badge>
-      <h1 className="mt-4 text-4xl font-black tracking-tight text-ink sm:text-6xl">Roamly privacy.</h1>
+      <BuiBadge>Privacy</BuiBadge>
+      <h1 className="mt-4 text-4xl font-black tracking-tight text-chead sm:text-6xl">Roamly privacy.</h1>
       <div className="mt-7 grid gap-4">
         {sections.map(([title, text]) => (
-          <Card key={title}>
-            <h2 className="text-2xl font-black text-ink">{title}</h2>
-            <p className="mt-2 text-sm font-semibold leading-7 text-slate-600">{text}</p>
-          </Card>
+          <BuiCard key={title} className="p-5">
+            <h2 className="text-2xl font-black text-chead">{title}</h2>
+            <p className="mt-2 text-sm font-semibold leading-7 text-cink">{text}</p>
+          </BuiCard>
         ))}
       </div>
     </main>

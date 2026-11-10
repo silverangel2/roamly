@@ -425,7 +425,7 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
   return (
     <section
       data-measure="pass"
-      className="mx-auto w-[358px] max-w-full overflow-hidden rounded-[26px] bg-[#0b3d2b] text-white shadow-[0_20px_44px_rgba(8,44,32,0.35)]"
+      className="mx-auto w-[358px] max-w-full overflow-hidden rounded-[26px] bg-cnavy text-white shadow-[0_20px_44px_rgba(7,30,85,0.35)]"
     >
       <div className="flex items-center gap-[9px] px-5 pt-5">
         <Image
@@ -437,11 +437,11 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
         />
         <div>
           <p className="text-[17px] font-extrabold leading-none">Roamly</p>
-          <p className="mt-[3px] text-[11px] font-semibold uppercase tracking-[0.08em] text-[#cfe3d8]">
+          <p className="mt-[3px] text-[11px] font-semibold uppercase tracking-[0.08em] text-white/70">
             {pass.passTypeLabel}
           </p>
         </div>
-        <span className="ml-auto text-right text-[11.5px] font-semibold text-[#cfe3d8]">
+        <span className="ml-auto text-right text-[11.5px] font-semibold text-white/70">
           {pass.destination}
           <br />
           {pass.dateLabel}
@@ -451,9 +451,9 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
         <p className="text-[16px] font-bold leading-snug">{pass.headline}</p>
         {next ? (
           <div className="mt-3 rounded-2xl bg-white/10 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#cfe3d8]">Next up</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/70">Next up</p>
             <p className="mt-1 text-[15px] font-bold leading-snug">{next.name}</p>
-            <p className="mt-[2px] text-[12.5px] text-[#cfe3d8]">
+            <p className="mt-[2px] text-[12.5px] text-white/70">
               {next.startLabel}–{next.endLabel}
               {next.bookingRef ? ` · Ref ${next.bookingRef}` : ""}
             </p>
@@ -462,7 +462,7 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
         <dl className="mt-3 space-y-[5px] pb-3 text-[12.5px]">
           {pass.travelerName ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-[#cfe3d8]">Traveler</dt>
+              <dt className="text-white/70">Traveler</dt>
               <dd className="font-semibold">
                 {pass.travelerName}
                 {pass.partyLabel ? ` · ${pass.partyLabel}` : ""}
@@ -471,13 +471,13 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
           ) : null}
           {pass.essentials.hotelName ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-[#cfe3d8]">Staying at</dt>
+              <dt className="text-white/70">Staying at</dt>
               <dd className="font-semibold">{pass.essentials.hotelName}</dd>
             </div>
           ) : null}
           {pass.essentials.flightLabel ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-[#cfe3d8]">Flight</dt>
+              <dt className="text-white/70">Flight</dt>
               <dd className="font-semibold">
                 {pass.essentials.flightLabel}
                 {pass.essentials.flightBookingRef ? ` · ${pass.essentials.flightBookingRef}` : ""}
@@ -487,7 +487,7 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
         </dl>
       </div>
       <div className="border-t border-dashed border-white/25 px-5 py-3">
-        <p className="text-[11px] leading-[1.35] text-[#cfe3d8]">{pass.offline.rule}</p>
+        <p className="text-[11px] leading-[1.35] text-white/70">{pass.offline.rule}</p>
       </div>
     </section>
   );

@@ -876,7 +876,10 @@ export function applyVerifiedBookingOverride(
     const title = `${booking.title || ""}`.toLowerCase();
     return Boolean(
       booking.status === "verified" &&
-        (booking.id === activity.booking?.id ||
+        // An id match must be a REAL match: both ids present and equal.
+        // Without the presence guard, undefined === undefined would let an
+        // id-less verified booking confirm every unmatched stop.
+        ((booking.id != null && booking.id === activity.booking?.id) ||
           title === activity.title.toLowerCase() ||
           (title && activity.title.toLowerCase().includes(title)))
     );

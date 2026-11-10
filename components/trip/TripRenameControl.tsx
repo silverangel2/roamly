@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Pencil } from "lucide-react";
+import { BuiButton } from "@/components/boardui/Button";
 
 /*
  * TripRenameControl (consolidation 2026-11-06, audit D13): the
@@ -67,7 +68,7 @@ export function TripRenameControl({
 
   return (
     <div className="mt-2 max-w-md">
-      <label className="block text-[13px] font-semibold text-cgray" htmlFor={`rename-${tripId}`}>
+      <label className="block text-sm font-black text-chead" htmlFor={`rename-${tripId}`}>
         Trip name
       </label>
       <div className="mt-1 flex gap-2">
@@ -78,24 +79,14 @@ export function TripRenameControl({
           maxLength={80}
           autoFocus
           placeholder="e.g. Mom's 70th in Quebec City"
-          className="min-h-11 min-w-0 flex-1 rounded-xl border border-chair bg-white px-3 text-base text-chead outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10"
+          className="bui-input min-w-0 flex-1 rounded-2xl border border-cloud bg-white px-4 py-3 text-base font-bold text-ink outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10"
         />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void save()}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-cblue px-4 text-sm font-bold text-white transition hover:bg-cnavy focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25 disabled:opacity-60"
-        >
+        <BuiButton busy={busy} onClick={() => void save()} className="shrink-0">
           {busy ? "Saving…" : "Save"}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setEditing(false)}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-xl px-3 text-sm font-semibold text-cgray focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
-        >
+        </BuiButton>
+        <BuiButton variant="ghost" disabled={busy} onClick={() => setEditing(false)} className="shrink-0">
           Cancel
-        </button>
+        </BuiButton>
       </div>
       {error ? (
         <p role="alert" className="mt-1.5 text-[13px] font-medium text-coral">

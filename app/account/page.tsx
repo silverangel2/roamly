@@ -210,7 +210,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         </a>
 
         {detailView === "manage-account" ? (
-          <div id="manage-account" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
+          <BuiCard id="manage-account" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h1>
             <div className="mt-5">
@@ -222,21 +222,21 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             {profileResult.error ? (
               <BuiNotice tone="error" title={`Profile table pending: ${profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.`} className="mt-4" />
             ) : null}
-          </div>
+          </BuiCard>
         ) : null}
 
         {detailView === "booking-wallet" ? (
-          <div id="booking-wallet" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
+          <BuiCard id="booking-wallet" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h1>
             <div className="mt-5">
               <EmailConnectionSettings />
             </div>
-          </div>
+          </BuiCard>
         ) : null}
 
         {detailView === "travelers" ? (
-          <div id="travelers" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
+          <BuiCard id="travelers" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
             <div id="traveler-memory" className="scroll-mt-24">
               <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Traveler memory</p>
               <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Preferences Roamly can use</h1>
@@ -244,16 +244,16 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                 <TravelerMemorySettings countryOptions={listCountryOptions()} returnTo={returnTo} />
               </div>
             </div>
-          </div>
+          </BuiCard>
         ) : null}
 
         {detailView === "preferences" ? (
-          <div id="preferences" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card">
+          <BuiCard id="preferences" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
             <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Preferences</p>
             <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Language and notifications</h1>
             <div className="mt-5 space-y-5">
               <div>
-                <p className="mb-2 text-sm font-black text-ink">Language</p>
+                <p className="mb-2 text-sm font-black text-chead">Language</p>
                 <LanguageSwitcher />
               </div>
               <LocationTrackingSettings />
@@ -261,7 +261,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <p className="mt-4 text-[13.5px] font-normal leading-[1.45] text-cgray">
               No units setting exists yet.
             </p>
-          </div>
+          </BuiCard>
         ) : null}
 
         {detailView === "setup" ? (

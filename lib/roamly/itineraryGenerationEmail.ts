@@ -190,13 +190,13 @@ export function renderItineraryGenerationEmail(kind: GenerationEmailKind, trip: 
     : "Roamly could not finish this itinerary after the allowed retries. Any saved progress remains available in your trip.";
   const accountNote = "For your privacy, sign in with the same Roamly account that created this trip before opening the itinerary.";
   const bodyHtml = `
-    <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#42526a;">${escapeEmailHtml(message)}</p>
+    <p style="margin:0 0 16px;font-size:16px;line-height:1.65;color:#223354;">${escapeEmailHtml(message)}</p>
     <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">
-      <tr><td style="padding:8px 0;font-weight:900;color:#102033;">Destination</td><td style="padding:8px 0;color:#42526a;">${escapeEmailHtml(destination)}</td></tr>
-      <tr><td style="padding:8px 0;font-weight:900;color:#102033;">Trip dates</td><td style="padding:8px 0;color:#42526a;">${escapeEmailHtml(dates)}</td></tr>
-      <tr><td style="padding:8px 0;font-weight:900;color:#102033;">Trip length</td><td style="padding:8px 0;color:#42526a;">${days ? `${days} days` : "Flexible"}</td></tr>
+      <tr><td style="padding:8px 0;font-weight:900;color:#223354;">Destination</td><td style="padding:8px 0;color:#657795;">${escapeEmailHtml(destination)}</td></tr>
+      <tr><td style="padding:8px 0;font-weight:900;color:#223354;">Trip dates</td><td style="padding:8px 0;color:#657795;">${escapeEmailHtml(dates)}</td></tr>
+      <tr><td style="padding:8px 0;font-weight:900;color:#223354;">Trip length</td><td style="padding:8px 0;color:#657795;">${days ? `${days} days` : "Flexible"}</td></tr>
     </table>
-    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#526176;">${escapeEmailHtml(accountNote)}</p>`;
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#657795;">${escapeEmailHtml(accountNote)}</p>`;
   const bodyText = `${message}\n\nDestination: ${destination}\nTrip dates: ${dates}\nTrip length: ${days ? `${days} days` : "Flexible"}\n\n${accountNote}\n\nDirect trip link: ${actionUrl}`;
 
   return renderRoamlyEmailShell({

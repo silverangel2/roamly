@@ -46,6 +46,8 @@ import {
   Sun,
   type LucideIcon
 } from "lucide-react";
+import { BuiCard } from "@/components/boardui/Card";
+import { cx } from "@/components/boardui/cx";
 
 /** Lucide icon names the weather module may return (one per WMO
  *  condition family). The module stays UI-free: it returns the name,
@@ -161,10 +163,11 @@ export function TripWeatherCard({
 
   if (weather.kind === "too-early") {
     return (
-      <section
+      <BuiCard
+        role="region"
         data-trip-weather="too-early"
         aria-label="Trip weather"
-        className={`rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card ${className || ""}`}
+        className={cx("p-4", className)}
       >
         <span className="flex items-center gap-2">
           <Cloud size={20} strokeWidth={2} className="shrink-0 text-cblue" aria-hidden />
@@ -176,7 +179,7 @@ export function TripWeatherCard({
           This trip starts further out than the forecast reaches. The weather for your days will
           show here once they are close enough to call.
         </span>
-      </section>
+      </BuiCard>
     );
   }
 
@@ -186,10 +189,11 @@ export function TripWeatherCard({
   const span = Math.max(1, tripMax - tripMin);
 
   return (
-    <section
+    <BuiCard
+      role="region"
       data-trip-weather="ready"
       aria-label="Trip weather"
-      className={`rounded-bui-panel border border-chair bg-white p-4 shadow-bui-card ${className || ""}`}
+      className={cx("p-4", className)}
     >
       <div className="flex items-start gap-3">
         <span className="text-[56px] font-bold leading-none tracking-[-0.02em] text-chead">
@@ -239,6 +243,6 @@ export function TripWeatherCard({
       <p className="mt-3 text-[11px] leading-4 text-cgray2">
         Weather: Open-Meteo &middot; checked {weather.checkedLabel}
       </p>
-    </section>
+    </BuiCard>
   );
 }

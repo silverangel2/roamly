@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiNotice } from "@/components/boardui/Notice";
 import { formatRoamlyDate } from "@/lib/i18n";
 import { gmailSyncFailureAction, isGmailSyncPersistentlyFailing } from "@/lib/roamly/emailSyncHealth";
 
@@ -112,15 +115,15 @@ export function EmailConnectionSettings() {
 
   return (
     <div id="email-settings" className="space-y-4 scroll-mt-24">
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-sm font-black text-ink">Travel email import</p>
+      <BuiCard className="p-4">
+        <p className="text-sm font-black text-chead">Travel email import</p>
         <p className="mt-2 rounded-xl border border-chair bg-csoft px-3 py-2 text-sm font-bold leading-6 text-chead">
           {t("ui.email.importGmailOnly", "Gmail is the only email provider Roamly supports right now. Outlook and other email providers can’t be connected yet.")}
         </p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+        <p className="mt-1 text-sm font-semibold leading-6 text-cink">
           Connect Gmail so Roamly can find travel confirmations and changes. Only messages the travel filter identifies are saved as limited message details and booking facts; full email bodies are not stored. A short preview from a matching message may be sent to OpenAI to extract booking details. Personal emails are not saved or used for advertising. Messages that do not match the travel filter are skipped. Disconnecting stops future syncs but does not remove booking details already saved to a trip.
         </p>
-      </div>
+      </BuiCard>
 
       <div className="grid gap-3">
         {PROVIDERS.map((provider) => {
@@ -148,95 +151,89 @@ export function EmailConnectionSettings() {
           const searchOlderBusy = busy === `${provider.provider}:search-older`;
           const disconnectBusy = busy === `${provider.provider}:disconnect`;
           return (
-            <div key={provider.provider} className="rounded-2xl border border-slate-200 bg-white p-4">
-              <p className="text-sm font-black text-ink">{provider.name}</p>
-              <p className="mt-2 text-sm font-bold text-slate-500">
+            <BuiCard key={provider.provider} className="p-4">
+              <p className="text-sm font-black text-chead">{provider.name}</p>
+              <p className="mt-2 text-sm font-bold text-cgray">
                 {connected
                   ? `${connection?.email_address || provider.name} connected · Last sync ${formatSync(connection?.last_synced_at || null, locale)}`
                   : "Not connected"}
               </p>
-              {failureLine ? (
-                <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold leading-6 text-amber-900">
-                  {failureLine}
-                </p>
-              ) : null}
+              {failureLine ? <BuiNotice tone="error" title={failureLine} className="mt-2" /> : null}
               <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                 {connected && !failing ? (
                   <>
-                    <button
+                    <BuiButton
                       type="button"
                       onClick={() => void post(provider.syncPath, `${provider.provider}:sync`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                      busy={syncBusy}
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
-                    </button>
-                    <button
+                    </BuiButton>
+                    <BuiButton
                       type="button"
+                      variant="secondary"
                       onClick={() => void post(provider.searchOlderPath, `${provider.provider}:search-older`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                      busy={searchOlderBusy}
                     >
                       {searchOlderBusy ? "Searching..." : provider.searchOlderLabel}
-                    </button>
-                    <button
+                    </BuiButton>
+                    <BuiButton
                       type="button"
+                      variant="secondary"
                       onClick={() => void post(provider.disconnectPath, `${provider.provider}:disconnect`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                      busy={disconnectBusy}
                     >
                       {disconnectBusy ? "Disconnecting..." : provider.disconnectLabel}
-                    </button>
+                    </BuiButton>
                   </>
                 ) : failing ? (
                   <>
-                    <button
+                    <BuiButton
                       type="button"
                       onClick={() => void post(provider.syncPath, `${provider.provider}:sync`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white disabled:opacity-50"
+                      busy={syncBusy}
                     >
                       {syncBusy ? "Syncing..." : provider.syncLabel}
-                    </button>
-                    <button
+                    </BuiButton>
+                    <BuiButton
                       type="button"
+                      variant="secondary"
                       onClick={() => void post(provider.searchOlderPath, `${provider.provider}:search-older`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                      busy={searchOlderBusy}
                     >
                       {searchOlderBusy ? "Searching..." : provider.searchOlderLabel}
-                    </button>
-                    <a
-                      href={provider.connectPath}
-                      className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink"
-                    >
+                    </BuiButton>
+                    <BuiButtonLink variant="secondary" href={provider.connectPath}>
                       {failureAction === "reconnect" ? "Reconnect Gmail" : provider.connectLabel}
-                    </a>
-                    <button
+                    </BuiButtonLink>
+                    <BuiButton
                       type="button"
+                      variant="secondary"
                       onClick={() => void post(provider.disconnectPath, `${provider.provider}:disconnect`, provider.name)}
                       disabled={Boolean(busy)}
-                      className="min-h-12 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-ink disabled:opacity-50"
+                      busy={disconnectBusy}
                     >
                       {disconnectBusy ? "Disconnecting..." : provider.disconnectLabel}
-                    </button>
+                    </BuiButton>
                   </>
                 ) : (
-                  <a
-                    href={provider.connectPath}
-                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-cblue px-5 py-3 text-sm font-black text-white"
-                  >
+                  <BuiButtonLink href={provider.connectPath}>
                     {provider.connectLabel}
-                  </a>
+                  </BuiButtonLink>
                 )}
               </div>
-            </div>
+            </BuiCard>
           );
         })}
       </div>
 
-      {error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-black text-rose-700">{error}</p> : null}
-      {notice ? <p role="status" className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">{notice}</p> : null}
+      {error ? <BuiNotice tone="error" title={error} /> : null}
+      {notice ? <BuiNotice tone="info" title={notice} /> : null}
     </div>
   );
 }

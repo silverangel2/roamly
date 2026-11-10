@@ -123,7 +123,9 @@ check(
     preTrip.includes("TimeProvenanceLabel kind={provenanceForPreTripRow(row.planned)}") &&
     preTrip.includes("timelineIcon({ kind: row.kind") &&
     preTrip.includes("{row.title}") &&
-    preTrip.includes(">Planned</span>") &&
+    // BoardUI batch 2 (2026-11-09): the Planned pill is a BuiChip now —
+    // same pill, same position; the old needle pinned the hand-rolled span.
+    preTrip.includes(">Planned</BuiChip>") &&
     preTrip.includes("{row.detail}") &&
     preTrip.includes("{rowChevron}") &&
     preTrip.includes("border-dotted")
@@ -133,7 +135,9 @@ check(
   // Owner-10 item 5: rows render through displayTitle/displayDetail
   // (unverified mapping + echo strip); the order asserted is the
   // same — title, then Planned pill, then detail.
-  ordered(preTrip, ["{displayTitle}", ">Planned</span>", "{displayDetail}"])
+  // BoardUI batch 2 (2026-11-09): the Planned pill renders as
+  // </BuiChip>; the asserted order (title, pill, detail) is unchanged.
+  ordered(preTrip, ["{displayTitle}", ">Planned</BuiChip>", "{displayDetail}"])
 );
 check(
   "pretrip-timeline-uses-stored-rows-only",
@@ -218,10 +222,14 @@ check(
 );
 check(
   "inprogress-actions-guarded",
-  inProgress.includes("!tripCompleted ? <section") &&
+  // BoardUI batch 2 (2026-11-09): the actions block's container is a
+  // BuiCard and its disclosure a BuiAccordion — the !tripCompleted
+  // guard and the one-tap reachability are unchanged; the old needles
+  // pinned the pre-BoardUI <section>/<details> markup.
+  inProgress.includes("!tripCompleted ? <BuiCard") &&
     inProgress.includes("currentActivity && !tripCompleted") &&
     inProgress.includes("Stop actions") &&
-    inProgress.includes("<details") &&
+    inProgress.includes("<BuiAccordion") &&
     inProgress.includes('t("ui.actions.checkIn")') &&
     inProgress.includes("Complete") &&
     inProgress.includes("Skip this activity") &&

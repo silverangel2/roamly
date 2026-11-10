@@ -1,9 +1,10 @@
 "use client";
 
 import Image, { type StaticImageData } from "next/image";
-import { Minus, Pause, Play, Plus } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiPlayPauseIcon } from "@/components/boardui/AnimatedIcons";
 import { PLAN_START_NOTE } from "@/lib/roamly/planTripUx";
 import { PlaceSelector } from "@/components/roamly/PlaceSelector";
 import { recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
@@ -132,19 +133,19 @@ export function DynamicDestinationHero() {
   }, [beginTransition, nextIndex, pausedUntil, reducedMotion, rotationPaused, transitioning]);
 
   return (
-    <section data-active-destination={active.name} className="relative isolate overflow-hidden bg-[#f5f4e9] text-chead">
-      <div aria-hidden="true" className="pointer-events-none absolute -left-32 top-8 -z-10 h-80 w-80 rounded-full bg-[#E6EFFA]/70 blur-3xl" />
-      <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-0 -z-10 h-72 w-72 rounded-full bg-[#ffe4c6]/75 blur-3xl" />
+    <section data-active-destination={active.name} className="relative isolate overflow-hidden bg-cbg text-chead">
+      <div aria-hidden="true" className="pointer-events-none absolute -left-32 top-8 -z-10 h-80 w-80 rounded-full bg-csoft/70 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 bottom-0 -z-10 h-72 w-72 rounded-full bg-corange/25 blur-3xl" />
 
       <div className="mx-auto grid min-h-[calc(100svh-8rem)] w-full max-w-7xl items-center gap-9 px-5 py-8 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:py-12 lg:grid-cols-[0.88fr_1.12fr] lg:gap-12 lg:px-12">
-        <div className="roamly-enter order-1 flex min-w-0 flex-col items-start lg:order-1">
-          <h1 className="max-w-[36rem] text-[3.2rem] font-semibold leading-[0.96] tracking-[-0.055em] text-[#223354] sm:text-6xl lg:text-[4.5rem]">
-            Go somewhere. <span className="text-[#087BFF]">Feel at home there.</span>
+        <div className="roamly-enter order-2 flex min-w-0 flex-col items-start lg:order-1">
+          <h1 className="max-w-[36rem] text-[3.2rem] font-semibold leading-[0.96] tracking-[-0.055em] text-chead sm:text-6xl lg:text-[4.5rem]">
+            Go somewhere. <span className="text-cblue">Feel at home there.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-7 text-[#657795] sm:text-lg sm:leading-8">
+          <p className="mt-5 max-w-lg text-base leading-7 text-cgray sm:text-lg sm:leading-8">
             A thoughtful itinerary shaped around your pace, your budget, and the moments you want to remember.
           </p>
-          <div className="mt-7 w-full max-w-lg rounded-[1.5rem] border border-[#d8e5dd] bg-white/90 p-4 shadow-[0_18px_50px_rgba(39,88,80,0.09)] sm:p-5">
+          <div className="mt-7 w-full max-w-lg rounded-[1.5rem] border border-chair bg-white/90 p-4 shadow-soft sm:p-5">
             <PlaceSelector
               label="Where"
               value={wherePlace}
@@ -209,11 +210,11 @@ export function DynamicDestinationHero() {
           </div>
         </div>
 
-        <div className="roamly-enter order-2 min-w-0 lg:order-2" style={{ animationDelay: "100ms" }}>
-          <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-[#E6EFFA] shadow-[0_28px_80px_rgba(7, 30, 85,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
+        <div className="roamly-enter order-1 min-w-0 lg:order-2" style={{ animationDelay: "100ms" }}>
+          <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-csoft shadow-[0_28px_80px_rgba(7, 30, 85,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
             <Image src={active.image} alt={`${active.name}, ${active.country}`} fill priority sizes="(min-width: 1024px) 54vw, 100vw" className="absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700" style={{ objectPosition: active.desktopPosition }} />
             <Image src={incoming.image} alt="" fill sizes="(min-width: 1024px) 54vw, 100vw" aria-hidden="true" className={`absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#071E55]/60 via-[#071E55]/15 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-5">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-cnavy/60 via-cnavy/15 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-5">
               <div key={active.name} aria-live="polite">
                 <p className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{active.name}</p>
                 <p className="text-sm text-white/85">{active.country}</p>
@@ -239,13 +240,9 @@ export function DynamicDestinationHero() {
                   onClick={() => setRotationPaused((paused) => !paused)}
                   aria-label={rotationPaused ? "Resume destination previews" : "Pause destination previews"}
                   aria-pressed={rotationPaused}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/90 text-[#203c43] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/90 text-chead focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40 [&_svg]:h-3 [&_svg]:w-3"
                 >
-                  {rotationPaused ? (
-                    <Play aria-hidden="true" size={12} fill="currentColor" className="h-3 w-3" />
-                  ) : (
-                    <Pause aria-hidden="true" size={12} fill="currentColor" className="h-3 w-3" />
-                  )}
+                  <BuiPlayPauseIcon playing={rotationPaused} className="h-3 w-3" />
                 </button>
               </div>
             </div>

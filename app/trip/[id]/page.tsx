@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { cookies } from "next/headers";
 import { hasSetupSkip, setupSkipCookieName } from "@/lib/roamly/setupSkip";
 import { formatGateEyebrow } from "@/lib/roamly/tripIdentity";
@@ -16,7 +17,7 @@ import { hasPriorTrip, setupGateApplies, setupGateLimitedFeatures } from "@/lib/
 import { EntryGate } from "@/components/roamly/EntryGate";
 import { HandoffBlock } from "@/components/roamly/HandoffBlock";
 import { build2GatesEnabled } from "@/lib/roamly/build2Flags";
-import { getDestinationPhoto } from "@/lib/roamly/destinationPhoto";
+import { getDestinationPhoto, type DestinationPhotoSharedState } from "@/lib/roamly/destinationPhoto";
 import { buildVenuePhotoMap } from "@/lib/roamly/venuePhotos";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { StaySelector } from "@/components/trip/StaySelector";
@@ -2149,6 +2150,21 @@ function isItineraryPaid(trip: {
   );
 }
 
+// Composition batch (2026-11-09): the trip page's bookings read
+// names its columns instead of select("*"). The list is the full
+// roamly_bookings column set (base schema + the companion-fields,
+// reconciliation, and supersession migrations + the columns the
+// notifications/briefing reads exercise) MINUS raw_extracted_text:
+// the extracted email/screenshot transcript is write-only data —
+// no code in app/, components/, or lib/ reads it — and as an
+// unbounded private transcript it has no business riding every
+// trip-page render (and the client-bound bookings manager props)
+// when nothing renders it. Every other column has a traced reader
+// among this page's consumers (booking truth/supersession checks,
+// reconciliation, display timeline matching, summary list, print).
+const TRIP_PAGE_BOOKING_COLUMNS =
+  "id,user_id,trip_id,booking_type,category,provider_name,title,confirmation_number,provider_booking_id,booking_status,amount_cents,currency,start_date,end_date,start_time,end_time,start_at,end_at,origin,destination,flight_number,terminal,gate,seat,room_type,check_in_at,check_out_at,reservation_requirements,total_price,taxes_and_fees,cancellation_deadline,cancellation_terms,address,city,region,country,latitude,longitude,extraction_confidence,screenshot_url,source_type,source_reference,source_connection_id,source_message_id,source_event_at,referral_id,reconciliation_status,reconciliation_version,last_authoritative_update_at,last_authoritative_source_message_id,superseded_by_booking_id,traveler_confirmed,last_synced_at,metadata,created_at,updated_at";
+
 async function TripPage({ params, searchParams }: TripPageProps) {
   const { id } = await params;
   const search = searchParams ? await searchParams : {};
@@ -2196,10 +2212,22 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   }
 
   if (one(search.checkout) === "cancelled") {
-    await recordAppEvent(supabase, {
-      userId: current.user.id,
-      eventType: "checkout_cancelled",
-      metadata: { tripId: id }
+    // Refresh diet (2026-11-09): telemetry never gates the paint.
+    // The event records via after() — the house pattern for
+    // post-response work (gmail webhook, generation background) —
+    // so its INSERT round trip no longer blocks this render, and a
+    // failed write can never fail the page.
+    const eventUserId = current.user.id;
+    after(async () => {
+      try {
+        await recordAppEvent(supabase, {
+          userId: eventUserId,
+          eventType: "checkout_cancelled",
+          metadata: { tripId: id }
+        });
+      } catch {
+        // Telemetry only: a lost event never surfaces to the traveller.
+      }
     });
   }
 
@@ -2267,24 +2295,56 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const dayNumbersToRender = generationDayProgress.length
     ? generationDayProgress.map((day) => day.dayNumber)
     : canonicalDays.map((day) => day.day_number);
-  const bookingsResult = await supabase
-    .from("roamly_bookings")
-    .select("*")
-    .eq("trip_id", id)
-    .eq("user_id", current.user.id)
-    .order("start_at", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+  const tripLifecycle = customerTripLifecycleState({
+    status: trip.status,
+    itineraryStatus: trip.itinerary_status,
+    startDate: trip.start_date,
+    endDate: trip.end_date,
+    metadata: trip.metadata
+  });
+  const completedTrip = isCustomerTripTerminalState(tripLifecycle);
+  // Composition batch (2026-11-09): the loads from here to the setup
+  // gate are independent of each other — every one consumes only
+  // the bundle, the trip id, or the signed-in user — so they start
+  // together and are awaited at their existing points of use below.
+  // The serial chain they replace paid these round trips one after
+  // another behind every render (and behind every kept
+  // router.refresh()). Same queries, same results, same error
+  // shapes; only the overlap changed. hasPriorTrip stays downstream
+  // (it consumes the setup state), and the photo/weather/venue
+  // loads stay behind the setup-gate return, exactly as before.
+  const bookingsPromise = Promise.resolve(
+    supabase
+      .from("roamly_bookings")
+      .select(TRIP_PAGE_BOOKING_COLUMNS)
+      .eq("trip_id", id)
+      .eq("user_id", current.user.id)
+      .order("start_at", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false })
+  );
+  const priceDiscoveryPromise = trip.latest_price_discovery_id
+    ? Promise.resolve(
+        supabase
+          .from("roamly_price_discoveries")
+          .select("metadata")
+          .eq("id", trip.latest_price_discovery_id)
+          .eq("trip_id", id)
+          .eq("user_id", current.user.id)
+          .maybeSingle()
+      )
+    : Promise.resolve({ data: null });
+  const pendingHotelProductChoicePromise = getPendingHotelProductChoice(supabase, id);
+  const tripTravelersPromise = listTripTravelers(supabase, id);
+  const setupStatePromise = getRoamlySetupState(supabase, current.user).catch(() => null);
+  const postTripFeedbackPromise = completedTrip
+    ? Promise.resolve(
+        supabase.from("trip_feedback").select("id").eq("trip_id", id).eq("user_id", current.user.id).eq("feedback_type", "post_trip").limit(1)
+      )
+    : Promise.resolve({ data: [] as Array<{ id: string }>, error: null });
+  const bookingsResult = await bookingsPromise;
   const importedBookings = bookingsResult.error && isMissingTableError(bookingsResult.error.message) ? [] : bookingsResult.data || [];
   const currentImportedBookings = importedBookings.filter(isOperationalCurrentBooking);
-  const priceDiscoveryResult = trip.latest_price_discovery_id
-    ? await supabase
-        .from("roamly_price_discoveries")
-        .select("metadata")
-        .eq("id", trip.latest_price_discovery_id)
-        .eq("trip_id", id)
-        .eq("user_id", current.user.id)
-        .maybeSingle()
-    : { data: null };
+  const priceDiscoveryResult = await priceDiscoveryPromise;
   const persistedPriceDiscovery = priceDiscoveryResult.data?.metadata && typeof priceDiscoveryResult.data.metadata === "object"
     ? priceDiscoveryResult.data.metadata as Record<string, unknown>
     : null;
@@ -2310,7 +2370,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     confirmedBookings: currentImportedBookings as Array<{ booking_type?: string | null; booking_status?: string | null }>
   });
   const hotelProductPresentation = buildHotelProductPresentation({ selectedHotelDecision: hotelProductDecision, comparisonCurrency: currency });
-  const pendingHotelProductChoiceResult = await getPendingHotelProductChoice(supabase, id);
+  const pendingHotelProductChoiceResult = await pendingHotelProductChoicePromise;
   const pending = pendingHotelProductChoiceResult.error ? null : pendingHotelProductChoiceResult.choice;
   const pendingHotelProductChoice = pending ? {
     tripId: pending.tripId,
@@ -2347,17 +2407,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     hasConfirmedFlight: hasConfirmedFlightBooking(confirmedBookingSnapshot as Array<Record<string, unknown>>)
   });
   const unresolvedBookingSnapshot = importedBookings.filter((booking) => !isConfirmedBookingSnapshot(booking as Record<string, unknown>));
-  const tripLifecycle = customerTripLifecycleState({
-    status: trip.status,
-    itineraryStatus: trip.itinerary_status,
-    startDate: trip.start_date,
-    endDate: trip.end_date,
-    metadata: trip.metadata
-  });
-  const completedTrip = isCustomerTripTerminalState(tripLifecycle);
-  const postTripFeedbackResult = completedTrip
-    ? await supabase.from("trip_feedback").select("id").eq("trip_id", id).eq("user_id", current.user.id).eq("feedback_type", "post_trip").limit(1)
-    : { data: [] as Array<{ id: string }>, error: null };
+  const postTripFeedbackResult = await postTripFeedbackPromise;
   const hasPostTripFeedback = postTripFeedbackResult.error ? null : Boolean(postTripFeedbackResult.data?.length);
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
   const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming }).items : [];
@@ -2412,7 +2462,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     : missingBookingFocus;
   const conflictCount = full?.daily_itinerary.filter((day) => day.plan_status === "conflict").length || 0;
   const conflictDay = full?.daily_itinerary.find((day) => day.plan_status === "conflict")?.day_number || null;
-  const tripTravelersResult = await listTripTravelers(supabase, id);
+  const tripTravelersResult = await tripTravelersPromise;
   const travelerRequirementState = buildTripTravelerRequirements({
     trip,
     travelers: tripTravelersResult.error ? [] : tripTravelersResult.travelers,
@@ -2538,10 +2588,19 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         : headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain");
 
   if (checkoutNeedsAttention) {
-    await recordAppEvent(supabase, {
-      userId: current.user.id,
-      eventType: "checkout_sync_failed",
-      metadata: { tripId: id, error: checkoutSyncError }
+    // Refresh diet (2026-11-09): same rule as the checkout_cancelled
+    // event above — recorded via after(), never awaited in render.
+    const eventUserId = current.user.id;
+    after(async () => {
+      try {
+        await recordAppEvent(supabase, {
+          userId: eventUserId,
+          eventType: "checkout_sync_failed",
+          metadata: { tripId: id, error: checkoutSyncError }
+        });
+      } catch {
+        // Telemetry only: a lost event never surfaces to the traveller.
+      }
     });
   }
 
@@ -2570,7 +2629,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // choice per trip (lib/roamly/setupSkip.ts cookie), so a return
   // visit reveals without re-skipping. Remembered skip still never
   // completes a step and never touches billing or entitlements.
-  const setupState = supabase ? await getRoamlySetupState(supabase, current.user).catch(() => null) : null;
+  const setupState = await setupStatePromise;
   const skipCookieName = setupSkipCookieName(id);
   const skippedBefore = skipCookieName ? hasSetupSkip((await cookies()).get(skipCookieName)?.value, id) : false;
   const skipSetupGate = one(search.skipSetupGate) === "1" || skippedBefore;
@@ -2602,29 +2661,41 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // only points at them, with a count, and only when at least one waits.
   // Same filters as the email-imports route; a query failure means no
   // line, never a wrong count.
-  let pendingImports: number | null = null;
-  if (supabase) {
+  // Composition batch (2026-11-09): the four loads below are
+  // mutually independent — they start together and are awaited at
+  // their points of use. They stay behind the setup-gate return
+  // above, so a gated render pays none of them, exactly as before.
+  // The two photo lookups share one per-render state, so the
+  // registry scan inside them is paid once across the destination
+  // and every venue (see lib/roamly/destinationPhoto.ts).
+  const photoShared: DestinationPhotoSharedState = {};
+  const currentUserId = current.user.id;
+  const pendingImportsPromise = (async (): Promise<number | null> => {
+    if (!supabase) return null;
     try {
       const pendingResult = await supabase
         .from("booking_extraction_results")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", current.user.id)
+        .eq("user_id", currentUserId)
         .in("match_status", ["unmatched", "needs_confirmation"])
         .or(`trip_id.eq.${trip.id},trip_id.is.null`);
-      pendingImports = pendingResult.error ? null : pendingResult.count;
+      return pendingResult.error ? null : pendingResult.count;
     } catch {
-      pendingImports = null;
+      return null;
     }
-  }
-
+  })();
   const photoPlanning = getTripPlanningMetadata(trip.metadata);
-  const destinationPhoto = await getDestinationPhoto({
+  const destinationPhotoPromise = getDestinationPhoto({
     label: destinationLabel,
     country: getString(photoPlanning.destinationCountry) || trip.destination_country || null,
     latitude: typeof photoPlanning.destinationLatitude === "number" ? photoPlanning.destinationLatitude : null,
     longitude: typeof photoPlanning.destinationLongitude === "number" ? photoPlanning.destinationLongitude : null
-  }).catch(() => null);
-
+  }, photoShared).catch(() => null);
+  const venuePhotosPromise = buildVenuePhotoMap(
+    canonicalDays,
+    getString(photoPlanning.destinationCountry) || trip.destination_country || null,
+    photoShared
+  ).catch(() => ({}));
   // Trip weather (Fix Round Item 4, 2026-11-06): the itinerary's
   // weather summary, fetched server-side from the trip's own
   // planning-metadata coordinates + dates through the one weather
@@ -2645,7 +2716,10 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           endDate: trip.end_date
         }
       : null;
-  const tripWeather = tripWeatherRequest ? await getTripWeather(tripWeatherRequest) : null;
+  const tripWeatherPromise = tripWeatherRequest ? getTripWeather(tripWeatherRequest) : Promise.resolve(null);
+  const pendingImports = await pendingImportsPromise;
+  const destinationPhoto = await destinationPhotoPromise;
+  const tripWeather = await tripWeatherPromise;
 
   // Itinerary Home panel (panel 5): one compact day view per stored day,
   // built from the SAME plan the day cards render
@@ -2675,10 +2749,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   );
   // Venue-row thumbnails (originals pass): one parallel pipeline round
   // over the plan's venue stops; misses stay icon-only downstream.
-  const venuePhotos = await buildVenuePhotoMap(
-    canonicalDays,
-    getString(photoPlanning.destinationCountry) || trip.destination_country || null
-  ).catch(() => ({}));
+  const venuePhotos = await venuePhotosPromise;
   const itineraryHomeEssentials = full
     ? full.pre_trip_essentials.map((item) => ({ title: item.title, reason: item.reason }))
     : [];

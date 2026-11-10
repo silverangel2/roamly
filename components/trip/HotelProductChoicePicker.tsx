@@ -2,6 +2,11 @@
 
 import { useRef, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiButton } from "@/components/boardui/Button";
+import { BuiNotice } from "@/components/boardui/Notice";
+import { BuiChip } from "@/components/boardui/Badge";
+import { cx } from "@/components/boardui/cx";
 import type { HotelProductPresentation, HotelProductPresentationOption } from "@/lib/roamly/hotelProductPresentation";
 
 type PendingChoice = {
@@ -171,14 +176,12 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
   return (
     <div className="mt-4 grid gap-3">
       {pendingMissingFromDisplay ? (
-        <p className="rounded-xl border border-sun/40 bg-sun/15 px-3 py-3 text-sm font-black leading-6 text-amber-900">
+        <p role="status" className="rounded-bui-card border border-sun/40 bg-sun/15 px-3 py-3 text-sm font-black leading-6 text-amber-900">
           Your previous product selection is not shown in the current options. Choose another option only if you want to change it.
         </p>
       ) : null}
       {notice ? (
-        <p role="status" className={`rounded-xl border px-3 py-3 text-sm font-black leading-6 ${notice.tone === "error" ? "border-coral/25 bg-coral/10 text-coral" : "border-cblue/20 bg-cblue/10 text-cblue"}`}>
-          {notice.text}
-        </p>
+        <BuiNotice tone={notice.tone === "error" ? "error" : "info"} title={notice.text} />
       ) : null}
       {presentation.products.map((option) => {
         const productId = option.providerProductId;
@@ -186,56 +189,56 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
         const canChoose = selectable(presentation, option);
         const busy = busyProductId === productId;
         return (
-          <article key={`${productId || "unidentified"}-${option.displayName}`} className={`min-w-0 rounded-xl border p-3 ${isSelected ? "border-cblue/50 bg-cblue/5" : "border-[#eee5d7] bg-[#fffdf8]"}`}>
+          <BuiCard key={`${productId || "unidentified"}-${option.displayName}`} className={cx("min-w-0 p-3", isSelected && "bg-cblue/5 ring-1 ring-cblue/50")}>
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h4 className="break-words text-base font-black text-ink">{option.displayName}</h4>
                 <p className="mt-1 text-sm font-black text-ink">{amount(option)}</p>
               </div>
-              {option.recommendation === "RECOMMENDED" && presentation.inventoryStatus === "CURRENT" ? <span className="w-fit shrink-0 rounded-full border border-sun/40 bg-sun/20 px-2.5 py-1 text-[0.68rem] font-black uppercase tracking-[0.08em] text-amber-800">Recommended</span> : null}
+              {option.recommendation === "RECOMMENDED" && presentation.inventoryStatus === "CURRENT" ? <BuiChip tone="warm" className="shrink-0">Recommended</BuiChip> : null}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
-              <span className="rounded-full bg-slate-100 px-2.5 py-1">{cancellationLabel(option.cancellation.state)}</span>
-              {option.identity === "UNIDENTIFIED_INFORMATIONAL" ? <span className="rounded-full bg-slate-100 px-2.5 py-1">Product identity unavailable</span> : null}
-              {option.actionability === "INFORMATIONAL_ONLY" ? <span className="rounded-full bg-slate-100 px-2.5 py-1">Informational only</span> : null}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <BuiChip>{cancellationLabel(option.cancellation.state)}</BuiChip>
+              {option.identity === "UNIDENTIFIED_INFORMATIONAL" ? <BuiChip>Product identity unavailable</BuiChip> : null}
+              {option.actionability === "INFORMATIONAL_ONLY" ? <BuiChip>Informational only</BuiChip> : null}
             </div>
-            {option.unresolvedFacts.length ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Not verified: {option.unresolvedFacts.join(" · ")}</p> : null}
+            {option.unresolvedFacts.length ? <p className="mt-2 text-xs font-bold leading-5 text-cgray">Not verified: {option.unresolvedFacts.join(" · ")}</p> : null}
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 {isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue">Selected option</p> : null}
-                {!canChoose && !isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Comparison only</p> : null}
+                {!canChoose && !isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cgray">Comparison only</p> : null}
               </div>
               {isSelected ? (
-                <button type="button" onClick={() => void clearSelection()} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl border border-cblue/25 bg-white px-4 py-2.5 text-sm font-black text-cblue transition hover:bg-cblue/5 disabled:cursor-wait disabled:opacity-60">
+                <BuiButton variant="secondary" onClick={() => void clearSelection()} disabled={Boolean(busyProductId)} busy={busyProductId === "clear"}>
                   {busyProductId === "clear" ? "Clearing…" : "Clear selection"}
-                </button>
+                </BuiButton>
               ) : canChoose && productId ? (
-                <button type="button" onClick={() => void choose(productId)} disabled={Boolean(busyProductId)} aria-label={`Choose this hotel option: ${option.displayName}`} className="min-h-11 rounded-xl bg-cblue px-4 py-2.5 text-sm font-black text-white transition hover:bg-cblue/90 disabled:cursor-wait disabled:opacity-60">
+                <BuiButton onClick={() => void choose(productId)} disabled={Boolean(busyProductId)} busy={busy} aria-label={`Choose this hotel option: ${option.displayName}`}>
                   {busy ? "Refreshing this option…" : "Choose this option"}
-                </button>
+                </BuiButton>
               ) : null}
             </div>
             {review?.productId === productId ? (
-              <div className="mt-3 rounded-xl border border-sun/40 bg-sun/15 p-3" role="alertdialog" aria-label="Review changed hotel option details">
+              <div className="mt-3 rounded-bui-card border border-sun/40 bg-sun/15 p-3" role="alertdialog" aria-label="Review changed hotel option details">
                 <p className="text-sm font-black text-amber-950">A few factual details changed. Review them before choosing this option.</p>
                 <ul className="mt-2 grid gap-1 text-sm font-bold text-amber-900">
                   {readableChanges(review.changes).map((change) => <li key={change}>• {change}</li>)}
                 </ul>
                 <p className="mt-2 text-xs font-bold leading-5 text-amber-900">This still does not book or reserve the room.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => void choose(productId, review.changes)} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl bg-cblue px-4 py-2.5 text-sm font-black text-white transition hover:bg-cblue/90 disabled:opacity-60">
+                  <BuiButton onClick={() => void choose(productId, review.changes)} disabled={Boolean(busyProductId)} busy={busy}>
                     {busy ? "Refreshing this option…" : "Accept changes and choose"}
-                  </button>
-                  <button type="button" onClick={() => setReview(null)} disabled={Boolean(busyProductId)} className="min-h-11 rounded-xl border border-cblue/25 bg-white px-4 py-2.5 text-sm font-black text-cblue transition hover:bg-cblue/5 disabled:opacity-60">
+                  </BuiButton>
+                  <BuiButton variant="secondary" onClick={() => setReview(null)} disabled={Boolean(busyProductId)}>
                     Cancel
-                  </button>
+                  </BuiButton>
                 </div>
               </div>
             ) : null}
-          </article>
+          </BuiCard>
         );
       })}
-      <p className="text-xs font-bold leading-5 text-slate-500">Choosing an option records your preference for this hotel product. It does not guarantee availability, pricing, or booking terms.</p>
+      <p className="text-xs font-bold leading-5 text-cgray">Choosing an option records your preference for this hotel product. It does not guarantee availability, pricing, or booking terms.</p>
     </div>
   );
 }

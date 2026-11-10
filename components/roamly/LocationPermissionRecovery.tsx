@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { BuiCard } from "@/components/boardui/Card";
 import {
   detectPermissionPlatform,
   recoveryHeading,
@@ -59,7 +60,7 @@ export function LocationPermissionRecovery({
   const steps = permission === "unavailable" ? [] : recoverySteps(platform);
 
   return (
-    <div className="bui-enter mt-3 rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card">
+    <BuiCard className="bui-enter mt-3 px-4 py-3">
       <p className="text-sm font-semibold leading-6 text-chead">{recoveryHeading(permission)}</p>
       {permission === "unavailable" ? (
         <p className="mt-1 text-sm font-normal leading-6 text-cink">
@@ -99,6 +100,6 @@ export function LocationPermissionRecovery({
           Open setup steps
         </a>
       </div>
-    </div>
+    </BuiCard>
   );
 }

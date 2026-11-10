@@ -93,5 +93,24 @@ export async function POST(request: Request, context: RouteContext) {
     .eq("trip_id", id)
     .eq("role", "companion");
   if (updated.error) return NextResponse.json({ ok: false, error: updated.error.message }, { status: 500 });
+  // Refresh diet (2026-11-09): the save answers with the rebuilt
+  // evaluations — the same shape GET and the sync action return — so
+  // the requirements section updates in place instead of the client
+  // re-downloading the whole trip page to re-read this one section.
+  // Best-effort: the write has already landed, so a failed rebuild
+  // still answers ok, just without the fresh list (the section then
+  // settles on the next full page load, exactly as before this field
+  // existed).
+  const travelers = await listTripTravelers(auth.supabase, id);
+  if (!travelers.error) {
+    const memory = await getTravelerMemory(auth.supabase, auth.user.id);
+    if (!memory.error) {
+      return NextResponse.json({
+        ok: true,
+        cleared: country === null,
+        ...buildTripTravelerRequirements({ trip: owned.trip, travelers: travelers.travelers, accountHolderPassportCountry: memory.profile?.passport_issuing_country })
+      });
+    }
+  }
   return NextResponse.json({ ok: true, cleared: country === null });
 }

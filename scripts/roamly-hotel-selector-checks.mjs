@@ -272,13 +272,27 @@ const panel = readFileSync(new URL("../components/trip/ItineraryHomePanel.tsx", 
 const page = readFileSync(new URL("../app/trip/[id]/page.tsx", import.meta.url), "utf8");
 
 check("STATIC selector: radio-card recipe, BoardUI skin, cascade, badge pop", () => {
+  // RE-PIN (batch 4, 2026-11-09): the card recipe used to be
+  // HAND-COPIED in raw classes in this file, and the needles below
+  // proxied that copy (bui-squircle / rounded-bui-card /
+  // shadow-bui-card / bui-press / bui-tap / the border-cblue selected
+  // border). The selector is now built on the REAL primitives —
+  // BuiCard (which owns the squircle, radius, shadow, press and tap
+  // physics) wrapped in BuiClickSpark — so the needles pin the
+  // primitive construction itself, which is the stronger form of the
+  // same protection: the recipe can no longer drift from BoardUI.
+  // The selection state is still composed on the card (bg tint +
+  // ring over the primitive's hairline) and the cascade / badge-pop
+  // needles are unchanged.
   for (const needle of [
     'role="radiogroup"', 'role="radio"', "aria-checked",
-    "bui-squircle", "rounded-bui-card", "shadow-bui-card",
-    "border-cblue bg-cblue/5 ring-1 ring-cblue",
-    "bui-enter", "bui-press", "bui-tap", "bui-badge-pop",
+    'from "@/components/boardui/Card"', 'from "@/components/boardui/ClickSpark"',
+    "<BuiCard", "<BuiClickSpark", "interactive",
+    "bg-cblue/5 ring-1 ring-cblue",
+    "bui-enter", "bui-badge-pop",
     '"--bui-delay"', "index * 70"
   ]) assert.ok(selector.includes(needle), `selector missing ${needle}`);
+  assert.ok(!selector.includes("bui-squircle"), "the recipe must come from BuiCard, not a hand copy");
 });
 check("STATIC selector: the face law's exact lines, word budget kept", () => {
   assert.ok(selector.includes("Added to your itinerary and budget."));
@@ -294,10 +308,15 @@ check("STATIC selector: no black, no invented booking claim", () => {
 });
 check("STATIC panel: BoardUI primitives imported and used (was zero)", () => {
   assert.ok(panel.includes('from "@/components/boardui/Card"'));
-  assert.ok(panel.includes('from "@/components/boardui/Badge"'));
+  // D-1 (owner face law, 2026-11-09): the panel's only BuiChip use was
+  // the search-result / verified-source provenance chips, which the
+  // law removed — the Badge import left with them. The needle's
+  // protection is re-pinned at greater strength as their ABSENCE.
+  assert.ok(!panel.includes("<BuiChip"), "panel must not render BuiChip (its only use was the barred provenance chips)");
+  assert.ok(!panel.includes("Search result"), "provenance chip vocabulary must not return to the panel");
+  assert.ok(!panel.includes("Verified source"), "provenance chip vocabulary must not return to the panel");
   assert.ok(panel.includes('from "@/components/boardui/Notice"'));
   assert.ok(panel.includes("<BuiCard"));
-  assert.ok(panel.includes("<BuiChip"));
   assert.ok(panel.includes("<BuiNotice"));
   assert.ok(!/from-black|bg-black/.test(panel), "panel still uses black");
 });

@@ -193,6 +193,14 @@ export interface MustSeeRequirement {
   patterns: string[];
   /** Kinds a satisfying candidate may carry instead of the name. */
   kinds: string[];
+  /** True only when the requirement is the pure named-place
+   *  anchor below: the patterns are the place's own proper-noun
+   *  name, not head nouns. This is the one requirement shape the
+   *  typo-tolerance tier (placeNameMatch.ts) may serve — a
+   *  misspelled NAME can land on its nearest real place, while a
+   *  head noun is a category word and is never fuzzed (a "hot
+   *  springs" ask must not drift onto a creek named "Spring"). */
+  nameAnchor?: boolean;
 }
 
 /** Derive the head-noun requirement from a must-do label: the
@@ -266,7 +274,7 @@ export function mustSeeRequirement(label: string): MustSeeRequirement {
     // requirement (kinds stay empty) — the anchor is a name test,
     // not a kind test.
     const anchors = properNounAnchors(label);
-    if (anchors.length) return { patterns: anchors, kinds: [] };
+    if (anchors.length) return { patterns: anchors, kinds: [], nameAnchor: true };
   }
   return { patterns, kinds };
 }

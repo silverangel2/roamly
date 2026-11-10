@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 
 type Evaluation = {
@@ -15,10 +14,36 @@ type Evaluation = {
 };
 
 export function TripTravelerRequirements({ tripId, evaluations }: { tripId: string; evaluations: Evaluation[] }) {
-  const router = useRouter();
+  // Refresh diet (2026-11-09): this section owns its list. The
+  // travelers route answers every save/sync with the rebuilt
+  // evaluations (the same shape its GET returns), so a save settles
+  // HERE — the traveller no longer pays a full trip-page
+  // re-download (router.refresh) to re-read this one section. A
+  // fresh server render still wins whenever one happens: the prop
+  // syncs in below whenever the page hands down a new list.
+  const [liveEvaluations, setLiveEvaluations] = useState(evaluations);
+  useEffect(() => {
+    setLiveEvaluations(evaluations);
+  }, [evaluations]);
   const [values, setValues] = useState<Record<string, string>>(
     Object.fromEntries(evaluations.filter((item) => item.role === "companion").map((item) => [item.id, item.passportIssuingCountry || ""]))
   );
+
+  function applyEvaluations(next: Evaluation[]) {
+    setLiveEvaluations(next);
+    // Companions the sync just persisted arrive with no input state
+    // yet — seed theirs from the saved country, as a fresh mount
+    // would. Inputs the traveller already touched keep their text.
+    setValues((current) => {
+      const merged = { ...current };
+      for (const item of next) {
+        if (item.role === "companion" && !(item.id in merged)) {
+          merged[item.id] = item.passportIssuingCountry || "";
+        }
+      }
+      return merged;
+    });
+  }
   const [saving, setSaving] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState("");
@@ -42,7 +67,8 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
         return;
       }
       setMessage(`${item.label} details saved.`);
-      router.refresh();
+      const next = (result as { evaluations?: Evaluation[] }).evaluations;
+      if (Array.isArray(next)) applyEvaluations(next);
     } finally {
       setSaving(null);
     }
@@ -62,7 +88,8 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
         setError(result.error || "We could not prepare traveler details.");
         return;
       }
-      router.refresh();
+      const next = (result as { evaluations?: Evaluation[] }).evaluations;
+      if (Array.isArray(next)) applyEvaluations(next);
     } finally {
       setSyncing(false);
     }
@@ -70,7 +97,7 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
 
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      {evaluations.map((item) => (
+      {liveEvaluations.map((item) => (
         <div key={item.id} className="rounded-2xl border border-[#e8dfd0] bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div>

@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { Bus, Car, ClipboardList, Hotel, Send, Ship, TrainFront, Utensils } from "lucide-react";
+import { BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiChip } from "@/components/boardui/Badge";
+import { BuiAccordion } from "@/components/boardui/Accordion";
+import { BuiNotice } from "@/components/boardui/Notice";
+import type { BuiTone } from "@/components/boardui/tokens";
 import type { TripBookingRecord, TripBookingStatus, TripBookingType } from "@/lib/roamly/bookingWallet";
 import { bookingWalletSummary, bookingWalletTimelineSortKey, isActiveTripBooking, isConfirmedBooking, isTravelerConfirmedOnlyBooking, walletBookingDisplayLabel } from "@/lib/roamly/bookingWallet";
 import { BookingCancelAction } from "@/components/companion/BookingCancelAction";
@@ -36,22 +42,26 @@ function sourceWords(sourceType: TripBookingRecord["source_type"]) {
   return "booking record";
 }
 
-function statusClass(status: TripBookingStatus) {
-  if (status === "confirmed" || status === "completed") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  if (status === "modified" || status === "detected" || status === "needs_confirmation") return "border-amber-200 bg-amber-50 text-amber-800";
-  if (status === "cancelled" || status === "refunded") return "border-rose-200 bg-rose-50 text-rose-800";
-  return "border-slate-200 bg-slate-50 text-slate-700";
+// Status tones on the BoardUI chip: confirmed reads success,
+// needs-action reads warm, cancelled reads danger, everything else
+// stays neutral. The status WORDS come from customerStatus below —
+// only the pill's dress changes.
+function statusTone(status: TripBookingStatus): BuiTone {
+  if (status === "confirmed" || status === "completed") return "success";
+  if (status === "modified" || status === "detected" || status === "needs_confirmation") return "warm";
+  if (status === "cancelled" || status === "refunded") return "danger";
+  return "neutral";
 }
 
 // UX repair (integration): a test booking wears a neutral pill, never
-// the emerald confirmed pill — the label alone is not enough.
-function pillClassFor(booking: TripBookingRecord) {
+// the success pill — the label alone is not enough.
+function pillToneFor(booking: TripBookingRecord): BuiTone {
   if (isTestBooking({
     title: booking.title,
     provider: booking.provider,
     metadata: booking.is_test_booking ? { qa_test: true } : undefined
-  })) return "border-slate-300 bg-slate-100 text-slate-700";
-  return statusClass(booking.booking_status);
+  })) return "neutral";
+  return statusTone(booking.booking_status);
 }
 
 function customerStatus(booking: TripBookingRecord, outcome: ReturnType<typeof deriveBookingOutcome>) {
@@ -235,17 +245,17 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
-      <section className="bg-[#F2F6FC]">
+      <section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-[1.65rem] font-semibold tracking-[-0.03em] text-ink">Bookings</h1>
           </div>
-          <Link href={`/trip/${tripId}/bookings/add`} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">
+          <BuiButtonLink href={`/trip/${tripId}/bookings/add`}>
             Add booking
-          </Link>
+          </BuiButtonLink>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-y border-[#e8dfd0] py-3 text-sm font-bold text-slate-600">
+        <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-y border-chair py-3 text-sm font-bold text-slate-600">
           <span>{summary.confirmed} with confirmation evidence</span>
           {summary.travelerConfirmedOnly ? <span>{summary.travelerConfirmedOnly} confirmed by you</span> : null}
           <span>{actionNeeded.length ? `${actionNeeded.length} to review` : "Nothing needs review"}</span>
@@ -261,23 +271,21 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
       </nav>
 
       {loadError ? (
-        <section className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-800">Bookings could not be loaded</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">Roamly could not read your bookings just now. This does not mean you have no bookings.</p>
-          <Link href={`/trip/${tripId}/bookings`} className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">
-            Try loading bookings again
-          </Link>
-        </section>
+        <div className="mt-5">
+          <BuiNotice tone="error" title="Bookings could not be loaded" action={{ label: "Try loading bookings again", href: `/trip/${tripId}/bookings` }}>
+            Roamly could not read your bookings just now. This does not mean you have no bookings.
+          </BuiNotice>
+        </div>
       ) : null}
 
       {actionNeeded.length ? (
-        <section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+        <section className="mt-5 rounded-bui-card border border-amber-200 bg-amber-50 px-4 py-4">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-800">Action needed</p>
           <p className="mt-1 text-base font-black text-ink">Review {actionNeeded.length === 1 ? actionNeeded[0].title : `${actionNeeded.length} booking details`}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">These details were found but are not confirmed for travel yet.</p>
           <div className="mt-3 grid gap-3">
             {actionNeeded.map((booking) => (
-              <article key={booking.id} className="rounded-xl bg-white px-3 py-3">
+              <BuiCard key={booking.id} className="px-3 py-3">
                 <p className="text-sm font-black text-ink">{booking.title || booking.provider || "Booking"}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">Found via {sourceWords(booking.source_type)}{booking.provider ? ` · ${booking.provider}` : ""}{booking.confirmation_code ? ` · Ref ${booking.confirmation_code}` : ""}</p>
                 <BookingReviewActions
@@ -292,7 +300,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                     startDate: (booking.start_time || booking.check_in_time || "").slice(0, 10)
                   }}
                 />
-              </article>
+              </BuiCard>
             ))}
           </div>
         </section>
@@ -301,7 +309,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
       {focus ? <p className="mt-5 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">You arrived here to review your {focus === "hotel" ? "stay" : focus} details. Information from your bookings remains authoritative; anything unresolved is still marked below.</p> : null}
 
       {visibleReferrals.length ? (
-        <section className="mt-5 border-y border-[#e8dfd0] py-4" aria-labelledby="booking-referrals-title">
+        <section className="mt-5 border-y border-chair py-4" aria-labelledby="booking-referrals-title">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">External booking activity</p>
           <h2 id="booking-referrals-title" className="mt-1 text-lg font-black text-ink">Options you viewed</h2>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Roamly has not marked these as booked unless confirmation evidence exists.</p>
@@ -309,7 +317,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
             {visibleReferrals.map(({ referral, outcome }) => {
               const details = referralDetails.find((candidate) => candidate.id === referral.id);
               return (
-              <div key={referral.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-3">
+              <BuiCard key={referral.id} className="flex items-center justify-between gap-3 px-3 py-3">
                 <div className="min-w-0">
                   <p className="text-sm font-black text-ink">{details?.title || (referral.category ? `${referral.category[0].toUpperCase()}${referral.category.slice(1)}` : "Travel")} {details?.title ? "" : "option"}</p>
                   <p className="mt-1 text-xs font-bold text-slate-500">{referral.provider || "External provider"}</p>
@@ -317,15 +325,15 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <span className="text-xs font-black text-amber-800">{bookingOutcomeLabel(outcome)}</span>
                   {outcome.state === "REFERRED" ? (
-                    <Link
+                    <BuiButtonLink
                       href={`/trip/${tripId}/bookings/add?affiliateClickId=${encodeURIComponent(referral.id)}&recommendationId=${encodeURIComponent(referral.recommendation_id || "")}`}
-                      className="rounded-xl bg-cblue px-3 py-2 text-xs font-black text-white"
+                      size="small"
                     >
                       I booked this
-                    </Link>
+                    </BuiButtonLink>
                   ) : null}
                 </div>
-              </div>
+              </BuiCard>
               );
             })}
           </div>
@@ -335,14 +343,14 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
       <p className="mt-5 text-sm leading-6 text-slate-500">Bookings with confirmation evidence come first. Recommendations and items still needing review follow below.</p>
 
       {next ? (
-        <section className="mt-5 border-b border-[#e8dfd0] pb-5">
+        <BuiCard className="mt-5 p-4">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Next booking</p>
           <div className="mt-3 flex items-start gap-3">
             <BookingIcon type={next.booking_type} />
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-xl font-black text-ink">{next.title}</h2>
-                <span className={`rounded-full border px-2.5 py-1 text-xs font-black ${pillClassFor(next)}`}>{customerStatus(next, outcomeFor(next))}</span>
+                <BuiChip tone={pillToneFor(next)}>{customerStatus(next, outcomeFor(next))}</BuiChip>
               </div>
               <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(next)}</p>
               {segmentLines(next, locale).map((line) => (
@@ -351,7 +359,7 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
               <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(next, locale)}</p>
             </div>
           </div>
-        </section>
+        </BuiCard>
       ) : null}
 
       <section className="mt-6">
@@ -361,12 +369,12 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
               <h2 className="text-xl font-black tracking-tight text-ink">{group.title}</h2>
               <span className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{group.bookings.length}</span>
             </div>
-            <div className="mt-2 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
+            <div className="mt-3 grid gap-3">
               {group.bookings.map((booking) => {
                 const rows = detailRows(booking, locale);
                 const reference = essentialReference(booking);
                 return (
-                  <article key={booking.id} className="py-4">
+                  <BuiCard key={booking.id} className="p-4">
                     <div className="flex items-start gap-3">
                       <BookingIcon type={booking.booking_type} />
                       <div className="min-w-0 flex-1">
@@ -383,40 +391,42 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                             {booking.review_state === "dismissed" ? <p className="mt-1 text-xs font-bold text-slate-500">You dismissed this item.</p> : null}
                             {booking.pending_corrections ? <p className="mt-1 text-xs font-bold text-slate-500">Correction pending review — not confirmed yet.</p> : null}
                           </div>
-                          <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${pillClassFor(booking)}`}>
+                          <BuiChip tone={pillToneFor(booking)} className="w-fit shrink-0">
                             {customerStatus(booking, outcomeFor(booking))}
-                          </span>
+                          </BuiChip>
                         </div>
                         {rows.length ? (
-                          <details className="mt-3">
-                            <summary className="min-h-11 cursor-pointer text-sm font-black text-cblue">More details</summary>
-                            <div className="mt-2 grid gap-1 text-sm font-bold text-slate-600 sm:grid-cols-2">
+                          <BuiAccordion
+                            title={<span className="text-sm font-black text-cblue">More details</span>}
+                            className="mt-3"
+                          >
+                            <div className="grid gap-1 pb-1 text-sm font-bold text-slate-600 sm:grid-cols-2">
                               {rows.filter(([label]) => label !== "Confirmation" && label !== "Flight").map(([label, value]) => <p key={label}>{label}: {value}</p>)}
                             </div>
-                          </details>
+                          </BuiAccordion>
                         ) : null}
                         <BookingCancelAction tripId={tripId} bookingId={booking.id} />
                       </div>
                     </div>
-                  </article>
+                  </BuiCard>
                 );
               })}
             </div>
           </section>
         )) : (
-          <div className="border-y border-dashed border-[#e8dfd0] py-6">
+          <BuiCard className="p-5">
             <h2 className="text-xl font-black text-ink">Nothing booked yet</h2>
             <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-600">When you book a flight, stay, ticket, or reservation, add it here so the important details are ready when you travel.</p>
-            <Link href={`/trip/${tripId}/bookings/add`} className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white">Add booking</Link>
-          </div>
+            <BuiButtonLink href={`/trip/${tripId}/bookings/add`} className="mt-4">Add booking</BuiButtonLink>
+          </BuiCard>
         )}
       </section>
 
       {supersededBookings.length || cancelledBookings.length ? (
-        <section className="mt-6 border-t border-[#e8dfd0] pt-5">
+        <section className="mt-6 border-t border-chair pt-5">
           <h2 className="text-lg font-black text-ink">Booking history</h2>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">These bookings are no longer active. They stay here so the record is not lost.</p>
-          <div className="mt-3 divide-y divide-[#e8dfd0] border-y border-[#e8dfd0]">
+          <div className="mt-3 divide-y divide-chair border-y border-chair">
             {supersededBookings.map((booking) => (
               <article key={booking.id} className="py-3">
                 <p className="text-sm font-black text-slate-700">{booking.title || booking.provider || "Booking"}</p>
@@ -434,9 +444,9 @@ export function BookingWalletTimeline({ tripId, bookings, companionUnlocked = fa
                         <p className="mt-1 text-sm font-bold text-slate-700">{routeLine(booking)}</p>
                         <p className="mt-1 text-sm font-bold text-slate-500">{primaryDetail(booking, locale)}</p>
                       </div>
-                      <span className={`inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-black ${statusClass(booking.booking_status)}`}>
+                      <BuiChip tone={statusTone(booking.booking_status)} className="w-fit shrink-0">
                         No longer active
-                      </span>
+                      </BuiChip>
                     </div>
                   </div>
                 </div>

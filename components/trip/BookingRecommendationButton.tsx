@@ -71,8 +71,8 @@ export function BookingRecommendationButton({
   if (!trackedHref) return null;
 
   const tone = emphasis === "secondary"
-    ? "bg-[#f3efe6] text-ink hover:bg-[#e9e2d4]"
-    : "bg-cblue text-white hover:bg-[#17899a]";
+    ? "bg-csoft text-ink hover:bg-mist"
+    : "bg-cblue text-white hover:bg-cblue/90";
   const shape = compact
     ? "min-h-11 w-auto shrink-0 rounded-full px-3 text-[0.8125rem]"
     : `min-h-11 w-full rounded-full px-5 py-2.5 text-sm ${fill ? "" : "sm:w-auto"}`;
@@ -97,7 +97,7 @@ export function BookingRecommendationButton({
           url_type: urlType
         })
       }
-      className={`roamly-press roamly-no-print inline-flex items-center justify-center font-semibold tracking-tight transition ${tone} ${shape}`}
+      className={`bui-press bui-tap roamly-no-print inline-flex items-center justify-center font-semibold tracking-tight transition ${tone} ${shape}`}
     >
       {label}
     </a>
