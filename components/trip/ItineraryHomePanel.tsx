@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BedDouble, Bell, Building, ChevronRight, Image as ImageIcon, Map, MapPin, MoveRight, Pencil, Plane, Search, Ticket, Utensils } from "lucide-react";
+import { BedDouble, Bell, Building, ChevronDown, ChevronRight, Image as ImageIcon, Map, MapPin, MoveRight, Navigation, Pencil, Plane, Search, Ticket, Utensils } from "lucide-react";
 
 /*
  * Itinerary Home panel (panel 5 — mock panel 1 of correct-4-pages-part2).
@@ -63,9 +63,9 @@ import { BedDouble, Bell, Building, ChevronRight, Image as ImageIcon, Map, MapPi
  *   detailed itinerary's last hand-rolled surface — zero BoardUI
  *   imports. Its structure now sits on the BoardUI primitives:
  *   BuiCard is the panel shell (and its recipe skins the list
- *   items, where <li> semantics rule out the component), BuiChip
- *   carries the provenance pills, BuiNotice carries the honest
- *   empty states, and bui-press / bui-tap / the bui-enter cascade
+ *   items, where <li> semantics rule out the component) and
+ *   BuiNotice carries the honest empty states, and bui-press /
+ *   bui-tap / the bui-enter cascade
  *   give every control the house press feedback and entrances.
  *   Same information, same behaviour — BoardUI skin and discipline.
  *   The photo scrim is the brand navy, not black.
@@ -73,7 +73,6 @@ import { BedDouble, Bell, Building, ChevronRight, Image as ImageIcon, Map, MapPi
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { BuiCard } from "@/components/boardui/Card";
-import { BuiChip } from "@/components/boardui/Badge";
 import { BuiNotice } from "@/components/boardui/Notice";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
 import type { HomeDayView } from "@/lib/roamly/itineraryHome";
@@ -170,6 +169,58 @@ function rowTint(kind: string, title?: string, category?: string): string {
   if (/galler|art|exhibit/.test(text)) return "bg-cpurple/10 text-cpurple";
   if (/hotel|hostel|lodging|stay|accommodation/.test(text)) return "bg-cgreen/10 text-cgreen";
   return "bg-csoft text-cnavy";
+}
+
+/** One tidy maps action on a Map-tab place card (BoardUI map
+ *  pass, 2026-11-09): the three providers live behind a single
+ *  chip — "Open in Maps" for a located stop, "Search in Maps" for
+ *  a name-only one — and expand in place to the provider rows
+ *  carrying buildNavigationLinks' honest labels (a search result
+ *  says "Search in … check it's the right place"; a located stop
+ *  says "Open in …"). Replaces the old card-full-of-raw-blue-text-
+ *  links stack. */
+function MapStopLinksDisclosure({
+  links,
+  searchOnly
+}: {
+  links: ReturnType<typeof buildNavigationLinks>;
+  searchOnly: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2.5">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="bui-press bui-tap inline-flex min-h-9 items-center gap-1.5 rounded-full bg-cblue/10 px-3.5 py-1.5 text-[13px] font-semibold text-cblue"
+      >
+        <Navigation aria-hidden="true" size={14} strokeWidth={2} />
+        {searchOnly ? "Search in Maps" : "Open in Maps"}
+        <ChevronDown
+          aria-hidden="true"
+          size={14}
+          strokeWidth={2}
+          className={`bui-accordion-chevron transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open ? (
+        <div className="bui-enter mt-2 divide-y divide-chair rounded-xl bg-cbg px-3">
+          {links.map((link) => (
+            <a
+              key={link.provider}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer"
+              className="bui-press bui-tap flex min-h-10 items-center py-1.5 text-[13px] font-medium leading-snug text-cnavy"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function ItineraryHomePanel({
@@ -430,8 +481,8 @@ export function ItineraryHomePanel({
         <div className="px-4 pb-28 sm:px-5">
           {/* Itinerary-level search caution (2026-11-07): printed
               once here when the trip carries any live-search stop;
-              the stops themselves show a one-line description plus
-              a small "Search result" chip, never this paragraph. */}
+              the stops themselves show a one-line description,
+              never this paragraph. */}
           {hasSearchBackedStops ? (
             <BuiNotice tone="info" title={SEARCH_RESULT_CAUTION} className="mt-3" />
           ) : null}
@@ -540,16 +591,12 @@ export function ItineraryHomePanel({
                             className="rounded-md bg-cblue/10 px-2 py-0.5 text-[11px] font-bold text-cblue"
                           />
                         ) : null}
-                        {/* Market provenance chip (2026-11-07): the
-                            stop's sourcing as a small muted pill —
-                            the demoted form of the caution paragraph
-                            that used to be every stop's description. */}
-                        {row.provenance === "search" ? (
-                          <BuiChip tone="neutral">Search result</BuiChip>
-                        ) : null}
-                        {row.provenance === "verified" ? (
-                          <BuiChip tone="neutral">Verified source</BuiChip>
-                        ) : null}
+                        {/* Face law (owner, 2026-11-09): the stop's
+                            market sourcing is NEVER a customer label —
+                            no search-result / verified-source chips
+                            on this face (removed 2026-11-09, bundle
+                            audit D-1). The row's only provenance is
+                            its time label above. */}
                       </span>
                       {row.unverified && row.planTitle ? (
                         <span className="mt-0.5 block break-words text-[13.5px] leading-5 text-cgray">
@@ -606,6 +653,13 @@ export function ItineraryHomePanel({
                   // behind the words gets the search label — the
                   // provider resolves the text, so the traveller
                   // is told to check it lands on the right place.
+                  // BoardUI map pass (2026-11-09): the card is
+                  // titled by the PLACE NAME from the list —
+                  // never the raw stored query, which can be a
+                  // composed search string that names no place —
+                  // and the three map apps live behind ONE tidy
+                  // action instead of a card full of raw text
+                  // links.
                   const links = buildNavigationLinks({
                     destinationLabel: stopDetail.query,
                     address: stopDetail.query,
@@ -616,21 +670,24 @@ export function ItineraryHomePanel({
                   return (
                     <li
                       key={stopDetail.query}
-                      className="bui-squircle rounded-bui-card border border-chair bg-white px-3 py-3 shadow-bui-card"
+                      className="bui-squircle rounded-bui-card border border-chair bg-white px-4 py-3.5 shadow-bui-card"
                     >
-                      <p className="text-sm font-semibold leading-5 text-chead">{stopDetail.query}</p>
-                      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                        {links.map((link) => (
-                          <a
-                            key={link.provider}
-                            href={link.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="bui-press bui-tap inline-block min-h-9 py-1 text-[13px] font-medium text-cblue"
-                          >
-                            {link.label}
-                          </a>
-                        ))}
+                      <div className="flex items-start gap-3">
+                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cblue/10 text-cblue">
+                          <MapPin aria-hidden="true" size={17} strokeWidth={2} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold leading-snug text-chead">{stopDetail.name}</p>
+                          {stopDetail.time && stopDetail.time !== "Flexible" ? (
+                            <p className="mt-0.5 text-[13px] text-cmute">{stopDetail.time}</p>
+                          ) : null}
+                          {stopDetail.searchOnly ? (
+                            <p className="mt-1.5 text-[13px] leading-relaxed text-cbody">
+                              Not located yet — opens by name search.
+                            </p>
+                          ) : null}
+                          <MapStopLinksDisclosure links={links} searchOnly={stopDetail.searchOnly} />
+                        </div>
                       </div>
                     </li>
                   );

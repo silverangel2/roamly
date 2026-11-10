@@ -1,10 +1,8 @@
 import type { CSSProperties } from "react";
 import { bookingExactTiming } from "@/lib/roamly/bookingDisplayTiming";
-import { ChevronRight } from "lucide-react";
+import { BedDouble, Bus, Car, Coffee, Footprints, MapPin, MoveRight, Plane, Ship, TrainFront, UtensilsCrossed } from "lucide-react";
 import { isConfirmed as bookingTruthIsConfirmed } from "@/lib/roamly/bookingTruth";
 import PlanningConflictRepair from "@/components/roamly/PlanningConflictRepair";
-import CustomerActivityRemoval from "@/components/roamly/CustomerActivityRemoval";
-import CustomerActivityReplacement from "@/components/roamly/CustomerActivityReplacement";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import { resolveConfiguredHotelPartners, type HotelPartnerChoice } from "@/lib/roamly/affiliateResolver";
 import { buildNavigationLinks } from "@/lib/roamly/navigationLinks";
@@ -13,8 +11,10 @@ import { findRepairTarget } from "@/lib/roamly/itineraryRepair";
 import { isConfirmedItineraryBookingAnchor } from "@/lib/roamly/confirmedItineraryAnchor";
 import { formatMoney, type RoamlyItinerary } from "@/lib/itinerary";
 import { cleanTravelerTimeLabel, isDriveMode, isTravelLeg, looksLikeProviderSearchTitle, presentDayHeading, presentGroundTransportText, presentTravelerArea, presentTravelerTitle } from "@/lib/roamly/itineraryPresentation";
-import { stripTitleEcho, isUnverifiableStopTitle } from "@/lib/roamly/itineraryHome";
-import { deriveDaySummary, dayRestAndWrap, dayUncertaintyNotes, isGenericStopText } from "@/lib/roamly/daySummary";
+import { stripTitleEcho, isUnverifiableStopTitle, isNonPlaceMapLabel } from "@/lib/roamly/itineraryHome";
+import { BuiAccordion } from "@/components/boardui/Accordion";
+import { BuiChip } from "@/components/boardui/Badge";
+import { countDayStops, daySummaryStartClock, deriveDaySummary, dayUncertaintyNotes, isGenericStopText } from "@/lib/roamly/daySummary";
 import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
 import {
   isGenericStayTitle,
@@ -161,6 +161,30 @@ function transferSummary(record: Record<string, unknown>, suppressFlightFraming 
   return [mode || "Transfer", route, minutes ? `${minutes} min` : ""].filter(Boolean).join(" · ");
 }
 
+/** The timeline connector's leg word for a stored travel mode
+ *  (familiarity redesign, 2026-11-09). Only plain traveller words
+ *  survive; an unrecognised stored mode yields "" and the leg
+ *  renders as minutes alone. */
+function legModeWord(mode: string) {
+  const text = mode.toLowerCase();
+  if (/walk|foot|stroll/.test(text)) return "walk";
+  if (/flight|plane/.test(text)) return "flight";
+  if (/train|rail|metro|subway/.test(text)) return "train";
+  if (/ferry|boat/.test(text)) return "ferry";
+  if (/bus|coach|shuttle/.test(text)) return "bus";
+  if (/taxi|rideshare|uber|lyft/.test(text)) return "taxi";
+  if (/driv|car|rental/.test(text)) return "drive";
+  return "";
+}
+
+/** Compose the connector leg INTO a stop from stored numbers only:
+ *  no stored minutes → no leg label at all (never invented). */
+function composeTimelineLeg(leg: { minutes: number | null; mode: string } | null): { legLabel: string; legMode: string } {
+  if (!leg || leg.minutes == null || leg.minutes <= 0) return { legLabel: "", legMode: "" };
+  const word = legModeWord(leg.mode);
+  return { legLabel: `${leg.minutes} min${word ? ` ${word}` : ""}`, legMode: word };
+}
+
 export function SectionHeading({
   eyebrow,
   title,
@@ -198,6 +222,35 @@ export function NavigationChipList({ query }: { query: string }) {
           target="_blank"
           rel="noreferrer"
           className="inline-flex min-h-11 items-center text-[0.8125rem] font-medium text-cgray underline decoration-chair underline-offset-4 transition hover:text-chead"
+        >
+          {labels[link.provider] || link.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/** The day card's Map-details place links (BoardUI day pass,
+ *  2026-11-09): the same three providers as NavigationChipList,
+ *  rendered as designed pills — never raw underlined text links.
+ *  NavigationChipList itself is untouched: the trip page's
+ *  booking-suggestion cards still use it. */
+function MapPlaceLinks({ query }: { query: string }) {
+  const labels: Record<string, string> = {
+    google_maps: "Google Maps",
+    apple_maps: "Apple Maps",
+    citymapper: "Citymapper"
+  };
+  const links = buildNavigationLinks({ destinationLabel: query, address: query });
+  return (
+    <div className="roamly-no-print mt-2.5 flex flex-wrap gap-1.5">
+      {links.map((link) => (
+        <a
+          key={link.provider}
+          href={link.href}
+          target="_blank"
+          rel="noreferrer"
+          className="bui-press bui-tap inline-flex min-h-9 items-center rounded-full border border-chair bg-white px-3 py-1 text-[13px] font-medium text-cnavy"
         >
           {labels[link.provider] || link.label}
         </a>
@@ -285,11 +338,35 @@ export type DisplayTimelineItem = {
   coordinatePrecision: "place" | "area" | null;
   /** Market provenance of the stop, derived from its own stored
    *  source + factualStatus (description-boilerplate fix,
-   *  2026-11-07): "search" / "verified" render as a small chip
-   *  beside the row's time label and drive the itinerary-level
-   *  caution; null for rows that are not market bindings (engine
-   *  and pack rows, discovery suggestions, bookings). */
+   *  2026-11-07). INTERNAL ONLY since the familiarity redesign
+   *  (2026-11-09): evidence tiers never render on a customer face —
+   *  the field still drives the itinerary-level caution and the
+   *  description-flattening context; null for rows that are not
+   *  market bindings (engine and pack rows, discovery
+   *  suggestions, bookings). */
   provenance: MarketStopProvenance | null;
+  /** Travel leg INTO this stop, composed at build time from stored
+   *  data only (familiarity redesign, 2026-11-09): a folded minor
+   *  transfer's stored minutes/mode, else the stop record's own
+   *  stored travelTimeMinutes + travel_mode. "" when no leg is
+   *  stored — the timeline connector then shows no leg, and no
+   *  duration is ever invented. */
+  legLabel: string;
+  /** The leg's mode word ("walk" / "drive" / "flight" / "train" /
+   *  "bus" / "ferry" / "taxi"), "" when the leg has no stored mode
+   *  or there is no leg. Drives the connector's icon only. */
+  legMode: string;
+  /** The place's OWN stored photo (record photo_urls[0] /
+   *  photo_url; for booking-derived rows the booking's photo_urls
+   *  or its provider payload's). Null when the record carries no
+   *  photo — the row then renders a quiet icon tile, never a stock
+   *  stand-in (photo-truth law). Most current records carry none;
+   *  the slot is real, the data is thin. */
+  photoUrl: string | null;
+  /** The stop record's own stored estimated_cost, or null. The
+   *  card formats it with the trip currency for the row's single
+   *  sub-line; unknown cost renders as silence on the row. */
+  estimatedCost: number | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -311,8 +388,8 @@ function bookingIsConfirmed(booking: Record<string, unknown>) {
   // Workstream A + Round 2 Lane E2: day-card consolidation derives
   // from the ONE booking-truth rule at the providerConfirmationEvidence tier
   // ONLY, not the old OR rule — a cancelled, unverified, or merely
-  // traveler-confirmed booking never pins a "confirmed" anchor
-  // ("Booked" pill / "Confirmed · booking time") onto the day.
+  // traveler-confirmed booking never pins a confirmed anchor
+  // (the day face's "Booked" status) onto the day.
   return bookingTruthIsConfirmed({
     booking_status: getString(booking.booking_status || booking.status),
     traveler_confirmed: booking.traveler_confirmed === true,
@@ -371,6 +448,19 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
   const city = getString(booking.city);
   const address = getString(booking.address);
   const coords = itemCoordinates(booking);
+  // The booking's OWN stored photos only (its photo_urls, else the
+  // provider payload's nested set the market writers store) — the
+  // same photo-truth rule as plan rows.
+  const payload =
+    booking.metadata && typeof booking.metadata === "object" && !Array.isArray(booking.metadata)
+      ? (booking.metadata as Record<string, unknown>).providerPayload
+      : null;
+  const payloadPhotos =
+    payload && typeof payload === "object" && !Array.isArray(payload) && Array.isArray((payload as Record<string, unknown>).photo_urls)
+      ? ((payload as Record<string, unknown>).photo_urls as unknown[])
+      : [];
+  const bookingPhotos = Array.isArray(booking.photo_urls) ? (booking.photo_urls as unknown[]) : [];
+  const ownPhoto = [...bookingPhotos, ...payloadPhotos].find((value) => typeof value === "string" && value.trim());
   return {
     itemId: "",
     itemType: bookingType,
@@ -401,7 +491,11 @@ function bookingToTimelineItem(booking: Record<string, unknown>, timing: Booking
     // (map-honesty fix, 2026-11-07).
     coordinateSource: coords ? "booking_record" : null,
     coordinatePrecision: coords ? "place" : null,
-    provenance: null
+    provenance: null,
+    legLabel: "",
+    legMode: "",
+    photoUrl: typeof ownPhoto === "string" ? ownPhoto.trim() : null,
+    estimatedCost: null
   };
 }
 
@@ -491,6 +585,11 @@ export function buildDisplayTimelineItems(
   const output: DisplayTimelineItem[] = [];
   const seen = new Set<string>();
   const pendingTransfers: string[] = [];
+  /* The folded transfer's structured leg (stored minutes + mode),
+   * consumed by the next pushed stop as its timeline-connector
+   * leg. The LAST folded transfer wins — it is the leg that
+   * actually arrives at the stop. */
+  let pendingLeg: { minutes: number | null; mode: string } | null = null;
 
   for (const item of day.live_timeline || []) {
     const record = item as unknown as Record<string, unknown>;
@@ -500,6 +599,10 @@ export function buildDisplayTimelineItems(
     if (transferLike && !isMajorTravel(record) && !(keepTravelRows && recordType === "travel")) {
       const summary = transferSummary(record, suppressFlightFraming);
       if (summary) pendingTransfers.push(summary);
+      pendingLeg = {
+        minutes: timelineNumber(record, "travelTimeMinutes", "travel_time_minutes", "durationMinutes", "duration_minutes"),
+        mode: timelineText(record, "travel_mode", "transportMode", "transport_mode")
+      };
       continue;
     }
 
@@ -594,6 +697,30 @@ export function buildDisplayTimelineItems(
       rawCoordinateSource === "destination_centre"
         ? rawCoordinateSource
         : null;
+    // Familiarity redesign (2026-11-09): the connector leg INTO
+    // this stop — the folded transfer's stored minutes/mode when
+    // one folded in (its minutes win; a minutes-less transfer
+    // falls back to this record's own stored travel time), else
+    // this record's own stored travelTimeMinutes + travel_mode.
+    // No stored minutes anywhere → no leg is shown.
+    const ownTravelMode = timelineText(record, "travel_mode", "transportMode", "transport_mode");
+    const leg = pendingLeg
+      ? { minutes: pendingLeg.minutes ?? travelMinutes, mode: pendingLeg.mode || ownTravelMode }
+      : travelMinutes
+        ? { minutes: travelMinutes, mode: ownTravelMode }
+        : null;
+    pendingLeg = null;
+    const { legLabel, legMode } = composeTimelineLeg(leg);
+    // The place's own stored photo (photo-truth law): the record's
+    // photo_urls[0], else a singular stored photo field. Records
+    // written today mostly carry none — photoUrl stays null and
+    // the row renders its icon tile.
+    const storedPhotos = Array.isArray(record.photo_urls) ? (record.photo_urls as unknown[]) : [];
+    const firstStoredPhoto = storedPhotos.find((value) => typeof value === "string" && value.trim());
+    const photoUrl =
+      (typeof firstStoredPhoto === "string" ? firstStoredPhoto.trim() : "") ||
+      timelineText(record, "photo_url", "photoUrl") ||
+      null;
 
     output.push({
       itemId: timelineText(record, "item_id"),
@@ -643,7 +770,11 @@ export function buildDisplayTimelineItems(
       longitude: coords?.longitude ?? null,
       coordinateSource,
       coordinatePrecision,
-      provenance
+      provenance,
+      legLabel,
+      legMode,
+      photoUrl,
+      estimatedCost: timelineNumber(record, "estimated_cost")
     });
 
     if (maxRows != null && output.length >= maxRows) break;
@@ -671,93 +802,161 @@ function mockRowTime(time: string) {
   const start = time.replace(/^Planned \u00b7 /, "").split("\u2013")[0].trim();
   return start.replace(/a\.m\./gi, "AM").replace(/p\.m\./gi, "PM");
 }
-export function TimelineItemCard({ item, tripId, dayId, staySearch, index = 0 }: { item: DisplayTimelineItem; tripId: string; dayId?: string; staySearch?: StaySearchContext | null; index?: number }) {
-  const stayPartners = stayPartnersForItem(item, staySearch);
-  const subLine = [item.location, item.statusText].filter(Boolean);
-  const secondary = [
-    item.durationLabel ? `Duration: ${item.durationLabel}` : "",
-    item.travelLabel ? `Travel: ${item.travelLabel}` : "",
-    item.transferNote ? `Arrival/transfer: ${item.transferNote}` : "",
-    item.description
-  ].filter(Boolean);
-  const isConfirmed = item.authority === "confirmed";
 
+/** True when a row's location label merely repeats the day's own
+ *  city ("Montreal, Canada" on a Montreal day) — zero information,
+ *  so the row suppresses it. A more specific area ("Old Montreal")
+ *  is NOT the city label and survives. */
+function isDayCityLabel(location: string, dayCity: string) {
+  if (!location || !dayCity) return false;
+  const norm = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const loc = norm(location);
+  const city = norm(dayCity);
+  if (!loc || !city) return false;
+  return loc === city || loc.startsWith(`${city} `) || city.startsWith(`${loc} `);
+}
+
+/** THE ROW'S ONE SUB-LINE (familiarity redesign, 2026-11-09):
+ *  at most one quiet line under a stop's name, carrying the single
+ *  most useful fact — an unverified stop names its plan title; an
+ *  area shows only when it says more than the day's city; a known
+ *  price shows when there is no area worth showing; otherwise
+ *  nothing. Exported for the boardui-day-map suite. */
+export function dayRowSubLine(item: DisplayTimelineItem, dayCity: string, priceLabel: string): string {
+  if (item.unverified && item.planTitle) return `Plan title: ${item.planTitle}`;
+  if (item.location && !isDayCityLabel(item.location, dayCity)) return item.location;
+  if (priceLabel) return priceLabel;
+  return "";
+}
+
+/** The quiet icon tile a stop wears when its record carries no
+ *  photo of its own — brand tint, never a stock stand-in. */
+function tileIconForItem(item: DisplayTimelineItem, itemIsTravel: boolean) {
+  const text = `${item.itemType} ${item.category}`.toLowerCase();
+  if (itemIsTravel) {
+    const route = `${text} ${item.title}`.toLowerCase();
+    if (/flight|plane/.test(route)) return Plane;
+    if (/train|rail/.test(route)) return TrainFront;
+    if (/ferry|boat/.test(route)) return Ship;
+    if (/bus|coach/.test(route)) return Bus;
+    if (/walk/.test(route)) return Footprints;
+    return Car;
+  }
+  if (/\b(hotel|lodging|accommodation|hostel|stay)\b/.test(text) || /^stay\b/.test(item.title.toLowerCase())) return BedDouble;
+  if (/meal|food|restaurant|dining|lunch|dinner|breakfast|cafe|café/.test(text)) return UtensilsCrossed;
+  if (item.itemType === "rest" || /\brest\b/.test(text)) return Coffee;
+  return MapPin;
+}
+
+/** The connector strip's icon for a leg's stored mode word. */
+function legIconForMode(legMode: string) {
+  if (legMode === "walk") return Footprints;
+  if (legMode === "flight") return Plane;
+  if (legMode === "train") return TrainFront;
+  if (legMode === "bus") return Bus;
+  if (legMode === "ferry") return Ship;
+  if (legMode === "drive" || legMode === "taxi") return Car;
+  return MoveRight;
+}
+export function TimelineItemCard({
+  item,
+  tripId,
+  staySearch,
+  index = 0,
+  dayCity = "",
+  priceLabel = "",
+  isLast = false
+}: {
+  item: DisplayTimelineItem;
+  tripId: string;
+  staySearch?: StaySearchContext | null;
+  index?: number;
+  /** The day's own city label — a stop location that merely
+   *  repeats it is suppressed from the row's sub-line. */
+  dayCity?: string;
+  /** The stop's known price, pre-formatted in the trip currency;
+   *  "" when the cost is unknown (silence on the row). */
+  priceLabel?: string;
+  /** The timeline's last row: the connector line ends at its dot. */
+  isLast?: boolean;
+}) {
+  const stayPartners = stayPartnersForItem(item, staySearch);
+  /* Familiarity redesign (2026-11-09, owner rejection of the
+   * batch-1 face): the ONLY status on the row is "Booked" for a
+   * confirmed booking — the one state that changes what the
+   * traveller does. Time provenance, sourcing provenance, and
+   * price/route states never render here: a stored time simply
+   * renders as a time, an unknown price is silence, and the
+   * detail view carries the rest. The removal/replacement
+   * controls moved into the place detail (same gate as before);
+   * the row is one tap target, not a form. */
+  const isConfirmed = item.authority === "confirmed";
   const itemIsTravel = isTravelLeg({ title: item.title, category: item.category || item.itemType });
+  const subLine = dayRowSubLine(item, dayCity, priceLabel);
+  const TileIcon = tileIconForItem(item, itemIsTravel);
+  const railTime = item.time === "Flexible" ? "" : mockRowTime(item.time);
+  const placeHref = item.itemId ? `/trip/${tripId}/place/${item.itemId}` : null;
+  const title = item.unverified ? "Unverified stop" : item.title;
   return (
-    <article className="bui-enter px-4 py-3" style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties}>
-      {itemIsTravel ? <p className="mb-0.5 text-xs font-semibold uppercase tracking-[0.09em] text-cgray">Travel</p> : null}
-      <div className="flex items-baseline gap-2.5">
-        <h4 className={`min-w-0 flex-1 break-words text-[17px] leading-[1.35] ${item.authority === "must_do" ? "font-semibold text-chead" : "font-normal text-cink"}`}>{item.unverified ? "Unverified stop" : item.title}</h4>
-        {isConfirmed ? <span className="shrink-0 rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead">Booked</span> : null}
-        {/* Provenance chip (description-boilerplate fix, 2026-11-07):
-            a market stop's sourcing is a small chip beside the time
-            labels, never a paragraph in the description. Pack and
-            engine rows carry no chip (provenance null). */}
-        {item.provenance === "search" ? <span className="shrink-0 rounded-md bg-cbg px-2 py-0.5 text-xs font-semibold text-cgray">Search result</span> : null}
-        {item.provenance === "verified" ? <span className="shrink-0 rounded-md bg-cbg px-2 py-0.5 text-xs font-semibold text-cgray">Verified source</span> : null}
-        <span className="shrink-0 text-[17px] font-normal leading-[1.35] text-cgray">{mockRowTime(item.time)}</span>
+    <article className="bui-enter relative flex gap-3 px-4 py-3" style={{ "--bui-delay": `${Math.min(index * 70, 350)}ms` } as CSSProperties}>
+      {/* Time rail: the start time, with the stored duration quiet
+          beneath it. Label times ("Arrival", "Check-in") read as
+          themselves; "Flexible" rows keep an empty rail. */}
+      <div className="w-[52px] shrink-0 pt-[2px] text-right">
+        {railTime ? <p className="text-[13px] font-semibold leading-[1.3] text-chead">{railTime}</p> : null}
+        {item.durationLabel ? <p className="mt-0.5 text-[11px] leading-[1.3] text-cgray2">{item.durationLabel}</p> : null}
       </div>
-      {item.unverified && item.planTitle ? <p className="mt-0.5 break-words text-[13px] font-normal text-cgray">Plan title: {item.planTitle}</p> : null}
-      {/* Repair round item 1: the day-card detail rows carry the same
-          provenance discipline as the home timeline. A
-          booking-anchored time is Confirmed; a retimed time is
-          Estimated (a recalculation, not the original plan time);
-          any other clock time is the original stored plan time, so
-          it is Planned. The old "Live-updated" label here was the
-          same defect as the Live rows: a stored plan time is not a
-          live update. "Flexible" rows carry no time and no label.
-          Unverified ("Unverified stop") rows carry no Planned line:
-          their own title already says Unplanned, and a Planned
-          label beneath it would contradict it. */}
-      {item.timeFromBooking ? <p className="mt-0.5 text-xs font-medium text-cgray2">Confirmed · booking time</p> : null}
-      {!item.timeFromBooking && item.timeRetimed && /^\d{1,2}:\d{2}\s*(AM|PM)/i.test(mockRowTime(item.time)) ? <p className="mt-0.5 text-xs font-medium text-cgray2">Estimated</p> : null}
-      {!item.unverified && !item.timeFromBooking && !item.timeRetimed && /^\d{1,2}:\d{2}\s*(AM|PM)/i.test(mockRowTime(item.time)) ? <p className="mt-0.5 text-xs font-medium text-cgray2">Planned</p> : null}
-      {subLine.length ? <p className="mt-0.5 text-[14.5px] font-normal leading-[1.45] text-cgray">{subLine.join(" \u00b7 ")}</p> : null}
-      {/* Place detail (panel 6): only when the item carries a stable id,
-          so the link can only ever resolve inside this trip's own plan.
-          Items without an id get no link rather than a guessing one. */}
-      {item.itemId ? (
-        <p className="mt-1.5">
-          <a href={`/trip/${tripId}/place/${item.itemId}`} className="text-sm font-medium text-cblue">
-            Place details <ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
-          </a>
-        </p>
-      ) : null}
-      {item.timeRetimed ? (
-        <p className="mt-1.5 inline-flex items-center rounded-md bg-amber-100/70 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-          Re-timed{item.retimedMinutes ? ` ${item.retimedMinutes > 0 ? "+" : ""}${item.retimedMinutes} min` : ""}
-        </p>
-      ) : null}
-      {stayPartners.length ? (
-        <HotelPartnerChoices
-          partners={stayPartners}
-          tripId={tripId}
-          title={item.title}
-          priceNote={item.statusText === "Price not available" ? null : "Price not available"}
-        />
-      ) : null}
-      {item.warning ? <p className="mt-2 text-xs font-semibold leading-5 text-cred">{item.warning}</p> : null}
-      {item.authority === "flexible" && item.itemType === "activity" && dayId && item.itemId ? (
-        <>
-          <CustomerActivityRemoval tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
-          <CustomerActivityReplacement tripId={tripId} dayId={dayId} itemId={item.itemId} title={item.title} />
-        </>
-      ) : null}
-      {item.why || secondary.length ? (
-        <details className="mt-2">
-          <summary className="min-h-8 cursor-pointer text-sm font-medium text-cgray">{item.why ? "Why this & details" : "Details"}</summary>
-          <div className="mt-2 grid gap-1">
-            {item.why ? <p className="text-sm font-normal leading-6 text-cink"><span className="font-semibold text-chead">Why this:</span> {item.why}</p> : null}
-            {secondary.map((line) => (
-              <p key={line} className="text-sm font-normal leading-6 text-cink">{line}</p>
-            ))}
+      {/* Timeline spine: a dot on a hairline that runs down to the
+          next row (through any leg strip between them) and stops
+          at the last row's dot. A confirmed booking's dot is
+          filled; every other stop's is a ring. */}
+      <div aria-hidden="true" className="relative flex w-[11px] shrink-0 justify-center">
+        {!isLast ? <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-chair" /> : null}
+        <span className={`relative mt-[6px] h-[9px] w-[9px] shrink-0 rounded-full ${isConfirmed ? "bg-cblue" : "border-2 border-cblue bg-white"}`} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h4 className="break-words text-[17px] font-semibold leading-[1.35] text-chead">
+              {placeHref ? (
+                <a href={placeHref} className="after:absolute after:inset-0 after:content-['']">
+                  {title}
+                </a>
+              ) : (
+                title
+              )}
+            </h4>
+            {isConfirmed || subLine ? (
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                {isConfirmed ? <BuiChip tone="navy">Booked</BuiChip> : null}
+                {subLine ? <p className="text-[13.5px] font-normal leading-[1.4] text-cgray">{subLine}</p> : null}
+              </div>
+            ) : null}
           </div>
-        </details>
-      ) : null}
+          {item.photoUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element -- the stop's own stored photo URL; next/image remote hosts are not configured for arbitrary stored URLs. */
+            <img src={item.photoUrl} alt="" loading="lazy" className="bui-squircle h-16 w-16 shrink-0 rounded-[18px] object-cover" />
+          ) : (
+            <span aria-hidden="true" className="bui-squircle flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] bg-cblue/10 text-cblue">
+              <TileIcon size={22} strokeWidth={1.9} />
+            </span>
+          )}
+        </div>
+        {item.warning ? <p className="mt-2 text-xs font-semibold leading-5 text-cred">{item.warning}</p> : null}
+        {stayPartners.length ? (
+          <div className="relative z-10 mt-1">
+            <HotelPartnerChoices
+              partners={stayPartners}
+              tripId={tripId}
+              title={item.title}
+              priceNote={item.statusText === "Price not available" ? null : "Price not available"}
+            />
+          </div>
+        ) : null}
+      </div>
     </article>
   );
 }
-
 
 export function DayTimelineCard({
   tripId,
@@ -776,7 +975,7 @@ export function DayTimelineCard({
   suppressFlightFraming?: boolean;
   staySearch?: StaySearchContext | null;
 }) {
-  const { items: timelineItems, consolidatedCount } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming });
+  const { items: timelineItems } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming });
   // ONE STOP-COUNT RULE (2026-10-28): the card's rendered
   // timeline keeps its 6-row cap, but its summary is derived
   // from the day's FULL itinerary — the SAME builder options the
@@ -793,10 +992,9 @@ export function DayTimelineCard({
     ...day.map_queries
   ]
     .map((item) => getString(item))
-    .filter((item) => item && !isGenericStopText(item) && !looksLikeProviderSearchTitle(item))
+    .filter((item) => item && !isGenericStopText(item) && !isNonPlaceMapLabel(item) && !looksLikeProviderSearchTitle(item))
     .filter((item, index, list) => list.indexOf(item) === index)
     .slice(0, 5);
-  const firstAction = timelineItems.find((item) => item.authority !== "flexible") || timelineItems[0];
   // DISPLAY-ONLY day summary (final local round, 2026-10-27):
   // derived at render time from this day's displayed timeline
   // items — counts, arrival, and times all come from the items
@@ -813,24 +1011,46 @@ export function DayTimelineCard({
     planTitle: item.planTitle
   }));
   const derivedDaySummary = deriveDaySummary(summaryItems);
-  // Correction phase (D2, 2026-10-28): rest + day-end clocks from the
-  // day's own rows, shown only when the data carries them.
-  const restWrap = dayRestAndWrap(summaryItems);
   const daySummary = compact(
     derivedDaySummary || presentTravelerArea(rawDaySummary, suppressFlightFraming),
     timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
     160
   );
   const dayCity = presentTravelerArea(day.city, suppressFlightFraming);
+  // Familiarity redesign (2026-11-09): the day header is ONE quiet
+  // line — the stop count under the ONE count rule plus the first
+  // timed stop's clock, both from the day's FULL rows. The derived
+  // summary sentence survives only as the fallback for a day with
+  // no countable stops (arrival / open days), where it IS the
+  // single line. The old header stack (venue headings, the
+  // confirmed-bookings line, the summary paragraph, a paragraph
+  // duplicating the first stop, and the rest/wrap line)
+  // is gone — the owner read it as a form, not a day.
+  const stopCount = countDayStops(summaryItems);
+  const firstStopClock = (() => {
+    for (const item of fullTimelineItems) {
+      if (/\brest\b/.test(`${item.itemType} ${item.category}`.toLowerCase())) continue;
+      if (isTravelLeg({ title: item.title, category: item.category || item.itemType })) continue;
+      const clock = daySummaryStartClock(item.time);
+      if (clock) return clock;
+    }
+    return null;
+  })();
+  const quietLine =
+    stopCount > 0
+      ? `${stopCount} ${stopCount === 1 ? "stop" : "stops"}${firstStopClock ? ` · first at ${firstStopClock}` : ""}`
+      : daySummary;
   // Round 2 HIGH 3: same separation as CurrentDayTimeline — a merged
   // day title renders as one heading per venue, a travel leg is labeled
   // Travel, and an unconfident join renders no venue heading at all.
+  // (Since the familiarity redesign the headings themselves no
+  // longer render on the card; the kind still feeds the day's
+  // uncertainty notes below.)
   const dayHeading = presentDayHeading({
     title: day.title,
     destination: dayCity || day.city,
     suppressFlightFraming
   });
-  const dayHeadings = dayHeading.headings.filter((heading) => heading && heading !== dayCity);
   // Correction phase (D4, 2026-10-28): name WHAT is unconfirmed
   // (day notes, row status texts, unconfident heading join, uncertain
   // plan status) instead of the content-free "Some details still need
@@ -842,6 +1062,16 @@ export function DayTimelineCard({
     uncertainty: day.uncertainty,
     statusTexts: timelineItems.map((item) => item.statusText)
   });
+  // Familiarity redesign (2026-11-09): uncertainty notes render
+  // ONLY inside the day-level Planning notes section below — never
+  // as a header line. The estimates honesty survives as ONE small
+  // line at the day FOOT (below), gated on the day holding planned
+  // (non-booking) clock times. The old joined paragraph of machine
+  // stamps never renders — dayUncertaintyNotes filters them out at
+  // the source (batch 1, kept).
+  const hasPlannedRows = timelineItems.some(
+    (item) => !item.unverified && !item.timeFromBooking && /^\d{1,2}:\d{2}/.test(mockRowTime(item.time))
+  );
   const repairCandidate = day.conflict_id ? (() => {
     for (const item of day.live_timeline || []) {
       const candidate = findRepairTarget({ ...({ daily_itinerary: [day] } as RoamlyItinerary) }, day.conflict_id, item.item_id || "");
@@ -861,31 +1091,9 @@ export function DayTimelineCard({
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-[14px] bg-white shadow-calm">
+      <div className="bui-squircle overflow-hidden rounded-bui-card border border-chair bg-white shadow-bui-card">
         <div className="px-4 pt-3.5">
-          {dayHeadings.map((heading) => (
-            <h3 key={heading} className="text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-chead">{heading}</h3>
-          ))}
-          {consolidatedCount ? (
-            <p className="mt-2 text-[13px] font-medium leading-5 text-cgray">
-              Schedule set from your confirmed {consolidatedCount === 1 ? "booking" : `${consolidatedCount} bookings`} — exact times below
-            </p>
-          ) : null}
-          <p className="mt-1.5 text-[15px] font-normal leading-6 text-cink">{daySummary}</p>
-          {firstAction ? (
-            <p className="mt-2 text-sm leading-6 text-cgray">
-              <span className="font-medium text-chead">Up next. </span>
-              {firstAction.time !== "Flexible" ? `${firstAction.time} \u00b7 ` : ""}{firstAction.title}
-            </p>
-          ) : null}
-          {restWrap.restClock || restWrap.wrapClock ? (
-            <p className="mt-1.5 text-sm leading-6 text-cgray">
-              {restWrap.restClock ? `Rest at ${restWrap.restClock}` : ""}
-              {restWrap.restClock && restWrap.wrapClock ? " \u00b7 " : ""}
-              {restWrap.wrapClock ? `Day ends around ${restWrap.wrapClock}` : ""}.
-            </p>
-          ) : null}
-          {uncertaintyNotes.length ? <p className="mt-1.5 text-xs font-medium text-cgray">Still to confirm: {uncertaintyNotes.slice(0, 3).join(" \u00b7 ")}.</p> : null}
+          <p className="text-[13.5px] font-normal leading-5 text-cgray">{quietLine}</p>
         </div>
 
         {repairCandidate ? (
@@ -894,55 +1102,91 @@ export function DayTimelineCard({
           </div>
         ) : null}
 
-        <div className="divide-y divide-chair">
+        <div className="mt-3 border-t border-chair">
           {timelineItems.length ? (
-            timelineItems.map((item, index) => (
-              <TimelineItemCard key={`${day.day_number}-${item.time}-${item.title}-${index}`} item={item} tripId={tripId} dayId={day.day_id} staySearch={staySearch} index={index} />
-            ))
+            timelineItems.map((item, index) => {
+              const LegIcon = legIconForMode(item.legMode);
+              return [
+                item.legLabel ? (
+                  <div key={`leg-${day.day_number}-${index}`} className="flex gap-3 px-4" role="img" aria-label={`Travel to this stop: ${item.legLabel}`}>
+                    <div className="w-[52px] shrink-0" />
+                    <div aria-hidden="true" className="relative flex w-[11px] shrink-0 justify-center">
+                      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-chair" />
+                    </div>
+                    <div aria-hidden="true" className="flex items-center gap-1.5 py-1 text-[12px] font-medium leading-[1.35] text-cgray2">
+                      <LegIcon size={13} strokeWidth={2} />
+                      {item.legLabel}
+                    </div>
+                  </div>
+                ) : null,
+                <TimelineItemCard
+                  key={`${day.day_number}-${item.time}-${item.title}-${index}`}
+                  item={item}
+                  tripId={tripId}
+                  staySearch={staySearch}
+                  index={index}
+                  dayCity={dayCity}
+                  priceLabel={item.estimatedCost != null && item.estimatedCost > 0 ? formatMoney(item.estimatedCost, currency) : ""}
+                  isLast={index === timelineItems.length - 1}
+                />
+              ];
+            })
           ) : (
             <div className="px-4 py-4 text-sm font-normal leading-6 text-cink">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
           )}
         </div>
 
-        {day.alternatives?.length || day.uncertainty?.length ? (
-          <details className="border-t border-chair px-4 py-3">
-            <summary className="min-h-8 cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">Planning notes</summary>
-            <div className="mt-2 grid gap-3">
+        {day.alternatives?.length || uncertaintyNotes.length ? (
+          <BuiAccordion
+            className="border-t border-chair px-4 py-1.5"
+            buttonClassName="text-[13px] font-semibold text-chead"
+            title="Planning notes"
+          >
+            <div className="grid gap-3 pb-2">
               {day.alternatives?.length ? (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.06em] text-cgray2">Alternatives</p>
-                  <p className="mt-1 text-sm font-normal leading-6 text-cink">{day.alternatives.slice(0, 3).join(" \u00b7 ")}</p>
+                  <p className="text-xs font-semibold text-cgray2">Alternatives</p>
+                  <p className="mt-1 text-sm font-normal leading-6 text-cink">{day.alternatives.slice(0, 3).join(" · ")}</p>
                 </div>
               ) : null}
-              {day.uncertainty?.length ? (
+              {uncertaintyNotes.length ? (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.06em] text-cgray2">Still to confirm</p>
-                  <p className="mt-1 text-sm font-normal leading-6 text-cink">{day.uncertainty.slice(0, 3).join(" \u00b7 ")}</p>
+                  <p className="text-xs font-semibold text-cgray2">Still to confirm</p>
+                  <p className="mt-1 text-sm font-normal leading-6 text-cink">{uncertaintyNotes.slice(0, 3).join(" · ")}</p>
                 </div>
               ) : null}
             </div>
-          </details>
+          </BuiAccordion>
         ) : null}
 
         {day.food.length ? (
-          <details className="border-t border-chair px-4 py-3">
-            <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">Food ideas</summary>
-            <p className="mt-2 text-sm font-normal leading-6 text-cink">{day.food.slice(0, 3).join(" \u00b7 ")}</p>
-          </details>
+          <BuiAccordion
+            className="border-t border-chair px-4 py-1.5"
+            buttonClassName="text-[13px] font-semibold text-chead"
+            title="Food ideas"
+          >
+            <p className="pb-2 text-sm font-normal leading-6 text-cink">{day.food.slice(0, 3).join(" · ")}</p>
+          </BuiAccordion>
         ) : null}
 
         {places.length ? (
-          <details className="border-t border-chair px-4 py-3">
-            <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.06em] text-cgray">Map details</summary>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <BuiAccordion
+            className="border-t border-chair px-4 py-1.5"
+            buttonClassName="text-[13px] font-semibold text-chead"
+            title="Map details"
+          >
+            <div className="grid gap-3 pb-2 md:grid-cols-2">
               {places.map((query) => (
-                <div key={query} className="rounded-xl bg-cbg px-3 py-3">
+                <div key={query} className="bui-squircle rounded-bui-card border border-chair bg-cbg px-3.5 py-3">
                   <p className="text-sm font-semibold leading-5 text-chead">{query}</p>
-                  <NavigationChipList query={query} />
+                  <MapPlaceLinks query={query} />
                 </div>
               ))}
             </div>
-          </details>
+          </BuiAccordion>
+        ) : null}
+        {hasPlannedRows ? (
+          <p className="border-t border-chair px-4 py-2.5 text-[12px] leading-5 text-cgray2">Times and prices marked planned are estimates — check before you go.</p>
         ) : null}
       </div>
     </section>
@@ -963,7 +1207,7 @@ export function BuildingDayCard({
       <p className="mb-2 ml-4 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">
         {mockDayHeading(dayNumber, date)}
       </p>
-      <div className="rounded-[14px] bg-white px-4 py-4 shadow-calm">
+      <div className="bui-squircle rounded-bui-card border border-chair bg-white px-4 py-4 shadow-bui-card">
         <h3 className="text-[17px] font-semibold leading-[1.3] tracking-[-0.01em] text-chead">
           {status === "failed" ? "Needs attention" : "Building your day..."}
         </h3>

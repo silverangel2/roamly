@@ -1,13 +1,130 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
+import { BuiCard } from "@/components/boardui/Card";
+import { BuiFieldError, useBuiField, type BuiField } from "@/components/boardui/Field";
+import { BuiNotice } from "@/components/boardui/Notice";
 import type {
   BookedSegmentOption,
   CompletedTripOption,
   ItinerarySubmissionRecord
 } from "@/lib/roamly/itineraryLibrary";
+
+/*
+ * Batch 7 (2026-11-09): the share form's fields ride the BoardUI form
+ * pattern (batches 3/4/6 wiring): a real visible label that never
+ * leaves, the foundation `bui-input` recipe, and — for the one field
+ * with a rule (Destination is required) — blur validation via
+ * useBuiField with the reserved error slot, so the message appears
+ * at the field on blur and the submit never moves. The submit-time
+ * checks in handleSubmit are UNCHANGED, messages verbatim; the
+ * form-level error still renders at the consent section, as before.
+ */
+const shareInputClass = (errored: boolean) =>
+  `bui-input mt-2 w-full rounded-2xl border bg-white px-4 py-3 text-base font-bold text-chead outline-none transition focus:ring-4 focus:ring-cblue/10 ${
+    errored ? "border-cred focus:border-cred" : "border-chair focus:border-cblue"
+  }`;
+
+function ShareField({
+  id,
+  label,
+  value,
+  onChange,
+  field,
+  type = "text",
+  placeholder = "",
+  maxLength
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  field?: BuiField;
+  type?: string;
+  placeholder?: string;
+  maxLength?: number;
+}) {
+  return (
+    <label className={field && field.shakeKey > 0 ? "bui-shake block" : "block"}>
+      <span className="text-sm font-black text-chead">{label}</span>
+      <input
+        id={id}
+        value={value}
+        type={type}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={(event) => {
+          onChange(event.target.value);
+          field?.onChange(event.target.value);
+        }}
+        onBlur={field ? () => field.onBlur(value) : undefined}
+        aria-invalid={field?.error ? true : undefined}
+        aria-describedby={field?.error ? `${id}-error` : undefined}
+        className={shareInputClass(Boolean(field?.error))}
+      />
+      {field ? <BuiFieldError id={`${id}-error`} message={field.error} /> : null}
+    </label>
+  );
+}
+
+function ShareSelectField({
+  id,
+  label,
+  value,
+  onChange,
+  children
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-chead">{label}</span>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className={shareInputClass(false)}>
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function ShareAreaField({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder = "",
+  maxLength,
+  rows = 4
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  maxLength?: number;
+  rows?: number;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-black text-chead">{label}</span>
+      <textarea
+        id={id}
+        value={value}
+        placeholder={placeholder}
+        maxLength={maxLength}
+        rows={rows}
+        onChange={(event) => onChange(event.target.value)}
+        className={shareInputClass(false)}
+      />
+    </label>
+  );
+}
 
 type VerdictRow = {
   key: number;
@@ -49,6 +166,9 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
   );
 
   const [destination, setDestination] = useState(selectedTrip?.destinationCity || selectedTrip?.destination || "");
+  // The form's one field-level rule, word-for-word the submit check's
+  // message: blur surfaces it at the field; the submit check stands.
+  const destinationField = useBuiField((value) => (value.trim() ? "" : "Destination is required."));
   const [startDate, setStartDate] = useState(selectedTrip?.startDate || "");
   const [endDate, setEndDate] = useState(selectedTrip?.endDate || "");
   const [title, setTitle] = useState(selectedTrip?.title || "");
@@ -142,101 +262,86 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
 
   if (done) {
     return (
-      <div className="rounded-3xl border border-cblue/20 bg-white/80 px-6 py-10 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+      <BuiCard className="px-6 py-10 text-center">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Shared</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">Thanks — your proven itinerary is in the library.</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-chead">Thanks — your proven itinerary is in the library.</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-cink">
           {consent
             ? "You consented to anonymized reuse, so future travelers heading the same way may benefit from what you learned."
             : "You did not consent to anonymized reuse, so this stays as your personal record only."}
         </p>
-        <a href={selectedTripId ? `/trip/${selectedTripId}` : "/dashboard"} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-bold text-white">
+        <BuiButtonLink href={selectedTripId ? `/trip/${selectedTripId}` : "/dashboard"} className="mt-6">
           Back to your trip
-        </a>
-      </div>
+        </BuiButtonLink>
+      </BuiCard>
     );
   }
 
   if (existingSubmission) {
     return (
-      <div className="rounded-3xl border border-cblue/20 bg-white/80 px-6 py-10 text-center shadow-[0_12px_34px_rgba(16,32,51,0.05)]">
+      <BuiCard className="px-6 py-10 text-center">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Already shared</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-ink">This trip is already in the library.</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-slate-600">
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-chead">This trip is already in the library.</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-cink">
           One submission per completed trip keeps the library honest. Shared{" "}
           {existingSubmission.created_at ? new Date(existingSubmission.created_at).toLocaleDateString() : "earlier"}.
         </p>
-        <a href={`/trip/${existingSubmission.trip_id}`} className="mt-6 inline-flex min-h-11 items-center rounded-full bg-cblue px-5 text-sm font-bold text-white">
+        <BuiButtonLink href={`/trip/${existingSubmission.trip_id}`} className="mt-6">
           View your trip
-        </a>
-      </div>
+        </BuiButtonLink>
+      </BuiCard>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-6">
-      <section className="rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-7">
-        <h2 className="text-lg font-black text-ink">Which trip?</h2>
+      <BuiCard className="px-5 py-6 sm:px-7">
+        <h2 className="text-lg font-black text-chead">Which trip?</h2>
         {trips.length === 0 ? (
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          <p className="mt-2 text-sm font-semibold leading-6 text-cink">
             You have no completed trips yet. Once a trip is marked completed, it will appear here.
           </p>
         ) : (
-          <label className="mt-3 grid gap-2 text-sm font-bold text-slate-700">
-            <span>Completed trip</span>
-            <select
+          <div className="mt-3">
+            <ShareSelectField
+              id="share-trip"
+              label="Completed trip"
               value={selectedTripId || ""}
-              onChange={(event) => router.push(event.target.value ? `/trips/share?trip=${event.target.value}` : "/trips/share")}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-bold text-ink shadow-sm"
+              onChange={(value) => router.push(value ? `/trips/share?trip=${value}` : "/trips/share")}
             >
               <option value="">Choose a completed trip…</option>
               {trips.map((trip) => (
                 <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>
               ))}
-            </select>
-          </label>
+            </ShareSelectField>
+          </div>
         )}
-      </section>
+      </BuiCard>
 
       {selectedTripId ? (
         <>
-          <section className="rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-7">
-            <h2 className="text-lg font-black text-ink">The trip</h2>
+          <BuiCard className="px-5 py-6 sm:px-7">
+            <h2 className="text-lg font-black text-chead">The trip</h2>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-2 text-sm font-bold text-slate-700">
-                <span>Trip title</span>
-                <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="e.g. Slow week in Lisbon" className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
-              </label>
-              <label className="grid gap-2 text-sm font-bold text-slate-700">
-                <span>Destination *</span>
-                <input value={destination} onChange={(event) => setDestination(event.target.value)} maxLength={200} required className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
-              </label>
-              <label className="grid gap-2 text-sm font-bold text-slate-700">
-                <span>Start date</span>
-                <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
-              </label>
-              <label className="grid gap-2 text-sm font-bold text-slate-700">
-                <span>End date</span>
-                <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold text-ink shadow-sm" />
-              </label>
+              <ShareField id="share-title" label="Trip title" value={title} onChange={setTitle} maxLength={160} placeholder="e.g. Slow week in Lisbon" />
+              <ShareField id="share-destination" label="Destination *" value={destination} onChange={setDestination} maxLength={200} field={destinationField} />
+              <ShareField id="share-start-date" label="Start date" type="date" value={startDate} onChange={setStartDate} />
+              <ShareField id="share-end-date" label="End date" type="date" value={endDate} onChange={setEndDate} />
             </div>
-            <label className="mt-4 grid gap-2 text-sm font-bold text-slate-700">
-              <span>What made this trip eventful / fruitful?</span>
-              <textarea value={highlights} onChange={(event) => setHighlights(event.target.value)} maxLength={4000} rows={4} placeholder="The moments, places, or decisions future travelers should know about…" className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-semibold leading-6 text-ink shadow-sm" />
-            </label>
-          </section>
+            <div className="mt-4">
+              <ShareAreaField id="share-highlights" label="What made this trip eventful / fruitful?" value={highlights} onChange={setHighlights} maxLength={4000} rows={4} placeholder="The moments, places, or decisions future travelers should know about…" />
+            </div>
+          </BuiCard>
 
-          <section className="rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-7">
-            <h2 className="text-lg font-black text-ink">Rate what you booked</h2>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+          <BuiCard className="px-5 py-6 sm:px-7">
+            <h2 className="text-lg font-black text-chead">Rate what you booked</h2>
+            <p className="mt-1 text-sm font-semibold leading-6 text-cink">
               Only items from your own booking wallet appear here — every rating is booking-proof.
             </p>
             {segmentsError ? (
-              <p className="mt-3 rounded-2xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
-                Could not load your bookings: {segmentsError}
-              </p>
+              <BuiNotice tone="error" title={`Could not load your bookings: ${segmentsError}`} className="mt-3" />
             ) : bookedSegments.length === 0 ? (
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
+              <p className="mt-3 text-sm font-semibold leading-6 text-cink">
                 No bookings found on this trip, so there is nothing to rate yet.
               </p>
             ) : (
@@ -244,101 +349,92 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                 {rows.map((row) => {
                   const option = findOption(bookedSegments, row.optionValue);
                   return (
-                    <div key={row.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                    <BuiCard key={row.key} className="px-4 py-4">
                       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                        <label className="grid gap-2 text-sm font-bold text-slate-700">
-                          <span>Booked item</span>
-                          <select
-                            value={row.optionValue}
-                            onChange={(event) => updateRow(row.key, { optionValue: event.target.value })}
-                            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base font-bold text-ink shadow-sm"
-                          >
-                            <option value="">Choose a booked item…</option>
-                            {bookedSegments.map((booked) => (
-                              <option key={optionValueFor(booked)} value={optionValueFor(booked)}>
-                                {booked.itemType.toUpperCase()} · {booked.itemLabel}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <button type="button" onClick={() => removeRow(row.key)} className="min-h-11 rounded-full border border-slate-200 px-4 text-sm font-bold text-slate-500">
+                        <ShareSelectField
+                          id={`share-row-${row.key}-item`}
+                          label="Booked item"
+                          value={row.optionValue}
+                          onChange={(value) => updateRow(row.key, { optionValue: value })}
+                        >
+                          <option value="">Choose a booked item…</option>
+                          {bookedSegments.map((booked) => (
+                            <option key={optionValueFor(booked)} value={optionValueFor(booked)}>
+                              {booked.itemType.toUpperCase()} · {booked.itemLabel}
+                            </option>
+                          ))}
+                        </ShareSelectField>
+                        <BuiButton type="button" variant="secondary" onClick={() => removeRow(row.key)}>
                           Remove
-                        </button>
+                        </BuiButton>
                       </div>
                       {option ? (
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                          <label className="grid gap-2 text-sm font-bold text-slate-700">
-                            <span>Stars</span>
-                            <select
-                              value={row.rating ?? ""}
-                              onChange={(event) => updateRow(row.key, { rating: event.target.value ? Number(event.target.value) : null })}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
-                            >
-                              <option value="">Not rated</option>
-                              {[1, 2, 3, 4, 5].map((score) => (
-                                <option key={score} value={score}>{score} ★</option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="grid gap-2 text-sm font-bold text-slate-700">
-                            <span>Verdict</span>
-                            <select
-                              value={row.verdict}
-                              onChange={(event) => updateRow(row.key, { verdict: event.target.value as VerdictRow["verdict"] })}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-bold text-ink shadow-sm"
-                            >
-                              <option value="">No verdict</option>
-                              <option value="loved">Loved it</option>
-                              <option value="fine">Fine</option>
-                              <option value="avoid">Avoid</option>
-                            </select>
-                          </label>
-                          <label className="grid gap-2 text-sm font-bold text-slate-700">
-                            <span>Note</span>
-                            <input
-                              value={row.note}
-                              onChange={(event) => updateRow(row.key, { note: event.target.value })}
-                              maxLength={1000}
-                              placeholder="One line for future travelers…"
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-base font-semibold text-ink shadow-sm"
-                            />
-                          </label>
+                          <ShareSelectField
+                            id={`share-row-${row.key}-stars`}
+                            label="Stars"
+                            value={String(row.rating ?? "")}
+                            onChange={(value) => updateRow(row.key, { rating: value ? Number(value) : null })}
+                          >
+                            <option value="">Not rated</option>
+                            {[1, 2, 3, 4, 5].map((score) => (
+                              <option key={score} value={score}>{score} ★</option>
+                            ))}
+                          </ShareSelectField>
+                          <ShareSelectField
+                            id={`share-row-${row.key}-verdict`}
+                            label="Verdict"
+                            value={row.verdict}
+                            onChange={(value) => updateRow(row.key, { verdict: value as VerdictRow["verdict"] })}
+                          >
+                            <option value="">No verdict</option>
+                            <option value="loved">Loved it</option>
+                            <option value="fine">Fine</option>
+                            <option value="avoid">Avoid</option>
+                          </ShareSelectField>
+                          <ShareField
+                            id={`share-row-${row.key}-note`}
+                            label="Note"
+                            value={row.note}
+                            onChange={(value) => updateRow(row.key, { note: value })}
+                            maxLength={1000}
+                            placeholder="One line for future travelers…"
+                          />
                         </div>
                       ) : null}
-                    </div>
+                    </BuiCard>
                   );
                 })}
-                <button type="button" onClick={addRow} className="min-h-11 self-start rounded-full border border-cblue/30 px-5 text-sm font-bold text-cblue">
+                <BuiButton type="button" variant="secondary" onClick={addRow} className="self-start">
                   + Rate another booked item
-                </button>
+                </BuiButton>
               </div>
             )}
-          </section>
+          </BuiCard>
 
-          <section className="rounded-3xl border border-[#e8dfd0] bg-white/80 px-5 py-6 shadow-[0_12px_34px_rgba(16,32,51,0.05)] sm:px-7">
-            <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-slate-700">
+          <BuiCard className="px-5 py-6 sm:px-7">
+            <label className="flex cursor-pointer items-start gap-3 text-sm font-semibold leading-6 text-cink">
               <input
                 type="checkbox"
                 checked={consent}
                 onChange={(event) => setConsent(event.target.checked)}
-                className="mt-1 h-5 w-5 accent-[#087BFF]"
+                className="mt-1 h-5 w-5 shrink-0 accent-cblue"
               />
               <span>
                 I consent to Roamly reusing this itinerary <strong>anonymously</strong> in suggestions for
                 future travelers (no name, no contact details, no booking references ever shared).
               </span>
             </label>
-            {error ? (
-              <p className="mt-4 rounded-2xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm font-bold text-coral">{error}</p>
-            ) : null}
-            <button
+            {error ? <BuiNotice tone="error" title={error} className="mt-4" /> : null}
+            <BuiButton
               type="submit"
               disabled={submitting || !ratedRows.length}
-              className="mt-5 inline-flex min-h-12 items-center rounded-full bg-cblue px-6 text-sm font-black text-white disabled:opacity-50"
+              busy={submitting}
+              className="mt-5"
             >
               {submitting ? "Sharing…" : "Share my proven itinerary"}
-            </button>
-          </section>
+            </BuiButton>
+          </BuiCard>
         </>
       ) : null}
     </form>
