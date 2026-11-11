@@ -23,3 +23,6 @@ tsconfig.tsbuildinfo
 
 supabase/.temp/
 .roamly-backups/
+
+# editor backups (G12 — the habit cannot recur)
+*.bak.*
