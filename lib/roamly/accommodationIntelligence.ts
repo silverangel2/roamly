@@ -1,5 +1,6 @@
 import { buildHotelAffiliateUrl } from "@/lib/roamly/affiliateLinks";
 import { buildHotelSearchUrl, safeExternalUrl } from "@/lib/roamly/bookingLinks";
+import { marketResultCoordinates } from "@/lib/roamly/timelineGrounding";
 import type { TravelerProfile } from "@/lib/roamly/travelerMemory";
 import type { TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
 import {
@@ -213,7 +214,16 @@ function marketHotelCandidates(params: {
         currency: result.currency || currency(params.payload),
         taxes_and_fees: null,
         neighbourhood: result.city || params.area,
-        coordinates: null,
+        // Stage 6 stored-vs-derived fix (2026-11-11): this candidate
+        // IS the market result in decision shape — every sibling fact
+        // (price, currency, title, URLs, searched_at) is copied from
+        // it, so its point is carried from the SAME place identity
+        // the timeline writers use (marketResultCoordinates:
+        // providerPayload / pack pos / event venue), never invented.
+        // A result with no truthful point stays null. The synthetic
+        // search-ready candidate below keeps null by design: no real
+        // place exists for "<room type> near <area>".
+        coordinates: marketResultCoordinates(result),
         review_evidence: accommodationReviewEvidence(travelEvidence),
         booking_conditions: {
           cancellation_policy: null,
@@ -301,6 +311,9 @@ function searchReadyCandidate(payload: TripPlannerPayload, area: string, retriev
     currency: currency(payload),
     taxes_and_fees: null,
     neighbourhood: area,
+    // Null is the truth here (Stage 6 verdict, 2026-11-11): this is a
+    // synthetic area-search offer, not a place — there is no point to
+    // carry, and inventing one would be a fabricated pin.
     coordinates: null,
     review_evidence: accommodationReviewEvidence(
       buildSearchReadyTravelEvidence({

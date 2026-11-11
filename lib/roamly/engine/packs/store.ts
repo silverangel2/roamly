@@ -108,6 +108,16 @@ export interface PackStore {
   failVersion(packVersionId: string, jobId: string, leaseId: string, error: string): Promise<PackVersionRecord>;
   getVersion(packVersionId: string): Promise<PackVersionRecord | null>;
   getVersionCandidates(packVersionId: string): Promise<StoredCandidate[]>;
+  /** Stage 7 by-keys refresh (2026-11-11): re-read ONLY the named
+   *  candidates of a version (full stored rows, enrichment
+   *  included). The generation path uses it for the batch-1
+   *  post-enrichment refresh: the batch knows exactly which keys it
+   *  enriched, so the refresh merges those rows into the already-
+   *  held set instead of re-serving the whole pack (one ~7.7 MB
+   *  projection read on a Rome-sized pack). Optional: a store
+   *  without it makes the caller fall back to the full serve.
+   *  Unknown keys are simply absent from the result. */
+  getVersionCandidatesByKeys?(packVersionId: string, candidateKeys: readonly string[]): Promise<StoredCandidate[]>;
   /** The currently-serving version: latest "ready", never a
    *  superseded one. Null when the destination has none. */
   getReadyVersion(destinationId: string): Promise<PackVersionRecord | null>;
@@ -466,6 +476,14 @@ export class InMemoryPackStore implements PackStore {
       throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
     }
     return clone(this.candidatesByVersion.get(packVersionId) || []);
+  }
+
+  async getVersionCandidatesByKeys(packVersionId: string, candidateKeys: readonly string[]): Promise<StoredCandidate[]> {
+    if (!this.versions.has(packVersionId)) {
+      throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
+    }
+    const wanted = new Set(candidateKeys);
+    return clone((this.candidatesByVersion.get(packVersionId) || []).filter((c) => wanted.has(c.candidateKey)));
   }
 
   async getReadyVersion(destinationId: string): Promise<PackVersionRecord | null> {

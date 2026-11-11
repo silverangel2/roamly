@@ -326,10 +326,22 @@ export function extractConstraints(
   if (/avoid long walks|short and flat|never walk too far/.test(lower)) c.maxWalkKm = 1.0;
   else if (/walks between stops/.test(lower)) c.maxWalkKm = 1.5;
 
-  const includeMatch = text.match(/include (.+?) please/i);
+  // Place items are stated two natural ways: "… include a visit
+  // to the Colosseum please" and "Please include a visit to the
+  // Colosseum." Until Stage 7 (2026-11-11) only the first order
+  // matched — the please-first form, the most natural way to write
+  // the sentence, derived NO must-see and the named place competed
+  // as an ordinary sight (the Colosseum tight-run watch: a 3-day
+  // short ask missed it while the "include … please"-ordered long
+  // ask scheduled it; day count was not the discriminator). Both
+  // orders now derive, through the same cleanup and splitting.
+  const includeMatch =
+    text.match(/include (.+?) please/i) ||
+    text.match(/please,?\s+include\s+(.+?)(?=\.|\n|$)/i);
   if (includeMatch) {
     c.placeItems = includeMatch[1]
       .replace(/^also\s+/i, "")
+      .replace(/\s+please$/i, "")
       .split(/,?\s+and\s+|\s*,\s*/)
       .map((s) => s.trim())
       .filter(Boolean);

@@ -5,8 +5,11 @@ import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import {
   applyPriceDiscoveryToItinerary,
   buildBudgetConstraintForItinerary,
+  carryForwardTransportSelection,
   discoverTripPrices,
-  savePriceDiscovery
+  savePriceDiscovery,
+  transportSelectionFromRow,
+  type TransportSelection
 } from "@/lib/roamly/priceDiscovery";
 import {
   buildStayOptions,
@@ -198,6 +201,28 @@ async function loadPreviousStaySelection(
   return { candidateId, title: getString(raw.title), selectedBy: "traveler" };
 }
 
+/**
+ * The trip's stored transport pick from its latest discovery row,
+ * when one exists (Stage 7, 2026-11-11 — the transport twin of
+ * loadPreviousStaySelection). The refresh carries it forward
+ * (carryForwardTransportSelection) instead of silently replacing
+ * it with the logic map's fresh recommendation.
+ */
+async function loadPreviousTransportSelection(
+  supabase: SupabaseClient,
+  trip: RoamlyTripRecord
+): Promise<TransportSelection | null> {
+  if (!trip.latest_price_discovery_id) return null;
+  const { data } = await supabase
+    .from("roamly_price_discoveries")
+    .select("*")
+    .eq("id", trip.latest_price_discovery_id)
+    .eq("trip_id", trip.id)
+    .eq("user_id", trip.user_id)
+    .maybeSingle();
+  return transportSelectionFromRow((data as Record<string, unknown> | null) ?? null);
+}
+
 export async function refreshTripMarketPricesForTrip(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -223,13 +248,20 @@ export async function refreshTripMarketPricesForTrip(params: {
   // the fresh discovery (its stay line re-tabulates from the fresh
   // fixed costs); otherwise the fresh estimate stands.
   const previousStaySelection = await loadPreviousStaySelection(params.supabase, params.trip);
-  const discovery = previousStaySelection
+  const stayCarriedDiscovery = previousStaySelection
     ? carryForwardStaySelection(
         freshDiscovery,
         previousStaySelection,
         buildStayOptions(params.itinerary?.full_json?.booking_suggestions || [], Math.max(1, (payload.daysCount || 1) - 1))
       )
     : freshDiscovery;
+  // Transport-pick honouring (Stage 7, 2026-11-11): the same law
+  // for the traveller's transport pick — carried forward when the
+  // fresh discovery still offers the picked option, released when
+  // it no longer does. Before this, a refresh silently dropped
+  // the stamp and the logic map's recommendation took over.
+  const previousTransportSelection = await loadPreviousTransportSelection(params.supabase, params.trip);
+  const discovery = carryForwardTransportSelection(stayCarriedDiscovery, previousTransportSelection);
   const savedDiscovery = await savePriceDiscovery(params.supabase, { userId: params.userId, tripId: params.tripId, ...payload }, discovery);
   const full = params.itinerary?.full_json || null;
   const updatedItinerary = full ? enrichItineraryBookingSuggestions(applyPriceDiscoveryToItinerary(full, discovery), { ...payload, priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null, budgetConstraint: buildBudgetConstraintForItinerary(discovery), priceDiscovery: discovery as unknown as Record<string, unknown>, confirmedBookings: confirmedBookings.bookings }, confirmedBookings.bookings) : null;
