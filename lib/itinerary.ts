@@ -1353,6 +1353,72 @@ export function validateItineraryForProduction(itinerary: RoamlyItinerary, paylo
   return { ok: errors.length === 0, errors };
 }
 
+/**
+ * Stage-boundary validation (Stage 7 / KF-1 fail-early, 2026-11-11).
+ *
+ * Runs the DAY-LOCAL subset of the production readiness rules over a
+ * batch's just-produced days, at the moment the batch is written, so a
+ * contract violation fails that batch — while it can still be retried
+ * or regenerated — instead of travelling the whole pipeline and dying
+ * at final validation after every remaining day was also paid for
+ * (the 2026-10-20 Charlottetown FINAL_VALIDATION_FAILED shape).
+ *
+ * The rules are the final validator's OWN functions, not mirrors:
+ * travelerReadinessErrors over prior+new days, differenced against
+ * prior days alone so only errors the new days introduce (or complete)
+ * are attributed to this batch; per-day chronology; Day-1 arrival and
+ * final-day departure presence; transfer-between-major-items.
+ *
+ * Deliberately NOT checked here (final validation keeps them, and it
+ * remains the unchanged backstop — this helper never loosens it):
+ * - the multi-day grounded-hotel rule (global: no single batch can act
+ *   on it before the last batch, where finalization is the next step;
+ *   the differencing above also naturally cancels it);
+ * - empty-timeline (both drivers already check it at their boundary);
+ * - CTA / booking-suggestion / legacy-link rules (affiliate links are
+ *   attached during final assembly, after the batches exist).
+ *
+ * `includeTravelStructureChecks` (arrival/departure/transfer) is for
+ * the zero-engine path ONLY: engine days are validated raw at
+ * finalization (the finalization repair pass is deliberately never
+ * run over them), so a missing leg there is a true fail-late defect.
+ * The incumbent's finalization DOES run
+ * repairItineraryForTravelRequirements, which legitimately
+ * synthesizes exactly those three structures before validating —
+ * failing an incumbent batch for them would break generations the
+ * repair completes today, so the incumbent passes false.
+ */
+export function stageBoundaryDayErrors(params: {
+  priorDays: RoamlyDayPlan[];
+  newDays: RoamlyDayPlan[];
+  payload: TripPlannerPayload;
+  totalDayCount: number;
+  includeTravelStructureChecks: boolean;
+}): string[] {
+  const { priorDays, newDays, payload, totalDayCount, includeTravelStructureChecks } = params;
+  if (!newDays.length) return [];
+  const asItinerary = (days: RoamlyDayPlan[]) => ({ daily_itinerary: days }) as unknown as RoamlyItinerary;
+  const priorErrors = new Set(travelerReadinessErrors(asItinerary(priorDays), payload));
+  const errors: string[] = [];
+  for (const error of travelerReadinessErrors(asItinerary([...priorDays, ...newDays]), payload)) {
+    if (!priorErrors.has(error) && !errors.includes(error)) errors.push(error);
+  }
+  for (const day of newDays) {
+    errors.push(...timelineChronologyErrors(day));
+    if (!includeTravelStructureChecks) continue;
+    if (!timelineHasTransferBetweenMajorItems(day)) {
+      errors.push(`Day ${day.day_number} is missing transfer time between major items.`);
+    }
+    if (day.day_number === 1 && needsOriginTravel(payload) && !hasArrivalTravel(day)) {
+      errors.push("Day 1 is missing travel/arrival before local activities.");
+    }
+    if (day.day_number === totalDayCount && returnTravelRequired(payload) && !hasDepartureTravel(day)) {
+      errors.push("Final day is missing checkout/departure/return travel.");
+    }
+  }
+  return errors;
+}
+
 function destinationProfile(city: string) {
   const normalized = city.toLowerCase();
   if (normalized.includes("montreal") || normalized.includes("montréal")) {
