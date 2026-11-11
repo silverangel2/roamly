@@ -32,12 +32,22 @@ assert.equal(budgetBandForAmount(50000), "luxury");
 // ---------------------------------------------------------------------------
 // isTripCompletedForLibrary: status gate + end-date gate
 // ---------------------------------------------------------------------------
-assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "2026-10-01" }), true);
-assert.equal(isTripCompletedForLibrary({ status: "Completed", endDate: "2026-10-14" }), true);
-assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "2026-10-16" }), false, "future end date is not completed");
-assert.equal(isTripCompletedForLibrary({ status: "active", endDate: "2026-10-01" }), false);
-assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: null }), false);
-assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "not-a-date" }), false);
+// Stage 4 rewrite (2026-11-10): the original asserts used bare
+// calendar dates ("2026-10-16 is future"), which rotted the day
+// the calendar passed them — the suite failed on every tree from
+// 2026-10-17 on. The function accepts an injectable `now`, so the
+// scenario is frozen at the moment it was written and the gate's
+// real semantics are pinned instead: a trip counts as completed
+// only once its end date has FULLY passed (end-of-day, UTC).
+const LIBRARY_NOW = "2026-10-15T12:00:00Z";
+assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "2026-10-01", now: LIBRARY_NOW }), true);
+assert.equal(isTripCompletedForLibrary({ status: "Completed", endDate: "2026-10-14", now: LIBRARY_NOW }), true);
+assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "2026-10-16", now: LIBRARY_NOW }), false, "future end date is not completed");
+assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "2026-10-15", now: LIBRARY_NOW }), false, "on its final day the trip is not completed yet (end-of-day gate)");
+assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "2026-10-15", now: "2026-10-16T00:00:00Z" }), true, "the morning after the end date, the trip is completed");
+assert.equal(isTripCompletedForLibrary({ status: "active", endDate: "2026-10-01", now: LIBRARY_NOW }), false);
+assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: null, now: LIBRARY_NOW }), false);
+assert.equal(isTripCompletedForLibrary({ status: "completed", endDate: "not-a-date", now: LIBRARY_NOW }), false);
 
 // ---------------------------------------------------------------------------
 // validateItinerarySubmissionInput

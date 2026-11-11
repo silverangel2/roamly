@@ -23,6 +23,7 @@
  * sells or redistributes them — the permitted use, with this
  * notice carried in the file as the license requires.
  * Full text: https://github.com/DavidHDev/react-bits/blob/main/LICENSE.md
+ * (vendored copy: components/boardui/REACT-BITS-LICENSE.md)
  *
  * Reduced motion: with prefers-reduced-motion the burst collapses
  * to a short, static fade (upstream behaviour) — nothing essential

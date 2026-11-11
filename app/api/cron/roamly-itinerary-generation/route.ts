@@ -8,6 +8,7 @@ import { runBookingMonitorHealthDetector } from "@/lib/roamly/bookingMonitorHeal
 import { runCommunicationStuckDetector } from "@/lib/roamly/communicationStuckDetector";
 import { detectorFailureResult, recordBackgroundDetectorFailure } from "@/lib/roamly/observabilityDetectorDiagnostics";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { cronTokenMatchesAnySecret } from "@/lib/roamly/cronAuth";
 import { generationSweeperHasWork } from "@/lib/roamly/generationWorkGate";
 import { runStrandedGenerationRecovery, type StrandedGenerationRecoverySummary } from "@/lib/roamly/generationRecovery";
 import { recordCronHeartbeat } from "@/lib/roamly/cronHeartbeat";
@@ -72,7 +73,9 @@ function authorized(request: NextRequest) {
   const secrets = getGenerationWorkerSecrets();
   const header = request.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
-  return Boolean(token && secrets.includes(token));
+  // Constant-time compare via the shared helper (Stage 5, 2026-11-11);
+  // same Bearer carrier and fail-closed posture as before.
+  return cronTokenMatchesAnySecret(token, secrets);
 }
 
 export async function POST(request: NextRequest) {

@@ -3,6 +3,7 @@ import { AdminLiveTestConsole } from "@/components/admin/AdminLiveTestConsole";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 export default async function AdminLiveTestPage() {
   const state = await getRoamlyAdminPageState();
@@ -71,6 +72,7 @@ export default async function AdminLiveTestPage() {
         <section className="mt-6">
           <AdminLiveTestConsole
             trips={trips || []}
+            destinationLabels={Object.fromEntries((trips || []).map((trip) => [trip.id, getTripDestinationLabel(trip)]))}
             activities={activities || []}
             bookings={bookings || []}
             pushSubscriptions={pushSubscriptions || []}

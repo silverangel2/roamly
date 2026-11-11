@@ -1,12 +1,52 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import ts from "typescript";
 
 const require = createRequire(import.meta.url);
-function compileTs(path) {
-  const source = fs.readFileSync(new URL(path, import.meta.url), "utf8");
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const treeRoot = path.dirname(scriptDir);
+
+// Stage 4 harness repair (2026-11-10): the sandbox require used to be the
+// raw createRequire, so any "@/…" import inside a compiled module
+// (liveCompanion → tripTimezone → places) died with "Cannot find module
+// '@/lib/roamly/tripTimezone'". It now resolves "@/…" and relative
+// specifiers by compiling the target TS module in this same sandbox
+// (cached, the same pattern as the grounded suite's loader), stubs the
+// "server-only" marker package, and delegates real packages to
+// createRequire. The modules under test are unchanged.
+const moduleCache = new Map();
+
+function resolveLocalFile(basePath) {
+  const candidates = [basePath, `${basePath}.ts`, `${basePath}.tsx`, `${basePath}.mjs`, `${basePath}.json`, path.join(basePath, "index.ts")];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+function makeSandboxRequire(importerDir) {
+  return function sandboxRequire(id) {
+    // "server-only" is a Next.js marker with no runtime exports.
+    if (id === "server-only") return {};
+    if (id.startsWith("@/")) {
+      const target = resolveLocalFile(path.join(treeRoot, id.slice(2)));
+      if (target) return target.endsWith(".json") ? JSON.parse(fs.readFileSync(target, "utf8")) : compileTsFile(target);
+    }
+    if (id.startsWith(".")) {
+      const target = resolveLocalFile(path.resolve(importerDir, id));
+      if (target) return target.endsWith(".json") ? JSON.parse(fs.readFileSync(target, "utf8")) : compileTsFile(target);
+    }
+    return require(id);
+  };
+}
+
+function compileTsFile(absolutePath) {
+  if (moduleCache.has(absolutePath)) return moduleCache.get(absolutePath).exports;
+  const source = fs.readFileSync(absolutePath, "utf8");
   const compiled = ts.transpileModule(source, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -14,11 +54,18 @@ function compileTs(path) {
     }
   }).outputText;
 
+  const moduleRecord = { exports: {} };
+  moduleCache.set(absolutePath, moduleRecord);
   const sandbox = {
-    exports: {},
-    module: { exports: {} },
-    require,
+    exports: moduleRecord.exports,
+    module: moduleRecord,
+    require: makeSandboxRequire(path.dirname(absolutePath)),
     console,
+    process,
+    URL,
+    URLSearchParams,
+    setTimeout,
+    clearTimeout,
     Intl,
     Date,
     Math,
@@ -30,8 +77,12 @@ function compileTs(path) {
     Map
   };
   sandbox.exports = sandbox.module.exports;
-  vm.runInNewContext(compiled, sandbox);
-  return sandbox.module.exports;
+  vm.runInNewContext(compiled, sandbox, { filename: absolutePath });
+  return moduleRecord.exports;
+}
+
+function compileTs(relativePath) {
+  return compileTsFile(path.resolve(scriptDir, relativePath));
 }
 
 const { calculateDistanceMeters, isWithinRadius, normalizeCoordinates } = compileTs("../lib/roamly/location.ts");

@@ -618,6 +618,13 @@ select {
 /* mirrored as data in components/boardui/tokens.ts. Values are ALL    */
 /* Roamly's adopted tokens — BoardUI supplies structure and motion     */
 /* craft, not a new brand. No black anywhere: ink is navy-slate.       */
+/*                                                                     */
+/* G11 SINGLE SOURCE (2026-11-11, Stage 8): components/boardui/        */
+/* tokens.ts is the ONE canonical home for these values. The --bui-*   */
+/* variables below are DERIVED from it — after editing tokens.ts run   */
+/*   node scripts/generate-bui-css-vars.mjs --write                    */
+/* and never hand-edit a --bui-* value here. test:bui-token-drift      */
+/* fails the gate when this block and tokens.ts disagree.              */
 /* ------------------------------------------------------------------ */
 
 :root {

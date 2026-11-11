@@ -12,7 +12,17 @@ const magazine = read("components/roamly/FindsEditorialMagazine.tsx");
 for (const value of ["trs=549715", "shmarker=750294"]) assert.ok(config.includes(value), `${value} must remain in the approved widget configuration`);
 for (const value of ["campaign_id=541", "promo_id=8588", "country=Spain"]) assert.ok(config.includes(value), `${value} must remain in the approved eSIM widget`);
 for (const value of ["city_id=107", "city_id=121", "campaign_id=137", "promo_id=4497"]) assert.ok(config.includes(value), `${value} must remain in the approved experience widgets`);
-for (const value of ["campaign_id=100", "promo_id=4044", "currency=usd", "target_host=www.aviasales.com%2Fsearch"]) assert.ok(config.includes(value), `${value} must remain in the approved flight widget`);
+// Stage 4 rewrite (2026-11-10): the flight offer no longer exists as a
+// tpwdgt search widget — the pinned campaign_id=100 / promo_id=4044 /
+// currency=usd / target_host values belonged to that retired widget's
+// URL and appear nowhere in the current configuration. Flights are
+// now a tracked short link in findsTravelServices (the same pattern
+// as the KKday promo and Intui transfer links below): attribution
+// rides the tpo.lu link itself, and every tpwdgt widget that remains
+// still carries the owner's shmarker=750294 (asserted above). The
+// approved flight configuration is the tracked link; any change to
+// it must fail here until re-approved.
+assert.ok(config.includes("https://aviasales.tpo.lu/ouGJJ2lr"), "the approved flight tracked link must remain in the centralized configuration");
 for (const value of ["campaign_id=111", "promo_id=4563", "currency=cad"]) assert.ok(config.includes(value), `${value} must remain in the approved travel widget`);
 for (const value of ["campaign_id=22", "promo_id=3507", "curr=USD"]) assert.ok(config.includes(value), `${value} must remain in the approved rental widget`);
 
@@ -34,7 +44,7 @@ assert.ok(!magazine.includes("intui.tpo.lu"), "transfer URLs must not be scatter
 assert.ok(magazine.includes("findsTravelServices.stays.href"), "the stay editorial action must preserve the existing Stay22 handoff");
 assert.ok(magazine.includes("findsTravelServices.airportTransfer.href"), "airport-transfer actions must use their configured external destination");
 assert.ok(magazine.includes("findsWidgets.esim"), "the approved eSIM widget must be part of the magazine");
-assert.ok(magazine.includes("findsWidgets.flights"), "the approved flight widget must be part of the magazine");
+assert.ok(magazine.includes("findsTravelServices.flights.href"), "the approved flight offer must be part of the magazine");
 assert.ok(magazine.includes("findsWidgets.experiences107") && magazine.includes("findsWidgets.experiences121"), "both approved experience widgets must be part of the magazine");
 
 console.log("Roamly Finds commercial widget checks passed.");

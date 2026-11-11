@@ -88,8 +88,20 @@ check("Picture 1: badge counts only rendered, unread, non-outdated notification 
   notifPage.includes("renderedNotificationIds") && notifPage.includes("unreadCount={displayedUnreadCount}"));
 check("Picture 1: section card shows See all on every section", "STATIC",
   sectionCard.includes("rows.length >= 1") && sectionCard.includes("See all"));
-check("Picture 1: section card renders a chevron on every row", "STATIC",
-  sectionCard.includes('viewBox="0 0 8 13"'));
+{
+  // Stage 4 rewrite (2026-11-10): the original pin demanded the old
+  // inline-SVG chevron's viewBox. The BoardUI re-clothe (batch 7)
+  // swapped the hand-drawn SVG for the Lucide ChevronRight icon;
+  // the behaviour — EVERY row carries the chevron affordance — is
+  // unchanged. The chevron lives in the single `inner` fragment the
+  // row map renders for both the link and plain row variants, so:
+  // exactly one chevron inside the visible.map block == one per row.
+  const mapStart = sectionCard.indexOf("visible.map((row)");
+  const mapBlock = mapStart === -1 ? "" : sectionCard.slice(mapStart, sectionCard.indexOf("</section>", mapStart));
+  const chevrons = (mapBlock.match(/<ChevronRight/g) || []).length;
+  check("Picture 1: section card renders a chevron on every row", "STATIC",
+    mapStart !== -1 && chevrons === 1, `chevrons in row map=${chevrons}`);
+}
 {
   // Fixture: badge counts the unread row that IS shown, never the
   // unread history row that is NOT shown, never a read row, never an
@@ -112,11 +124,34 @@ check("Picture 1: section card renders a chevron on every row", "STATIC",
     kept.length === 1 && kept[0].title === "Flight delayed");
 }
 
-// ---- C. Writer collapse: one generation-started title ----
+// ---- C. Writer collapse: one generation-started EVENT ----
+// Stage 4 rewrite (2026-11-10): the original pin counted the TITLE
+// text and demanded exactly one mint. The route now mints the
+// title from two sites — but they are two DIFFERENT events: the
+// started event (when the trip flips to generating) and the staged
+// path's progress event (when the durable queue job starts). The
+// collapse invariant that protects the traveller is at the event
+// level: the started TYPE is minted exactly once per request, and
+// the progress event keeps its own type, so the pair can never
+// collapse into — or duplicate — one another. (Traveller
+// notifications are minted separately and deduped by event_id —
+// sections D/F below; trip-event rows surface on admin views.)
 {
-  const startedWriters = (genRoute.match(/eventTitle: "Itinerary generation started"/g) || []).length;
-  check("generation route mints ONE 'Itinerary generation started' title", "STATIC",
-    startedWriters === 1, `writers=${startedWriters}`);
+  const pairs = [...genRoute.matchAll(/eventType: "([a-z_]+)",\s*eventTitle: "Itinerary generation started"/g)].map((m) => m[1]);
+  const startedWriters = pairs.filter((t) => t === "itinerary_generation_started").length;
+  check("generation route mints ONE 'itinerary_generation_started' event", "STATIC",
+    startedWriters === 1, `started writers=${startedWriters}`);
+  check("the same-title second mint is the distinct progress event", "STATIC",
+    pairs.length === 2 && pairs.includes("itinerary_generation_progress"),
+    `title mints=${JSON.stringify(pairs)}`);
+  // Fixture: the two same-title events, keyed by the section-F
+  // dedup shape, stay distinct — neither swallows the other.
+  const key = (item) => [item.trip_id, norm(item.type), norm(item.title), norm(item.body),
+    item.event_id ? `event:${item.event_id}` : norm(item.scheduled_for)].join("|");
+  const started = { trip_id: "t1", event_id: "e-started", type: "itinerary_generation_started", title: "Itinerary generation started", body: "", scheduled_for: null };
+  const progress = { trip_id: "t1", event_id: "e-progress", type: "itinerary_generation_progress", title: "Itinerary generation started", body: "", scheduled_for: null };
+  check("fixture: started and progress events never dedupe into each other", "FIXTURE",
+    key(started) !== key(progress));
 }
 
 // ---- D. Retry discipline (cap extracted from the tree) ----

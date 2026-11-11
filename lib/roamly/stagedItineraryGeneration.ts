@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildStarterItinerary,
   repairItineraryForTravelRequirements,
+  stageBoundaryDayErrors,
   validateItineraryForProduction,
   type RoamlyActivitySeed,
   type RoamlyDayPlan,
@@ -14,7 +15,14 @@ import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import { markFreeItineraryUsed, lockGeneratedItinerary } from "@/lib/roamly/billing";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
-import { buildBudgetConstraintForItinerary, discoverTripPrices, savePriceDiscovery } from "@/lib/roamly/priceDiscovery";
+import {
+  buildBudgetConstraintForItinerary,
+  carryForwardTransportSelection,
+  discoverTripPrices,
+  savePriceDiscovery,
+  transportSelectionFromRow,
+  type TransportSelection
+} from "@/lib/roamly/priceDiscovery";
 import { carryForwardStaySelection, type StayOption, type StaySelection } from "@/lib/roamly/stayOptions";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import { searchTripMarketPrices, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
@@ -1946,6 +1954,36 @@ async function loadStoredStaySelection(
   };
 }
 
+/**
+ * The trip's stored transport pick from its latest discovery row
+ * (Stage 7, 2026-11-11 — the transport twin of
+ * loadStoredStaySelection). A re-generation carries it forward
+ * (carryForwardTransportSelection) instead of silently replacing
+ * it with the logic map's fresh recommendation.
+ */
+async function loadStoredTransportSelection(
+  supabase: SupabaseClient,
+  userId: string,
+  tripId: string
+): Promise<TransportSelection | null> {
+  const tripResult = await supabase
+    .from("roamly_trips")
+    .select("latest_price_discovery_id")
+    .eq("id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const discoveryId = getString(tripResult.data?.latest_price_discovery_id, "");
+  if (!discoveryId) return null;
+  const rowResult = await supabase
+    .from("roamly_price_discoveries")
+    .select("*")
+    .eq("id", discoveryId)
+    .eq("trip_id", tripId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return transportSelectionFromRow((rowResult.data as Record<string, unknown> | null) ?? null);
+}
+
 export async function prepareStagedGenerationContext(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -2002,16 +2040,24 @@ export async function prepareStagedGenerationContext(params: {
   const generationDiscovery = storedStay
     ? carryForwardStaySelection(packAugmentedDiscovery, storedStay.selection, storedStay.options)
     : packAugmentedDiscovery;
+  // Transport-pick honouring (Stage 7, 2026-11-11): the stored
+  // transport pick is carried into the generation's discovery the
+  // same way — stamp + re-tabulated transport line — so a
+  // re-generation builds against the traveller's chosen mode
+  // (effectiveTransportMode reads the stamp before the preference
+  // string) instead of silently reverting to the recommendation.
+  const storedTransport = await loadStoredTransportSelection(params.supabase, params.userId, params.tripId);
+  const carriedDiscovery = carryForwardTransportSelection(generationDiscovery, storedTransport);
   const savedDiscovery = await savePriceDiscovery(
     params.supabase,
     { userId: params.userId, tripId: params.tripId, ...params.payload },
-    generationDiscovery
+    carriedDiscovery
   );
   return {
-    priceDiscovery: generationDiscovery as unknown as Record<string, unknown>,
+    priceDiscovery: carriedDiscovery as unknown as Record<string, unknown>,
     priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
     budgetConstraint: buildBudgetConstraintForItinerary(
-      generationDiscovery !== packAugmentedDiscovery ? generationDiscovery : discovery
+      carriedDiscovery !== packAugmentedDiscovery ? carriedDiscovery : discovery
     ),
     confirmedBookings: confirmedBookings.bookings,
     personalization
@@ -2849,6 +2895,29 @@ export async function advanceStagedItineraryGeneration(params: {
           const key = `${itemType}:${normalizedTextKey(item.title || "")}`;
           if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, day.day_number);
         }
+      }
+      // Stage 7 / KF-1 fail-early (2026-11-11): the day-local rules
+      // validateDay does not cover — transport-mode mismatch and the
+      // final validator's full placeholder net (validateDay's
+      // isPlaceholderTitle is narrower than the validator's
+      // isPlaceholderOrOperationalText) — run at this same boundary
+      // via the validator's own functions (stageBoundaryDayErrors),
+      // so nothing that would fail final validation can be marked
+      // complete here. Travel-structure checks stay OFF for the
+      // incumbent: its finalization repair pass
+      // (repairItineraryForTravelRequirements) legitimately
+      // synthesizes arrival/departure/transfer structures before
+      // validating, so those are repaired there, not defects here.
+      // Final validation in completeGeneration remains the unchanged
+      // backstop.
+      for (const error of stageBoundaryDayErrors({
+        priorDays: completedDays(state),
+        newDays: batchDays,
+        payload: state.payload,
+        totalDayCount: state.totalDayCount,
+        includeTravelStructureChecks: false
+      })) {
+        if (!batchErrors.includes(error)) batchErrors.push(error);
       }
       for (const dayNumber of nextBatch.dayNumbers) {
         if (!batchDays.some((day) => day.day_number === dayNumber)) {

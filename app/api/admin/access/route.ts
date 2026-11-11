@@ -1,4 +1,6 @@
+import { isIP } from "node:net";
 import { NextRequest, NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ROAMLY_ADMIN_COOKIE,
   createRoamlyAdminSession,
@@ -6,11 +8,24 @@ import {
   roamlyAdminCookieOptions,
   verifyRoamlyAdminCode
 } from "@/lib/roamly/adminAccess";
+import {
+  adminAccessActorHash,
+  clearAdminAccessFailures,
+  getAdminAccessLockout,
+  recordAdminAccessFailure
+} from "@/lib/roamly/adminAccessRateLimit";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-// P1-1: in-memory per-IP rate limiting — 5 failed attempts -> 15-minute lockout.
-// NOTE: serverless instances do not share this memory, so a distributed
-// brute-force spread across instances is not fully stopped. For a durable
-// lockout, move this state to a shared store (Supabase / Upstash).
+// P1-1: per-IP rate limiting — 5 failed attempts -> 15-minute lockout.
+// Stage 5 (2026-11-11) added the shared-store layer this route's note
+// always called for: lockout state now also lives in
+// roamly_admin_access_rate_limits (migration 20261111000200 §1), keyed
+// by an HMAC hash of the caller IP, so a guessing spread across
+// serverless instances hits the same wall. The in-memory map remains
+// as the same-instance fast path AND the fallback: when the store is
+// unreachable or unconfigured the door degrades to exactly the
+// pre-Stage-5 memory-only posture — never weaker, and a database
+// outage can never lock the owner out of his own recovery door.
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000;
 const failedAttempts = new Map<string, { fails: number; lockedUntil: number }>();
@@ -32,6 +47,26 @@ function lockoutRemainingMs(key: string) {
   return remaining;
 }
 
+type SharedLockoutStore = { admin: SupabaseClient; actorHash: string };
+
+function sharedLockoutStore(request: NextRequest): SharedLockoutStore | null {
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+  const forwarded = request.headers.get("x-forwarded-for");
+  const candidate = forwarded ? forwarded.split(",")[0]?.trim() || "" : "";
+  const realIp = request.headers.get("x-real-ip")?.trim() || "";
+  const ip = isIP(candidate) ? candidate : isIP(realIp) ? realIp : "";
+  const actorHash = ip ? adminAccessActorHash(ip, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+  return actorHash ? { admin, actorHash } : null;
+}
+
+async function sharedLockoutRemainingMs(store: SharedLockoutStore | null) {
+  if (!store) return 0;
+  const lockout = await getAdminAccessLockout(store.admin, store.actorHash);
+  if (!lockout.ok || !lockout.locked) return 0;
+  return lockout.retryAfterSeconds * 1000;
+}
+
 export async function POST(request: NextRequest) {
   if (!isRoamlyAdminConfigured()) {
     return NextResponse.redirect(
@@ -41,7 +76,8 @@ export async function POST(request: NextRequest) {
   }
 
   const ip = clientIp(request);
-  const remaining = lockoutRemainingMs(ip);
+  const store = sharedLockoutStore(request);
+  const remaining = Math.max(lockoutRemainingMs(ip), await sharedLockoutRemainingMs(store));
   if (remaining > 0) {
     return NextResponse.json(
       { error: "Too many failed attempts. Try again later." },
@@ -75,6 +111,9 @@ export async function POST(request: NextRequest) {
     entry.fails += 1;
     if (entry.fails >= MAX_FAILED_ATTEMPTS) entry.lockedUntil = Date.now() + LOCKOUT_MS;
     failedAttempts.set(ip, entry);
+    if (store) {
+      await recordAdminAccessFailure(store.admin, store.actorHash, MAX_FAILED_ATTEMPTS, LOCKOUT_MS / 1000);
+    }
     return NextResponse.redirect(
       new URL("/admin-access?error=invalid", request.url),
       303
@@ -82,6 +121,9 @@ export async function POST(request: NextRequest) {
   }
 
   failedAttempts.delete(ip);
+  if (store) {
+    await clearAdminAccessFailures(store.admin, store.actorHash);
+  }
 
   const session = await createRoamlyAdminSession();
 

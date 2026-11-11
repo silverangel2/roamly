@@ -43,10 +43,24 @@ assert.ok(
 //    className; assert the nav's label template carries htmlFor={tabId} and
 //    the established label classes, and that "Bookings" is a rendered label
 //    value (not only a radio id or a panel heading).
+//
+//    Stage 4 rewrite (2026-11-10): the original pin demanded the
+//    pre-BoardUI class string verbatim. The trip tab nav was
+//    re-clothed onto the BoardUI pill (batch 4), so the string
+//    rotted while the behaviour held. The invariant G1 actually
+//    protects is UNIFORMITY: the Bookings label must be rendered
+//    by the same single template as every other tab label — one
+//    shared className, no per-tab conditional styling — with the
+//    label semantics intact (htmlFor targeting, pointer cursor,
+//    the 44px min touch height the mobile checklist requires).
 assert.ok(nav.includes("htmlFor={tabId}"), "nav labels must target their radio via htmlFor");
+const labelClassNames = [...nav.matchAll(/<label[\s\S]*?className="([^"]+)"/g)].map((m) => m[1]);
+assert.equal(labelClassNames.length, 1, "nav must render its labels from exactly one shared label template");
+const [labelClass] = labelClassNames;
+assert.ok(!/tabId|label/.test(labelClass), "label styling must not vary per tab (no conditional classes)");
 assert.ok(
-  nav.includes("inline-flex min-h-11 cursor-pointer items-center rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-cgray shadow-calm"),
-  "nav labels must keep the existing label styling"
+  labelClass.includes("min-h-11") && labelClass.includes("cursor-pointer") && labelClass.includes("inline-flex"),
+  "nav labels must keep the established label pattern (44px touch target, pointer, inline-flex pill)"
 );
 assert.ok(src.includes('["roamly-tab-bookings", "Bookings"]'), "Bookings must be a nav label value");
 
