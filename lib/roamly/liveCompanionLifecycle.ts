@@ -17,6 +17,7 @@ import {
   queueCompanionNotification,
   sendCompanionNotificationDelivery
 } from "@/lib/roamly/companionNotifications";
+import { scheduleCompanionEvents } from "@/lib/roamly/tripCompanion";
 import type { TrackingActivity, TrackingTrip } from "@/lib/roamly/tripActivation";
 // L12 (2026-10-31): the status sets in this file include "generated"
 // — the ONE live-ready set in lib/roamly/liveEligibility.ts
@@ -148,6 +149,32 @@ async function processTrip(admin: SupabaseClient, trip: TrackingTrip, now: Date)
   const preferences = await getCompanionPreferences({ supabase: admin, userId: trip.user_id, tripId: trip.id });
   if (!preferences.liveCompanionEnabled || (preferences.liveCompanionPausedUntil && Date.parse(preferences.liveCompanionPausedUntil) > now.getTime())) {
     return { expired: 0, started: 0, skipped: "disabled_or_paused" };
+  }
+
+  // During-trip companion scheduling (2026-11-11): the scheduled
+  // companion events (roamly_trip_companion_events) used to be
+  // created ONLY as a side effect of traveller actions — unlock,
+  // booking confirm, a Live-page visit — so a trip already inside
+  // its window whose setup batch lacked a day (or predated per-day
+  // coverage) never gained that day's events: no server process
+  // reconciled the schedule during the trip, and the companion had
+  // nothing to fire on the very days it exists for (proven on
+  // production 2026-11-06; reproduced 2026-11-11). This sweep
+  // already visits exactly the in-window, unlocked, enabled trips,
+  // so it now runs the same reconcile the Live page performs on
+  // visit. The reconcile is idempotent — live rows dedupe by event
+  // key, elapsed days become honest skipped bookkeeping — and
+  // delivery stays with the notifications dispatcher and its
+  // gates. Failure isolation: a scheduling fault must never take
+  // down this trip's activity processing; scheduling records its
+  // own failures (roamly_app_events) and the call is isolated here
+  // as well. The return value is deliberately not surfaced, like
+  // the booking-confirm caller: scheduling health is observed
+  // through the app-events channel, not the lifecycle result.
+  try {
+    await scheduleCompanionEvents(admin, trip.id);
+  } catch {
+    // Isolated per the note above.
   }
 
   const activitiesResult = await admin.from("roamly_activities").select(LIFECYCLE_ACTIVITY_COLUMNS).eq("trip_id", trip.id).in("status", unresolvedStatuses);

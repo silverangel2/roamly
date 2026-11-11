@@ -130,6 +130,40 @@ async function claimEmailSync(params: {
   return { id: String(result.data.id), token: leaseToken };
 }
 
+/**
+ * Why did a sync lease claim fail? claimEmailSync returns null for
+ * four different states — no live connection row, a disconnected
+ * row, a lease genuinely held by a running sync, and a failed
+ * UPDATE — and the sync wrappers must not report them all as
+ * "already running" (the SYNC_ALREADY_RUNNING lie, Block H).
+ * Block H's pre-check decides the common case; this re-read decides
+ * every case the pre-check could not: its read failed, or the row
+ * changed between the pre-check and the claim. "retry" means a live
+ * connection exists and no lease is held, so the claim failed for a
+ * non-contention reason — the truthful answer is a transient
+ * failure, never "already running". A re-read that itself errors
+ * proves nothing either way, so it keeps the legacy
+ * already-running answer.
+ */
+async function classifySyncClaimFailure(params: {
+  supabase: SupabaseClient;
+  userId: string;
+  provider: EmailProvider;
+}): Promise<"not_connected" | "already_running" | "retry"> {
+  const { data, error } = await params.supabase
+    .from("email_connections")
+    .select("sync_lease_expires_at")
+    .eq("user_id", params.userId)
+    .eq("provider", params.provider)
+    .neq("connection_status", "disconnected")
+    .maybeSingle();
+  if (error) return "already_running";
+  if (!data) return "not_connected";
+  const leaseExpiresAt = (data as { sync_lease_expires_at?: string | null }).sync_lease_expires_at;
+  const leaseHeld = Boolean(leaseExpiresAt) && new Date(String(leaseExpiresAt)).getTime() > Date.now();
+  return leaseHeld ? "already_running" : "retry";
+}
+
 async function releaseEmailSync(params: {
   supabase: SupabaseClient;
   connectionId: string;
@@ -1546,7 +1580,14 @@ export async function syncGmailConnection(params: {
     return { ok: false as const, error: "GMAIL_NOT_CONNECTED", processed: 0 };
   }
   const lease = await claimEmailSync({ ...params, provider: GMAIL_PROVIDER });
-  if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  if (!lease) {
+    // Answer from the row that is actually there, never from the
+    // claim's ambiguity (see classifySyncClaimFailure).
+    const failure = await classifySyncClaimFailure({ ...params, provider: GMAIL_PROVIDER });
+    if (failure === "not_connected") return { ok: false as const, error: "GMAIL_NOT_CONNECTED", processed: 0 };
+    if (failure === "retry") return { ok: false as const, error: "GMAIL_SYNC_RETRY", processed: 0 };
+    return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  }
   let outcome: Awaited<ReturnType<typeof syncGmailConnectionUnlocked>> | null = null;
   try {
     outcome = await syncGmailConnectionUnlocked({ ...params, leaseToken: lease.token });
@@ -1652,7 +1693,14 @@ export async function syncOutlookConnection(params: {
     return { ok: false as const, error: "OUTLOOK_NOT_CONNECTED", processed: 0 };
   }
   const lease = await claimEmailSync({ ...params, provider: OUTLOOK_PROVIDER });
-  if (!lease) return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  if (!lease) {
+    // Answer from the row that is actually there, never from the
+    // claim's ambiguity (see classifySyncClaimFailure).
+    const failure = await classifySyncClaimFailure({ ...params, provider: OUTLOOK_PROVIDER });
+    if (failure === "not_connected") return { ok: false as const, error: "OUTLOOK_NOT_CONNECTED", processed: 0 };
+    if (failure === "retry") return { ok: false as const, error: "OUTLOOK_SYNC_FAILED", processed: 0 };
+    return { ok: true as const, skipped: true as const, reason: "SYNC_ALREADY_RUNNING", error: null, processed: 0 };
+  }
   let outcome: Awaited<ReturnType<typeof syncOutlookConnectionUnlocked>> | null = null;
   try {
     outcome = await syncOutlookConnectionUnlocked({ ...params, leaseToken: lease.token });
