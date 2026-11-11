@@ -107,6 +107,25 @@ export function payloadFromTrip(trip: RoamlyTripRecord): TripPlannerPayload {
 
 const confirmedStatuses = new Set(["booked", "paid", "reserved", "confirmed", "modified", "completed"]);
 
+/**
+ * Thrown when the refresh's price-discovery save fails. The refresh
+ * previously applied the UNSAVED discovery to the itinerary and let
+ * the caller report success (ok:true with discoveryId: null) — the
+ * trip looked refreshed while nothing persisted and it stayed
+ * unlinked. Now the failure is plain: the market-search route
+ * answers 502 PRICE_DISCOVERY_SAVE_FAILED (the selection routes'
+ * shape) and the hotel-action route already converts a refresh
+ * throw into its own 502. Nothing is applied or synced from a
+ * discovery that was not saved.
+ */
+export class PriceDiscoverySaveError extends Error {
+  readonly code = "PRICE_DISCOVERY_SAVE_FAILED";
+  constructor(message: string) {
+    super(message);
+    this.name = "PriceDiscoverySaveError";
+  }
+}
+
 export async function findSelectedHotelForRevalidation(
   supabase: SupabaseClient,
   trip: RoamlyTripRecord,
@@ -263,6 +282,9 @@ export async function refreshTripMarketPricesForTrip(params: {
   const previousTransportSelection = await loadPreviousTransportSelection(params.supabase, params.trip);
   const discovery = carryForwardTransportSelection(stayCarriedDiscovery, previousTransportSelection);
   const savedDiscovery = await savePriceDiscovery(params.supabase, { userId: params.userId, tripId: params.tripId, ...payload }, discovery);
+  if (savedDiscovery.error || !savedDiscovery.id) {
+    throw new PriceDiscoverySaveError(savedDiscovery.error || "Price discovery save returned no id.");
+  }
   const full = params.itinerary?.full_json || null;
   const updatedItinerary = full ? enrichItineraryBookingSuggestions(applyPriceDiscoveryToItinerary(full, discovery), { ...payload, priceDiscoveryId: savedDiscovery.id || payload.priceDiscoveryId || null, budgetConstraint: buildBudgetConstraintForItinerary(discovery), priceDiscovery: discovery as unknown as Record<string, unknown>, confirmedBookings: confirmedBookings.bookings }, confirmedBookings.bookings) : null;
   if (updatedItinerary) await syncGeneratedItinerary(params.supabase, { tripId: params.tripId, userId: params.userId, itinerary: updatedItinerary, status: "locked" });

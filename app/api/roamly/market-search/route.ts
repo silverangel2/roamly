@@ -4,7 +4,7 @@ import { getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
 import {
   searchTravelMarket
 } from "@/lib/roamly/travelMarketSearch";
-import { findSelectedHotelForRevalidation, refreshTripMarketPricesForTrip } from "@/lib/roamly/marketPriceRefresh";
+import { findSelectedHotelForRevalidation, PriceDiscoverySaveError, refreshTripMarketPricesForTrip } from "@/lib/roamly/marketPriceRefresh";
 import { getTripBundle, isMissingTableError } from "@/lib/trips";
 import { parseMarketSearchRequest } from "@/lib/roamly/marketSearchRequest";
 import { consumeMarketSearchQuota } from "@/lib/roamly/marketSearchQuota";
@@ -123,7 +123,18 @@ export async function POST(request: NextRequest) {
   const { trip, itinerary } = bundle.data;
   const confirmedBookingRows = await getConfirmedBookingsForItinerary(auth.supabase, auth.user.id, tripId);
   const selectedHotelForRevalidation = await findSelectedHotelForRevalidation(auth.supabase, trip, itinerary, confirmedBookingRows.bookings);
-  const refreshed = await refreshTripMarketPricesForTrip({ supabase: auth.supabase, userId: auth.user.id, tripId, trip, itinerary, forceRefresh, selectedHotelForRevalidation });
+  let refreshed: Awaited<ReturnType<typeof refreshTripMarketPricesForTrip>>;
+  try {
+    refreshed = await refreshTripMarketPricesForTrip({ supabase: auth.supabase, userId: auth.user.id, tripId, trip, itinerary, forceRefresh, selectedHotelForRevalidation });
+  } catch (error) {
+    if (error instanceof PriceDiscoverySaveError) {
+      // The refresh computed fresh prices but could not save the
+      // discovery — say so plainly (the selection routes' 502
+      // shape) instead of ok:true with a null discoveryId.
+      return NextResponse.json({ ok: false, error: "PRICE_DISCOVERY_SAVE_FAILED" }, { status: 502 });
+    }
+    throw error;
+  }
 
   return NextResponse.json({
     ok: true,

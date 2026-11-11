@@ -66,7 +66,8 @@ import {
 } from "@/lib/roamly/stagedItineraryGeneration";
 import { getGenerationEmailStatus, finalizeStagedGenerationNotification } from "@/lib/roamly/itineraryGenerationEmail";
 import { localizeGeneratedExactText } from "@/lib/roamly/generationLanguage";
-import { getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
+import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
+import { prepareGenerationDiscovery, type PriceDiscoverySaveFailure } from "@/lib/roamly/generationDiscovery";
 import { getTravelerMemory } from "@/lib/roamly/travelerMemory";
 import { buildTravelerPersonalizationContext, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
 import { syncGeneratedItinerary } from "@/lib/trips";
@@ -1373,10 +1374,20 @@ export function enginePayloadFromState(state: StagedGenerationState): TripPlanne
 }
 
 /* ------------------------------------------------------------------ */
-/* Context prep — the engine's light equivalent of the incumbent's   */
-/* prepare step: confirmed bookings + traveler personalization ONLY. */
-/* No market search, no price discovery: the engine grounds in the   */
-/* pack, and the cost law prefers not buying data it will not use.   */
+/* Context prep — the engine's equivalent of the incumbent's        */
+/* prepare step: confirmed bookings + traveler personalization,     */
+/* PLUS the shared price-discovery segment                          */
+/* (lib/roamly/generationDiscovery.ts). The segment joined this     */
+/* prep 2026-11-11 (discovery-persistence fix): without it an       */
+/* engine trip never saved its discovery, so transport/stay         */
+/* selection, selected-hotel actions and the budget-change preview  */
+/* had nothing to read on every trip generated since the            */
+/* 2026-10-22 engine cutover. The price is one market search per    */
+/* generation — measured and named in the fix report — paid so the  */
+/* stored record every downstream consumer reads actually exists.   */
+/* The engine still grounds its itinerary in the pack; the          */
+/* discovery is the budget/selection record beside it, exactly as   */
+/* on the incumbent path.                                           */
 /* ------------------------------------------------------------------ */
 
 export async function prepareEngineGenerationContext(params: {
@@ -1387,14 +1398,35 @@ export async function prepareEngineGenerationContext(params: {
 }): Promise<{
   personalization: TravelerPersonalizationContext;
   confirmedBookings: TripPlannerPayload["confirmedBookings"];
+  priceDiscovery: Record<string, unknown> | null;
+  priceDiscoveryId: string | null;
+  budgetConstraint: string | null;
+  priceDiscoverySaveFailure: PriceDiscoverySaveFailure | null;
 }> {
-  const [confirmedBookings, travelerMemory] = await Promise.all([
+  const [committed, confirmedBookings, travelerMemory] = await Promise.all([
+    getConfirmedBookingCostCents(params.supabase, params.userId, params.tripId, params.payload.budgetCurrency),
     getConfirmedBookingsForItinerary(params.supabase, params.userId, params.tripId),
     getTravelerMemory(params.supabase, params.userId)
   ]);
   const personalization = buildTravelerPersonalizationContext(travelerMemory.profile);
   personalization.aggregateGuidance = [];
-  return { personalization, confirmedBookings: confirmedBookings.bookings };
+  const segment = await prepareGenerationDiscovery({
+    supabase: params.supabase,
+    userId: params.userId,
+    tripId: params.tripId,
+    payload: params.payload,
+    committedBookingCost: committed,
+    confirmedBookings: confirmedBookings.bookings,
+    personalization
+  });
+  return {
+    personalization,
+    confirmedBookings: confirmedBookings.bookings,
+    priceDiscovery: segment.priceDiscovery,
+    priceDiscoveryId: segment.priceDiscoveryId,
+    budgetConstraint: segment.budgetConstraint,
+    priceDiscoverySaveFailure: segment.saveFailure
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1405,6 +1437,15 @@ export async function prepareEngineGenerationContext(params: {
 export interface EngineGenerationContext {
   personalization: TravelerPersonalizationContext;
   confirmedBookings?: TripPlannerPayload["confirmedBookings"];
+  /** The shared discovery segment's output, threaded into the
+   *  initial state by buildEngineInitialState. Optional: contexts
+   *  built without the segment (older callers, checks) keep the
+   *  pre-fix state shape exactly — null discovery fields, payload
+   *  budget constraint. */
+  priceDiscovery?: Record<string, unknown> | null;
+  priceDiscoveryId?: string | null;
+  budgetConstraint?: string | null;
+  priceDiscoverySaveFailure?: PriceDiscoverySaveFailure | null;
 }
 
 export function buildEngineInitialState(params: {
@@ -1432,9 +1473,18 @@ export function buildEngineInitialState(params: {
     generatedDays: {},
     payload,
     personalization: params.context.personalization,
-    priceDiscovery: null,
-    priceDiscoveryId: null,
-    budgetConstraint: params.payload.budgetConstraint || null,
+    priceDiscovery: params.context.priceDiscovery ?? null,
+    priceDiscoveryId: params.context.priceDiscoveryId ?? null,
+    ...(params.context.priceDiscoverySaveFailure
+      ? {
+          priceDiscoverySaveError: {
+            tripId: params.context.priceDiscoverySaveFailure.tripId,
+            message: params.context.priceDiscoverySaveFailure.message,
+            at: nowIso()
+          }
+        }
+      : {}),
+    budgetConstraint: params.context.budgetConstraint || params.payload.budgetConstraint || null,
     confirmedBookings: params.context.confirmedBookings || [],
     unlockSource: params.unlockSource,
     qaTester: params.qaTester === true,

@@ -280,9 +280,14 @@ check("wiring: market refresh carries the transport pick forward", () => {
   assert.ok(refreshSource.includes("carryForwardTransportSelection(stayCarriedDiscovery, previousTransportSelection)"));
 });
 const stagedSource = readFileSync(new URL("../lib/roamly/stagedItineraryGeneration.ts", import.meta.url), "utf8");
+const generationDiscoverySource = readFileSync(new URL("../lib/roamly/generationDiscovery.ts", import.meta.url), "utf8");
 check("wiring: staged-generation context carries the transport pick forward", () => {
-  assert.ok(stagedSource.includes("loadStoredTransportSelection"));
-  assert.ok(stagedSource.includes("carryForwardTransportSelection(generationDiscovery, storedTransport)"));
+  // The segment moved verbatim into the shared helper
+  // (discovery-persistence fix, 2026-11-11): the carry-forward is
+  // pinned there, the staged prep's delegation is pinned here.
+  assert.ok(generationDiscoverySource.includes("loadStoredTransportSelection"));
+  assert.ok(generationDiscoverySource.includes("carryForwardTransportSelection(generationDiscovery, storedTransport)"));
+  assert.ok(stagedSource.includes("prepareGenerationDiscovery"));
 });
 
 console.log(`\ntransport-selection-save: ${passed}/${passed + failed} checks passed.`);

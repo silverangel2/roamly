@@ -333,6 +333,7 @@ const selector = readFileSync(new URL("../components/trip/StaySelector.tsx", imp
 const page = readFileSync(new URL("../app/trip/[id]/page.tsx", import.meta.url), "utf8");
 const refresh = readFileSync(new URL("../lib/roamly/marketPriceRefresh.ts", import.meta.url), "utf8");
 const staged = readFileSync(new URL("../lib/roamly/stagedItineraryGeneration.ts", import.meta.url), "utf8");
+const generationDiscovery = readFileSync(new URL("../lib/roamly/generationDiscovery.ts", import.meta.url), "utf8");
 const discoverySource = readFileSync(new URL("../lib/roamly/priceDiscovery.ts", import.meta.url), "utf8");
 
 check("STATIC route: the surface's save pattern, auth-first, confirmed-stay guard", () => {
@@ -356,8 +357,12 @@ check("STATIC page: the stored pick is handed to the selector", () => {
 check("STATIC honouring: refresh and generation both carry the pick forward", () => {
   assert.ok(refresh.includes("carryForwardStaySelection"), "refresh drops the pick");
   assert.ok(refresh.includes("loadPreviousStaySelection"), "refresh never loads the pick");
-  assert.ok(staged.includes("carryForwardStaySelection"), "generation drops the pick");
-  assert.ok(staged.includes("loadStoredStaySelection"), "generation never loads the pick");
+  // The generation-side segment moved verbatim into the shared
+  // helper (discovery-persistence fix, 2026-11-11): the honouring
+  // mechanics are pinned there, the delegation is pinned on staged.
+  assert.ok(generationDiscovery.includes("carryForwardStaySelection"), "generation drops the pick");
+  assert.ok(generationDiscovery.includes("loadStoredStaySelection"), "generation never loads the pick");
+  assert.ok(staged.includes("prepareGenerationDiscovery"), "generation no longer runs the shared discovery segment");
   assert.ok(discoverySource.includes("export function discoveryFromDatabaseRow"), "rehydrator missing");
 });
 
