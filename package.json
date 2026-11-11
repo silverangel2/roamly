@@ -167,6 +167,7 @@
     "test:hotel-selector": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-hotel-selector-checks.mjs",
     "test:stay-pick-persistence": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-stay-pick-persistence-checks.mjs",
     "test:transport-selection-save": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-transport-selection-save-checks.mjs",
+    "test:discovery-persistence": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-discovery-persistence-checks.mjs",
     "test:colosseum-tight-run": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-colosseum-tight-run-checks.mjs",
     "test:gazetteer-eviction": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-gazetteer-eviction-checks.mjs",
     "test:bui-token-drift": "node scripts/roamly-bui-token-drift-checks.mjs",

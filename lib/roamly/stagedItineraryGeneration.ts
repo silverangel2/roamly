@@ -15,28 +15,18 @@ import { enrichItineraryBookingSuggestions } from "@/lib/roamly/affiliateLinks";
 import { markFreeItineraryUsed, lockGeneratedItinerary } from "@/lib/roamly/billing";
 import { recordTripEvent } from "@/lib/roamly/events";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
-import {
-  buildBudgetConstraintForItinerary,
-  carryForwardTransportSelection,
-  discoverTripPrices,
-  savePriceDiscovery,
-  transportSelectionFromRow,
-  type TransportSelection
-} from "@/lib/roamly/priceDiscovery";
-import { carryForwardStaySelection, type StayOption, type StaySelection } from "@/lib/roamly/stayOptions";
 import { getConfirmedBookingCostCents, getConfirmedBookingsForItinerary } from "@/lib/roamly/bookings";
-import { searchTripMarketPrices, type TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
-import { buildGroundedDecisionCore, candidateDecisionForAi, optimizeGroundedDecision } from "@/lib/roamly/candidateDecisionCore";
+import type { TravelMarketResult } from "@/lib/roamly/travelMarketSearch";
+import { candidateDecisionForAi } from "@/lib/roamly/candidateDecisionCore";
 import { isGenericPlaceName, itineraryMarketResults } from "@/lib/roamly/itineraryIntelligence";
 import {
-  augmentMarketResultsWithPackFallback,
   demoteToDiscoverySuggestion,
   isPlaceholderTitle,
   isSearchQueryTitle,
   isTimelineAdmissibleCandidate,
-  marketResultCoordinates,
-  packFallbackMarketResults
+  marketResultCoordinates
 } from "@/lib/roamly/timelineGrounding";
+import { prepareGenerationDiscovery } from "@/lib/roamly/generationDiscovery";
 import { klookActivityActionState } from "@/lib/roamly/affiliateLinks";
 import { rankActivityCandidates } from "@/lib/roamly/activityFeasibility";
 import {
@@ -194,6 +184,17 @@ export type StagedGenerationState = {
     destinationId: string;
     since: string;
     waits: number;
+  } | null;
+  /** Discovery-persistence fix (2026-11-11): present ONLY when the
+   *  context prep's price-discovery save failed. Generation
+   *  proceeded without a stored discovery; this record (trip id +
+   *  the save's error message + when) is the visible trace, so the
+   *  failure can never pass as a silent null discovery. Absent on
+   *  every state whose save succeeded. */
+  priceDiscoverySaveError?: {
+    tripId: string;
+    message: string;
+    at: string;
   } | null;
   completedAt?: string | null;
   worker?: {
@@ -1853,137 +1854,6 @@ function releaseLease(state: StagedGenerationState) {
   };
 }
 
-/**
- * KF-1 named-pool fallback (2026-11-03): when the market pool names no
- * place for a category, add the destination pack's named inventory
- * (stays / sights / foods already collected for the zero-engine) to
- * the discovery pool as candidates, so the staged path can ground a
- * thin destination in real named places instead of collapsing to
- * search-query fallbacks. READ-ONLY against the pack store (a missing
- * or unbuilt pack simply means no fallback) and fail-soft: any error
- * returns the discovery unchanged. This runs once per generation at
- * context preparation — no extra model calls, no extra egress beyond
- * the pack rows themselves.
- */
-async function augmentDiscoveryWithPackFallback<T extends { marketResults?: TravelMarketResult[] }>(
-  payload: TripPlannerPayload,
-  discovery: T
-): Promise<T> {
-  try {
-    const admin = createSupabaseAdminClient();
-    if (!admin) return discovery;
-    const [{ SupabasePackStore }, { assembleEnginePack }] = await Promise.all([
-      import("@/lib/roamly/engine/packs/supabaseStore"),
-      import("@/lib/roamly/engine/packs/builder")
-    ]);
-    const store = new SupabasePackStore(admin);
-    const targetName = normalizedTextKey(payload.destination || payload.destinationCity || "");
-    if (!targetName) return discovery;
-    const destinations = await store.listDestinations();
-    const destination =
-      destinations.find(
-        (entry) =>
-          normalizedTextKey(entry.displayName) === targetName &&
-          (!payload.destinationCountry ||
-            !entry.country ||
-            normalizedTextKey(entry.country) === normalizedTextKey(payload.destinationCountry))
-      ) || destinations.find((entry) => normalizedTextKey(entry.displayName) === targetName);
-    if (!destination) return discovery;
-    const ready = await store.getReadyVersion(destination.destinationId);
-    if (!ready) return discovery;
-    const candidates = await store.getVersionCandidates(ready.dto.packVersionId);
-    if (!candidates.length) return discovery;
-    const pack = assembleEnginePack(destination, ready, candidates, []);
-    const packResults = packFallbackMarketResults(pack, {
-      destination: payload.destination || payload.destinationCity || destination.displayName,
-      country: payload.destinationCountry || destination.country,
-      currency: payload.budgetCurrency,
-      startDate: payload.startDate
-    });
-    const existing = discovery.marketResults || [];
-    const marketResults = augmentMarketResultsWithPackFallback(
-      existing,
-      packResults,
-      payload.destination || payload.destinationCity
-    );
-    if (marketResults.length === existing.length) return discovery;
-    return { ...discovery, marketResults };
-  } catch {
-    return discovery;
-  }
-}
-
-/**
- * The trip's stored stay pick (selection + the option set it was
- * made from), read from its latest discovery row. A re-generation
- * re-derives every estimate from scratch; the traveller's confirmed
- * stay is not an estimate, so generation carries it forward
- * (carryForwardStaySelection) instead of silently replacing it with
- * a fresh hotel estimate. Null for a trip with no stored pick (or
- * no stored option set to re-apply it from).
- */
-async function loadStoredStaySelection(
-  supabase: SupabaseClient,
-  userId: string,
-  tripId: string
-): Promise<{ selection: StaySelection; options: StayOption[] } | null> {
-  const tripResult = await supabase
-    .from("roamly_trips")
-    .select("latest_price_discovery_id")
-    .eq("id", tripId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const discoveryId = getString(tripResult.data?.latest_price_discovery_id, "");
-  if (!discoveryId) return null;
-  const rowResult = await supabase
-    .from("roamly_price_discoveries")
-    .select("metadata")
-    .eq("id", discoveryId)
-    .eq("trip_id", tripId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const metadata = getRecord(rowResult.data?.metadata);
-  const rawSelection = getRecord(metadata?.staySelection);
-  const candidateId = getString(rawSelection?.candidateId, "");
-  if (!candidateId) return null;
-  const options = Array.isArray(metadata?.stayOptions) ? (metadata.stayOptions as StayOption[]) : [];
-  if (!options.length) return null;
-  return {
-    selection: { candidateId, title: getString(rawSelection?.title, ""), selectedBy: "traveler" },
-    options
-  };
-}
-
-/**
- * The trip's stored transport pick from its latest discovery row
- * (Stage 7, 2026-11-11 — the transport twin of
- * loadStoredStaySelection). A re-generation carries it forward
- * (carryForwardTransportSelection) instead of silently replacing
- * it with the logic map's fresh recommendation.
- */
-async function loadStoredTransportSelection(
-  supabase: SupabaseClient,
-  userId: string,
-  tripId: string
-): Promise<TransportSelection | null> {
-  const tripResult = await supabase
-    .from("roamly_trips")
-    .select("latest_price_discovery_id")
-    .eq("id", tripId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const discoveryId = getString(tripResult.data?.latest_price_discovery_id, "");
-  if (!discoveryId) return null;
-  const rowResult = await supabase
-    .from("roamly_price_discoveries")
-    .select("*")
-    .eq("id", discoveryId)
-    .eq("trip_id", tripId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  return transportSelectionFromRow((rowResult.data as Record<string, unknown> | null) ?? null);
-}
-
 export async function prepareStagedGenerationContext(params: {
   supabase: SupabaseClient;
   userId: string;
@@ -2003,62 +1873,27 @@ export async function prepareStagedGenerationContext(params: {
   ]);
   const personalization = buildTravelerPersonalizationContext(travelerMemory.profile);
   personalization.aggregateGuidance = aggregateGuidance;
-  const marketSearch = await searchTripMarketPrices(params.payload, {
+  // The discovery segment itself (market search -> discovery ->
+  // grounded decision -> pack augmentation -> pick carry-forwards
+  // -> save + link) is shared with the zero-engine prep via
+  // lib/roamly/generationDiscovery.ts — one implementation, so the
+  // two generation paths can never drift apart on whether a trip
+  // gets its price discovery. This prep only adds what is its own:
+  // the committed-cost load above and the aggregate guidance.
+  const segment = await prepareGenerationDiscovery({
     supabase: params.supabase,
-    store: true
-  });
-  const discovery = await discoverTripPrices({
     userId: params.userId,
     tripId: params.tripId,
-    ...params.payload,
+    payload: params.payload,
     committedBookingCost: committed,
     confirmedBookings: confirmedBookings.bookings,
-    marketResults: marketSearch.results
+    personalization
   });
-  const groundedDecision = optimizeGroundedDecision({
-    decision: buildGroundedDecisionCore({
-      payload: params.payload,
-      marketResults: marketSearch.results,
-      confirmedBookings: confirmedBookings.bookings,
-      personalization
-    }),
-    payload: params.payload,
-    confirmedBookings: confirmedBookings.bookings,
-    allowances: [
-      { category: "food", description: "Food allowance", amount: discovery.foodEstimateCents / 100, source: "Roamly planning estimate", status: "estimated" },
-      { category: "local_transport", description: "Local transport allowance", amount: discovery.localTransportEstimateCents / 100, source: "Roamly planning estimate", status: "estimated" },
-      { category: "buffer", description: "Trip safety buffer", amount: discovery.bufferEstimateCents / 100, source: "Roamly planning estimate", status: "estimated" }
-    ]
-  });
-  const groundedDiscovery = { ...discovery, groundedDecision };
-  const packAugmentedDiscovery = await augmentDiscoveryWithPackFallback(params.payload, groundedDiscovery);
-  // Stay-pick honouring: a stored traveller pick survives into the
-  // generation's discovery (stamp + re-tabulated stay line), so the
-  // built itinerary's hotel line is the picked stay's cost — the
-  // same way the transport stamp flows through its applied totals.
-  const storedStay = await loadStoredStaySelection(params.supabase, params.userId, params.tripId);
-  const generationDiscovery = storedStay
-    ? carryForwardStaySelection(packAugmentedDiscovery, storedStay.selection, storedStay.options)
-    : packAugmentedDiscovery;
-  // Transport-pick honouring (Stage 7, 2026-11-11): the stored
-  // transport pick is carried into the generation's discovery the
-  // same way — stamp + re-tabulated transport line — so a
-  // re-generation builds against the traveller's chosen mode
-  // (effectiveTransportMode reads the stamp before the preference
-  // string) instead of silently reverting to the recommendation.
-  const storedTransport = await loadStoredTransportSelection(params.supabase, params.userId, params.tripId);
-  const carriedDiscovery = carryForwardTransportSelection(generationDiscovery, storedTransport);
-  const savedDiscovery = await savePriceDiscovery(
-    params.supabase,
-    { userId: params.userId, tripId: params.tripId, ...params.payload },
-    carriedDiscovery
-  );
   return {
-    priceDiscovery: carriedDiscovery as unknown as Record<string, unknown>,
-    priceDiscoveryId: savedDiscovery.id || params.payload.priceDiscoveryId || null,
-    budgetConstraint: buildBudgetConstraintForItinerary(
-      carriedDiscovery !== packAugmentedDiscovery ? carriedDiscovery : discovery
-    ),
+    priceDiscovery: segment.priceDiscovery,
+    priceDiscoveryId: segment.priceDiscoveryId,
+    budgetConstraint: segment.budgetConstraint,
+    priceDiscoverySaveFailure: segment.saveFailure,
     confirmedBookings: confirmedBookings.bookings,
     personalization
   };
@@ -2098,6 +1933,15 @@ export async function startStagedItineraryGeneration(params: {
     personalization: params.context.personalization,
     priceDiscovery: params.context.priceDiscovery,
     priceDiscoveryId: params.context.priceDiscoveryId,
+    ...(params.context.priceDiscoverySaveFailure
+      ? {
+          priceDiscoverySaveError: {
+            tripId: params.context.priceDiscoverySaveFailure.tripId,
+            message: params.context.priceDiscoverySaveFailure.message,
+            at: nowIso()
+          }
+        }
+      : {}),
     budgetConstraint: params.context.budgetConstraint,
     confirmedBookings: params.context.confirmedBookings,
     unlockSource: params.unlockSource,
