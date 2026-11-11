@@ -259,7 +259,12 @@ assert.doesNotMatch(runAction, /item\.title === updatedTitle/);
 assert.match(client, /mergeLiveActivityStatuses\(activities, locallySkippedActivityIdsRef\.current\)/);
 assert.match(client, /readPersistedSkippedActivityIds\(tripId\)/);
 assert.match(client, /persistSkippedActivityIds\(tripId, locallySkippedActivityIdsRef\.current\)/);
-assert.match(runAction, /setNotice\(updatedTitle \? `\$\{confirmation\} \$\{updatedTitle\}` : confirmation\)/);
+// Behaviour, not shape (Stage 4 re-pin, 2026-11-10): the notice call
+// gained an offline-queue guard (!queuedOffline &&) — when the update
+// is only queued offline, the notice must NOT claim the new title yet.
+// The invariant stands: when a title update lands, the notice names it
+// ("<confirmation> <title>"); otherwise it shows the plain confirmation.
+assert.match(runAction, /setNotice\([\s\S]{0,60}?updatedTitle \? `\$\{confirmation\} \$\{updatedTitle\}` : confirmation\)/);
 assert.match(client, /onClick=\{\(\) => void runAction\(currentActivity\.id, "complete"\)\}/);
 assert.match(client, /onClick=\{\(\) => void runAction\(currentActivity\.id, "skip"\)\}/);
 

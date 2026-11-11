@@ -20,8 +20,8 @@
  * re-tabulation, the same optionAverage rule transport uses.
  */
 import type { RoamlyBookingSuggestion } from "@/lib/itinerary";
+import { calculateBudgetStatus } from "@/lib/roamly/budgetStatus";
 import {
-  calculateBudgetStatus,
   type BudgetCategoryConfidenceLabel,
   type TripPriceDiscovery
 } from "@/lib/roamly/priceDiscovery";

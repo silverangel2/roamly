@@ -12,6 +12,14 @@
  * Roamly value from the owner's adopted design tokens (2026-10-26) —
  * where BoardUI's palette and Roamly's conflict, Roamly wins. No black:
  * ink is deep navy-slate.
+ *
+ * G11 SINGLE SOURCE (2026-11-11, Stage 8): THIS FILE is the one
+ * canonical home for the brand token values. tailwind.config.ts
+ * imports these objects for its BoardUI keys, and the --bui-*
+ * variables in app/globals.css are derived from this file by
+ * scripts/generate-bui-css-vars.mjs (run it with --write after any
+ * edit here). test:bui-token-drift pins all three consumers to the
+ * same values.
  */
 
 export const buiPrimitives = {

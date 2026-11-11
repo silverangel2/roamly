@@ -198,8 +198,8 @@ ok(
 );
 const cronRoute = read("app/api/cron/roamly-itinerary-generation/route.ts");
 ok(
-  cronRoute.includes("return Boolean(token && secrets.includes(token));"),
-  "M5: the cron route authorized() behaviour is unchanged (secret-less calls still fail the check)"
+  cronRoute.includes("return cronTokenMatchesAnySecret(token, secrets);"),
+  "M5: the cron route authorized() behaviour is unchanged (secret-less calls still fail the check; Stage 5 swapped the plain-equality compare for the shared constant-time helper, same carrier and fail-closed posture)"
 );
 ok(
   cronRoute.includes('return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });'),

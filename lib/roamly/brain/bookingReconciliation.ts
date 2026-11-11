@@ -142,11 +142,16 @@ async function updatePrimaryFromDuplicates(params: {
   supabase: SupabaseClient;
   primary: ReconciliationBooking;
   duplicates: ReconciliationBooking[];
-}) {
+}): Promise<{ updated: boolean; error: string | null }> {
   const update = params.duplicates.reduce((acc, duplicate) => ({ ...acc, ...mergeMissingFields(params.primary, duplicate) }), {});
-  if (Object.keys(update).length === 0) return false;
-  await params.supabase.from("roamly_bookings").update({ ...update, last_synced_at: new Date().toISOString() }).eq("id", params.primary.id);
-  return true;
+  if (Object.keys(update).length === 0) return { updated: false, error: null };
+  // Stage 6 truth-path fix (2026-11-11): the write's error used to
+  // be discarded (the helper returned true unconditionally), so a
+  // failed merge was indistinguishable from a completed one. The
+  // caller now receives the failure and records it on the run.
+  const result = await params.supabase.from("roamly_bookings").update({ ...update, last_synced_at: new Date().toISOString() }).eq("id", params.primary.id);
+  if (result.error) return { updated: false, error: result.error.message };
+  return { updated: true, error: null };
 }
 
 export function reconcileBookingRecords(userId: string, bookings: ReconciliationBooking[]) {
@@ -208,10 +213,36 @@ export async function reconcileTripBookings(params: {
     recommendation_id: bookingReferralMetadata(booking.metadata).recommendationId
   })) as ReconciliationBooking[];
   const output = reconcileBookingRecords(params.userId, bookings);
+  // Stage 6 truth-path fix (2026-11-11): write failures inside this
+  // run are collected, logged with context, and recorded on the
+  // run row (output_json.writeFailures) instead of being swallowed
+  // to null — a run whose merge or itinerary-override write failed
+  // must not read as a clean run. Happy-path behaviour is unchanged.
+  const writeFailures: Array<{ step: string; bookingId: string; error: string }> = [];
   for (const group of output.duplicateGroups) {
     const primary = bookings.find((booking) => booking.id === group.primaryBookingId);
     const duplicates = bookings.filter((booking) => group.duplicateBookingIds.includes(booking.id));
-    if (primary) await updatePrimaryFromDuplicates({ supabase: writer, primary, duplicates }).catch(() => null);
+    if (primary) {
+      try {
+        const merge = await updatePrimaryFromDuplicates({ supabase: writer, primary, duplicates });
+        if (merge.error) {
+          writeFailures.push({ step: "update_primary_from_duplicates", bookingId: primary.id, error: merge.error });
+          console.error("[Roamly booking reconciliation] duplicate merge write failed", {
+            tripId: params.tripId,
+            bookingId: primary.id,
+            error: merge.error
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        writeFailures.push({ step: "update_primary_from_duplicates", bookingId: primary.id, error: message });
+        console.error("[Roamly booking reconciliation] duplicate merge write failed", {
+          tripId: params.tripId,
+          bookingId: primary.id,
+          error: message
+        });
+      }
+    }
   }
 
   if (params.sourceBookingId) {
@@ -224,12 +255,35 @@ export async function reconcileTripBookings(params: {
       .eq("user_id", params.userId)
       .maybeSingle();
     if (refreshedSource.data) {
-      await applyStoredItineraryBookingOverride({
-        supabase: writer,
-        userId: params.userId,
-        tripId: params.tripId,
-        booking: refreshedSource.data
-      }).catch(() => null);
+      try {
+        const override = await applyStoredItineraryBookingOverride({
+          supabase: writer,
+          userId: params.userId,
+          tripId: params.tripId,
+          booking: refreshedSource.data
+        });
+        // The override returns { ok: false, error } for real write
+        // failures (and { ok: true, changed: false } for legitimate
+        // no-ops). Both the returned failure and a throw used to
+        // vanish here; the stored itinerary then kept stale booking
+        // facts while the run read as completed.
+        if (!override.ok) {
+          writeFailures.push({ step: "apply_stored_itinerary_booking_override", bookingId: reconciledBookingId, error: override.error });
+          console.error("[Roamly booking reconciliation] itinerary override write failed", {
+            tripId: params.tripId,
+            bookingId: reconciledBookingId,
+            error: override.error
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        writeFailures.push({ step: "apply_stored_itinerary_booking_override", bookingId: reconciledBookingId, error: message });
+        console.error("[Roamly booking reconciliation] itinerary override write failed", {
+          tripId: params.tripId,
+          bookingId: reconciledBookingId,
+          error: message
+        });
+      }
     }
   }
 
@@ -243,7 +297,7 @@ export async function reconcileTripBookings(params: {
       bookingCount: bookings.length,
       sourceBookingId: params.sourceBookingId || null
     },
-    output_json: output,
+    output_json: { ...output, writeFailures },
     affected_layers: output.affectedLayers
   });
 
@@ -329,6 +383,7 @@ export async function reconcileTripBookings(params: {
   return {
     ok: true as const,
     output,
+    writeFailures,
     companionWorkflow
   };
 }
