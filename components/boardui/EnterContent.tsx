@@ -11,7 +11,8 @@
  * verified from the repo's LICENSE.md, 2026-11-08; Copyright (c)
  * 2026 David Haz; use as part of an application is expressly
  * permitted, the components themselves are never sold or
- * redistributed). The API shape (distance / opacity / stagger
+ * redistributed; full text vendored at
+ * components/boardui/REACT-BITS-LICENSE.md). The API shape (distance / opacity / stagger
  * delay / mount trigger) is AnimatedContent's; the implementation
  * is Roamly's own, on components/boardui/spring.ts — upstream's
  * GSAP dependency is deliberately NOT adopted: this tree carries

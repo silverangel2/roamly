@@ -20,10 +20,19 @@ await runMoneyChecks(
       "high",
       "A traveler count that can go to zero produces nonsense itineraries and lost trials.",
       () => {
-        assert.match(form, /<StepperField label="Adults" value=\{adults\} min=\{1\}/, "the Adults control must exist as a stepper with a floor of 1"); // RE-PIN (Jakob A11, 2026-11-03): was ariaLabel="Adults" on a type="number" input — travellers/rooms are steppers now. The AT guarantees are asserted on the stepper itself, next lines.
-        assert.match(form, /aria-label=\{label\}/, "the stepper count must be labeled for assistive tech");
-        assert.match(form, /aria-label=\{`Decrease \$\{label\.toLowerCase\(\)\}`\}/, "the stepper decrease button must be labeled for assistive tech");
-        assert.match(form, /disabled=\{count <= min\}/, "the stepper must not allow values below its floor (minus disabled at min)");
+        // RE-PIN (Stage 4, 2026-11-10): the Who step's counts moved from
+        // StepperField to the BoardUI Stepper component (same form file);
+        // StepperField survives only as its own unused definition. The
+        // guarded behaviour is unchanged: Adults has a floor of 1, the
+        // floor is enforced twice (the minus button disables at the
+        // floor AND stepBy clamps), and assistive tech gets named
+        // Fewer/More buttons plus a live-announced count.
+        assert.match(form, /<Stepper label="Adults" value=\{adults\}[\s\S]{0,160}?min=\{1\}/, "the Adults control must exist as a stepper with a floor of 1");
+        assert.match(form, /disabled=\{current <= min\}/, "the stepper must not allow values below its floor (minus disabled at min)");
+        assert.match(form, /Math\.max\(min, current \+ delta\)/, "the stepper must clamp at its floor even when stepped programmatically");
+        assert.match(form, /aria-label=\{`\$\{translateText\("Fewer"\)\} \$\{translateText\(label\)\}`\}/, "the stepper decrease button must be labeled for assistive tech");
+        assert.match(form, /aria-label=\{`\$\{translateText\("More"\)\} \$\{translateText\(label\)\}`\}/, "the stepper increase button must be labeled for assistive tech");
+        assert.match(form, /<span aria-live="polite"/, "the stepper count must be announced to assistive tech");
       }
     ),
     defineMoneyFinding(

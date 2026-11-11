@@ -2,13 +2,16 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { syncGmailConnection } from "@/lib/roamly/emailConnections";
 import { operationalOpaqueId, recordOperationalEvent } from "@/lib/roamly/operationalIncidents";
+import { secretValuesEqual } from "@/lib/roamly/secretCompare";
 
 export const runtime = "nodejs";
 
 function authorized(request: NextRequest) {
   const secret = process.env.ROAMLY_GMAIL_WEBHOOK_SECRET?.trim();
   if (!secret) return false;
-  return request.headers.get("x-roamly-gmail-webhook-secret") === secret;
+  // Constant-time compare via the shared helper (Stage 5, 2026-11-11);
+  // same header carrier and fail-closed posture as before.
+  return secretValuesEqual(request.headers.get("x-roamly-gmail-webhook-secret") || "", secret);
 }
 
 function decodedMessage(data?: string | null) {

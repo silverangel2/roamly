@@ -3,6 +3,7 @@ import { LiveCompanionQaConsole } from "@/components/admin/LiveCompanionQaConsol
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { getRoamlyAdminPageState } from "@/lib/roamly/adminGuard";
+import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 export default async function AdminLiveCompanionTestPage() {
   const state = await getRoamlyAdminPageState();
@@ -51,6 +52,7 @@ export default async function AdminLiveCompanionTestPage() {
         <section className="mt-6">
           <LiveCompanionQaConsole
             trips={trips || []}
+            destinationLabels={Object.fromEntries((trips || []).map((trip) => [trip.id, getTripDestinationLabel(trip)]))}
             activities={(activities || []).map((activity, index) => ({
               ...activity,
               latitude: null,
