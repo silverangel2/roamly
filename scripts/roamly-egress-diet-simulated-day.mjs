@@ -171,6 +171,11 @@ const lifecycle = compileTs("lib/roamly/liveCompanionLifecycle.ts", {
     sendCompanionNotificationDelivery: async () => ({ ok: true })
   },
   "@/lib/roamly/locationLifecycle": { clearLastLocationIfNoOperationalTrip: async () => {} },
+  // During-trip scheduling (2026-11-11): the lifecycle now reconciles
+  // scheduled companion events in-window; stubbed to a no-op here so
+  // this suite keeps counting only the lifecycle's own queries (the
+  // real reconcile is pinned by test:live-companion-during-trip).
+  "@/lib/roamly/tripCompanion": { scheduleCompanionEvents: async () => ({ ok: true, count: 0 }) },
   ...(workGate ? { "@/lib/roamly/workGate": workGate } : {})
 });
 
