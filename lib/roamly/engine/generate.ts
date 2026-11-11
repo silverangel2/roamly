@@ -39,6 +39,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildStarterItinerary,
+  stageBoundaryDayErrors,
   validateItineraryForProduction,
   type RoamlyActivitySeed,
   type RoamlyDayPlan,
@@ -83,7 +84,13 @@ import { extractConstraints, mustSeeRequirement, namedMustSeeMiss, type Extracte
 import { applyMustDoVerdicts, evaluateMustDoVerdicts } from "@/lib/roamly/mustDoReconciliation";
 import { fmt, isoPlus, parseHhmm, type EngineDay, type EngineItem, type EnginePack } from "@/lib/roamly/engine/util";
 import { predictionId } from "@/lib/roamly/engine/ids";
-import { assemblePinnedEnginePack, readServingPack, type PackCollector } from "@/lib/roamly/engine/packs/builder";
+import {
+  assemblePinnedEnginePackParts,
+  refreshAssembledPackByKeys,
+  readServingPack,
+  type AssembledPinnedPack,
+  type PackCollector
+} from "@/lib/roamly/engine/packs/builder";
 import { drivePackBuild } from "@/lib/roamly/engine/packs/kick";
 import { destinationRegistryId } from "@/lib/roamly/engine/packs/destinations";
 import { PackStoreError } from "@/lib/roamly/engine/packs/types";
@@ -1527,14 +1534,14 @@ async function assemblePinnedPackForTrip(
   tripId: string,
   payload: TripPlannerPayload,
   run: ZeroEngineRunRecord
-): Promise<{ pack: EnginePack; versionId: string } | null> {
+): Promise<{ pack: EnginePack; versionId: string; parts: AssembledPinnedPack } | null> {
   let weather: WeatherSnapshotRecord | null = null;
   if (run.destinationId && payload.startDate && payload.endDate) {
     weather = await deps.packStore.getWeatherSnapshot(run.destinationId, "forecast", payload.startDate, payload.endDate);
   }
-  const assembled = await assemblePinnedEnginePack(deps.packStore, tripId, weather);
+  const assembled = await assemblePinnedEnginePackParts(deps.packStore, tripId, weather);
   if (!assembled) return null;
-  return { pack: assembled.pack, versionId: assembled.version.dto.packVersionId };
+  return { pack: assembled.pack, versionId: assembled.version.dto.packVersionId, parts: assembled };
 }
 
 function normalizedPlaceName(value: string) {
@@ -1900,8 +1907,21 @@ async function runDayBatchStage(params: {
         calls: report.callsThisRun.textSearch + report.callsThisRun.placeDetails
       }
     };
-    const refreshed = await assemblePinnedPackForTrip(deps, state.tripId, state.payload, run);
-    if (refreshed) pack = refreshed.pack;
+    // Stage 7 by-keys refresh (2026-11-11): the enrichment above
+    // touched exactly the finalist keys, so re-read ONLY those
+    // rows and merge them into the candidate set this wake already
+    // holds — instead of a full re-assemble, whose cold cost is
+    // one whole projection serve (~7.7 MB on a Rome-sized pack)
+    // to move a handful of enriched rows. Any doubt (store has no
+    // by-keys read, nothing returned) falls back to the full
+    // re-assemble, exactly the pre-Stage-7 behaviour.
+    const refreshedByKeys = await refreshAssembledPackByKeys(deps.packStore, assembled.parts, [...finalists]);
+    if (refreshedByKeys) {
+      pack = refreshedByKeys.pack;
+    } else {
+      const refreshed = await assemblePinnedPackForTrip(deps, state.tripId, state.payload, run);
+      if (refreshed) pack = refreshed.pack;
+    }
   }
 
   // GATE-1 FIX (2026-10-25): seed this batch's plan with the meals
@@ -1967,6 +1987,29 @@ async function runDayBatchStage(params: {
     const day = batchDays.find((d) => d.day_number === dayNumber);
     if (!day) batchErrors.push(`Batch missing Day ${dayNumber}.`);
     else if (!day.live_timeline.length) batchErrors.push(`Day ${dayNumber} has no timeline items.`);
+  }
+  // Stage 7 / KF-1 fail-early (2026-11-11): the converted days are
+  // validated against the production readiness rules HERE, at the
+  // batch boundary — the solver prevents most violations by
+  // construction, but the conversion layer (scaffolding legs,
+  // check-in/out, meal/rest synthesis) is code and can produce a
+  // validator-failing day. Before this check such a day was only
+  // discovered at finalization, after every remaining batch had run,
+  // and the engine's single-pass finalization made it terminal for
+  // the whole generation. Final validation remains the backstop.
+  if (!batchErrors.length) {
+    const priorDays = Object.values(state.generatedDays || {})
+      .filter((day) => !batch.dayNumbers.includes(day.day_number))
+      .sort((a, b) => a.day_number - b.day_number);
+    batchErrors.push(
+      ...stageBoundaryDayErrors({
+        priorDays,
+        newDays: batchDays,
+        payload,
+        totalDayCount: state.totalDayCount,
+        includeTravelStructureChecks: true
+      })
+    );
   }
   if (batchErrors.length) {
     throw new StagedGenerationError(batchErrors.slice(0, 4).join(" | "), "DAY_BATCH_VALIDATION_FAILED", 502, false, {

@@ -56,7 +56,9 @@ import { type TransportOption } from "@/lib/roamly/transportOptions";
 import { Bus, Car, Check, Plane, Route, TrainFront, type LucideIcon } from "lucide-react";
 import {
   applyTransportOptionSelection,
-  buildBudgetConstraintForItinerary,
+  buildBudgetConstraintForItinerary
+} from "@/lib/roamly/discoverySelection";
+import {
   type BudgetCategoryConfidence,
   type TripPriceDiscovery
 } from "@/lib/roamly/priceDiscovery";
