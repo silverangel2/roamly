@@ -18,9 +18,9 @@
 --        zero code callers; sweep probe X-2 flagged it as the only
 --        caller-executable definer without auth.uid() in the body.
 --   §3 — finding F-6 / census X-3: anon holds the full 7-privilege set
---        on 100 of the 120 live tables, while NO probed table has an
---        anon policy path (every policy is authenticated- or
---        service_role-scoped), so the grants are unreachable through
+--        on 100 of the 120 live tables, while RLS admits no anon rows
+--        on any of them (every applicable policy's qual is
+--        identity-bound), so the grants are unreachable through
 --        the Data API today — defence-in-depth debt, closed here.
 --        The 100 tables are derived arithmetically from the sweep:
 --        126 tables created by the chain − 6 proven absent live
@@ -47,7 +47,8 @@
 -- PRE-FLIGHT — run hidden_files/stage5-session-hardening/
 -- STAGE5-PREFLIGHT-PROBES.sql first and STOP unless every probe reads
 -- as expected:
---   P-1 anon policy census returns 0 (no anon policy path anywhere).
+--   P-1 anon-passable policy census returns 0 rows (RLS admits no
+--       anon rows — every applicable policy's qual is identity-bound).
 --   P-2 anon grant census lists exactly the 100 tables named in §3,
 --       and P-2b shows no table privileges granted to PUBLIC.
 --   P-3 roamly_guard_booking_supersession still shows PUBLIC execute.
@@ -277,8 +278,9 @@ grant execute on function public.roamly_guard_booking_supersession() to service_
 -- =====================================================================
 -- §3 — F-6: anon's unreachable full-privilege grants, revoked.
 -- One statement per table from the X-3 census derivation (header).
--- RLS has no anon policy path on any of these tables, so no reachable
--- behaviour changes; this closes the defence-in-depth debt only.
+-- RLS admits no anon rows on any of these tables — every applicable
+-- policy's qual is identity-bound — so no reachable behaviour
+-- changes; this closes the defence-in-depth debt only.
 -- =====================================================================
 
 revoke all on table public.booking_change_events from anon;
