@@ -14,7 +14,6 @@ import {
   type LiveNotificationType,
   type LiveRouteStatus
 } from "@/lib/roamly/liveCompanion";
-import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 
 type QaTrip = {
   id: string;
@@ -174,10 +173,12 @@ function LogBadge({ sent }: { sent: boolean }) {
 
 export function LiveCompanionQaConsole({
   trips,
+  destinationLabels,
   activities,
   bookings
 }: {
   trips: QaTrip[];
+  destinationLabels: Record<string, string>;
   activities: QaActivity[];
   bookings: QaBooking[];
 }) {
@@ -271,7 +272,7 @@ export function LiveCompanionQaConsole({
           enabled: true,
           pausedUntil: paused ? new Date(new Date(simulatedNow).getTime() + 60 * 60_000).toISOString() : null,
           destination: {
-            label: getTripDestinationLabel(selectedTrip),
+            label: destinationLabels[selectedTrip.id] || "",
             ...destinationFallback(selectedTrip)
           }
         },
@@ -371,7 +372,7 @@ export function LiveCompanionQaConsole({
             >
               {trips.map((trip) => (
                 <option key={trip.id} value={trip.id}>
-                  {(trip.title || getTripDestinationLabel(trip) || "Trip").slice(0, 90)}
+                  {(trip.title || destinationLabels[trip.id] || "Trip").slice(0, 90)}
                 </option>
               ))}
             </select>

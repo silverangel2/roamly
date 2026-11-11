@@ -26,6 +26,16 @@
 // filters, order/limit, single/maybeSingle), the tables' unique
 // constraints (including the builds live-job partial index), and
 // trigger-maintained updated_at on the tables that carry one.
+//
+// Stage 4 (2026-11-10): the fake also emulates the paginated-read
+// surface PR #116 added to SupabasePackStore — `.range(from, to)`
+// (an inclusive row window applied AFTER filters and ordering,
+// exactly as PostgREST applies the Range header) and `.not(col,
+// op, value)` (the negated filter, incl. `.not(col, "is", null)` =
+// IS NOT NULL, which the enrichment-overlay read uses). The two
+// production chains never combine `.range` with `.limit` on one
+// query; if a future chain does, the fake applies the range window
+// (PostgREST's Range header takes precedence over the limit param).
 
 import { randomUUID } from "node:crypto";
 
@@ -147,18 +157,35 @@ class FakeDb {
     return { data: inserted, error: null };
   }
 
+  // One PostgREST comparison, shared by the plain filters and by
+  // `.not(...)` (which negates it). "is" is PostgREST's identity
+  // comparison (null / true / false), not deep equality.
+  compare(value, operator, val) {
+    if (operator === "is") return value === val;
+    if (operator === "eq") return deepEqual(value, val);
+    if (operator === "neq") return !deepEqual(value, val);
+    if (operator === "in") return Array.isArray(val) && val.some((v) => deepEqual(value, v));
+    if (operator === "like") return typeof value === "string" && likeToRegex(val).test(value);
+    if (operator === "gt") return value > val;
+    if (operator === "gte") return value >= val;
+    if (operator === "lt") return value < val;
+    if (operator === "lte") return value <= val;
+    throw new Error(`fake compare: unsupported operator "${operator}"`);
+  }
+
   matches(row, filters) {
     for (const f of filters) {
       const value = row[f.col];
-      if (f.op === "eq" && !deepEqual(value, f.val)) return false;
-      if (f.op === "in" && !f.val.some((v) => deepEqual(value, v))) return false;
-      if (f.op === "lte" && !(typeof value === "string" && typeof f.val === "string" ? value <= f.val : value <= f.val)) return false;
-      if (f.op === "like" && !(typeof value === "string" && likeToRegex(f.val).test(value))) return false;
+      if (f.op === "not") {
+        if (this.compare(value, f.operator, f.val)) return false;
+        continue;
+      }
+      if (!this.compare(value, f.op, f.val)) return false;
     }
     return true;
   }
 
-  select(table, filters, orders, limitN) {
+  select(table, filters, orders, limitN, rangeWindow) {
     let out = this.rows(table).filter((row) => this.matches(row, filters));
     for (const order of [...orders].reverse()) {
       out = [...out].sort((a, b) => {
@@ -168,7 +195,8 @@ class FakeDb {
         return order.ascending ? cmp : -cmp;
       });
     }
-    if (limitN !== null) out = out.slice(0, limitN);
+    if (rangeWindow !== null) out = out.slice(rangeWindow.from, rangeWindow.to + 1);
+    else if (limitN !== null) out = out.slice(0, limitN);
     return out.map((row) => structuredClone(row));
   }
 
@@ -211,6 +239,7 @@ class FakeQuery {
     this.filters = [];
     this.orders = [];
     this.limitN = null;
+    this.rangeWindow = null;
     this.returnCols = null;
   }
 
@@ -259,6 +288,16 @@ class FakeQuery {
     return this;
   }
 
+  not(col, operator, val) {
+    this.filters.push({ op: "not", col, operator, val });
+    return this;
+  }
+
+  range(from, to) {
+    this.rangeWindow = { from, to };
+    return this;
+  }
+
   order(col, opts) {
     this.orders.push({ col, ascending: !opts || opts.ascending !== false });
     return this;
@@ -278,7 +317,7 @@ class FakeQuery {
 
   execute() {
     if (this.mode === "select") {
-      const rows = this.db.select(this.table, this.filters, this.orders, this.limitN);
+      const rows = this.db.select(this.table, this.filters, this.orders, this.limitN, this.rangeWindow);
       return { data: rows.map((r) => this.project(r, this.returnCols || "*")), error: null, cardinality: "many" };
     }
     if (this.mode === "insert") {
@@ -740,7 +779,19 @@ async function main() {
   console.log(`roamly wiring ship checks: ${passed} assertions PASS`);
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err);
-  process.exit(1);
-});
+// Stage 4 harness repair (2026-11-10): exit explicitly on success too.
+// The scenario's import graph makes best-effort network calls (the
+// leg-matrix builder's OSRM fetches); through this environment's HTTP
+// proxy those open keep-alive CONNECT tunnels that hold the event loop
+// open indefinitely after the verdict is printed — the suite printed
+// PASS and then never exited (observed >15 min, an established proxy
+// socket still open). The suite's contract is its verdict: every
+// assertion runs inside main() before the PASS line, so once main()
+// resolves the run is complete and the process exits with its verdict,
+// exactly as the error path below already did.
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });

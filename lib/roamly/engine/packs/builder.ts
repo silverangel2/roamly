@@ -1070,14 +1070,74 @@ export async function assemblePinnedEnginePack(
   generationRef: string,
   weather: WeatherSnapshotRecord | null
 ): Promise<{ pack: EnginePack; version: PackVersionRecord } | null> {
+  const parts = await assemblePinnedEnginePackParts(store, generationRef, weather);
+  return parts ? { pack: parts.pack, version: parts.version } : null;
+}
+
+/** The pinned assemble with its inputs retained (Stage 7,
+ *  2026-11-11): the day-batch path holds the parts so its
+ *  post-enrichment refresh can merge a by-keys re-read into the
+ *  candidate set it already paid to serve, instead of re-serving
+ *  the whole pack. */
+export type AssembledPinnedPack = {
+  pack: EnginePack;
+  version: PackVersionRecord;
+  destination: DestinationDTO;
+  candidates: StoredCandidate[];
+  weatherDays: EngineWeatherDay[];
+};
+
+export async function assemblePinnedEnginePackParts(
+  store: PackStore,
+  generationRef: string,
+  weather: WeatherSnapshotRecord | null
+): Promise<AssembledPinnedPack | null> {
   const pin = await store.getPin(generationRef);
   if (!pin) return null;
   const pinned = await store.readPinned(pin.packVersionId);
   if (!pinned) return null;
   const destination = await store.getDestination(pinned.version.dto.destinationId);
   if (!destination) return null;
+  const weatherDays = weather ? weather.days : [];
   return {
-    pack: assembleEnginePack(destination, pinned.version, pinned.candidates, weather ? weather.days : []),
-    version: pinned.version
+    pack: assembleEnginePack(destination, pinned.version, pinned.candidates, weatherDays),
+    version: pinned.version,
+    destination,
+    candidates: [...pinned.candidates],
+    weatherDays: [...weatherDays]
+  };
+}
+
+/** Merge a by-keys refresh into a held candidate set: refreshed
+ *  rows replace held rows with the same candidateKey; a key the
+ *  store did not return keeps its held row (the refresh can only
+ *  ever update the keys it asked for — it never drops a row). */
+export function mergeRefreshedCandidates(
+  held: readonly StoredCandidate[],
+  refreshed: readonly StoredCandidate[]
+): StoredCandidate[] {
+  if (!refreshed.length) return [...held];
+  const byKey = new Map(refreshed.map((candidate) => [candidate.candidateKey, candidate]));
+  return held.map((candidate) => byKey.get(candidate.candidateKey) ?? candidate);
+}
+
+/** Stage 7 by-keys refresh (2026-11-11): re-read ONLY the named
+ *  keys from the store and rebuild the solver pack over the merged
+ *  set. Returns null when the store offers no by-keys read or
+ *  returns nothing for the keys — the caller then falls back to
+ *  the full re-assemble, exactly today's behaviour. */
+export async function refreshAssembledPackByKeys(
+  store: PackStore,
+  parts: AssembledPinnedPack,
+  candidateKeys: readonly string[]
+): Promise<AssembledPinnedPack | null> {
+  if (!candidateKeys.length || typeof store.getVersionCandidatesByKeys !== "function") return null;
+  const refreshed = await store.getVersionCandidatesByKeys(parts.version.dto.packVersionId, candidateKeys);
+  if (!refreshed.length) return null;
+  const candidates = mergeRefreshedCandidates(parts.candidates, refreshed);
+  return {
+    ...parts,
+    candidates,
+    pack: assembleEnginePack(parts.destination, parts.version, candidates, parts.weatherDays)
   };
 }

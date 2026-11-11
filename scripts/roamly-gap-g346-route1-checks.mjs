@@ -150,7 +150,12 @@ alter default privileges in schema public grant all on sequences to service_role
     "supabase/migrations/20261022_roamly_places_ledger.sql",
     "supabase/migrations/20261022_roamly_trip_predictions.sql",
     "supabase/migrations/20261029000100_roamly_generation_job_get_or_create.sql",
-    "supabase/migrations/20261102000100_roamly_trip_generation_states.sql"
+    "supabase/migrations/20261102000100_roamly_trip_generation_states.sql",
+    // Stage 4 harness repair (2026-11-10): the apply list was frozen at
+    // 2026-11-02; the pack-leg-matrix migration (2026-11-06) ships with
+    // the code that writes the column, and SupabasePackStore.publish
+    // fails without it ("Could not find the 'leg_matrix' column").
+    "supabase/migrations/20261106000300_roamly_pack_leg_matrix.sql"
   ];
   let sqlErrors = 0;
   const applyOne = (file) => {
@@ -236,6 +241,38 @@ delete process.env.GOOGLE_PLACES_API_KEY;
 delete process.env.ROAMLY_PACK_CACHE_DIR;
 for (const key of Object.keys(process.env)) {
   if (/^SUPABASE_|NEXT_PUBLIC_SUPABASE/.test(key)) delete process.env[key];
+}
+
+// FORMAL GATE (Stage 4 test-net repair, 2026-11-10 — GATES register
+// entry GATE-G346-POSTGREST): this suite is an end-to-end proof
+// against a REAL local PostgreSQL 16 + PostgREST 12.2.3. PostgreSQL
+// is provisioned by the suite itself (harness/g346-suite-pgdata), but
+// the PostgREST static binary is an external artifact that must exist
+// at harness/bin/postgrest — absent in this environment and not
+// fetchable (no network egress). When a prerequisite is missing the
+// suite SKIPS with this named reason; when all are present, every
+// assertion below runs at full strength.
+const missingPrereqs = [];
+if (!existsSync(POSTGREST_BIN)) missingPrereqs.push(`PostgREST 12.2.3 static binary at ${POSTGREST_BIN}`);
+if (!existsSync(path.join(PG_BIN, "initdb"))) missingPrereqs.push(`PostgreSQL 16 binaries at ${PG_BIN}`);
+else {
+  // The Roamly schema's first statement is CREATE EXTENSION pgcrypto,
+  // so the server must ship the contrib extensions — a binaries-only
+  // PostgreSQL 16 (e.g. the contrib-less preview-stack 16.2 that
+  // remained after this VM's system PostgreSQL was lost on
+  // 2026-11-11) starts fine but fails the migration chain. Probe the
+  // extension control file through the server's own pg_config so the
+  // check follows whatever layout the binaries use.
+  let sharedir = "";
+  try {
+    sharedir = run(path.join(PG_BIN, "pg_config"), ["--sharedir"]).stdout.trim();
+  } catch { /* pg_config unusable — treated as missing below */ }
+  if (!sharedir || !existsSync(path.join(sharedir, "extension", "pgcrypto.control")))
+    missingPrereqs.push("the pgcrypto contrib extension for the PostgreSQL 16 server (CREATE EXTENSION pgcrypto is the Roamly schema's first statement)");
+}
+if (missingPrereqs.length) {
+  console.log(`GATED test:gap-g346-route1 — missing: ${missingPrereqs.join("; ")}. See GATES.md entry GATE-G346-POSTGREST.`);
+  process.exit(0);
 }
 
 try {

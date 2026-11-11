@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import { NotificationPermissionCard } from "@/components/roamly/NotificationPermissionCard";
 import { QRCodeSVG } from "qrcode.react";
@@ -110,6 +109,7 @@ function ResultPill({ label, value }: { label: string; value: unknown }) {
 
 export function AdminLiveTestConsole({
   trips,
+  destinationLabels,
   activities,
   bookings,
   pushSubscriptions,
@@ -117,6 +117,7 @@ export function AdminLiveTestConsole({
   locationSettings
 }: {
   trips: Trip[];
+  destinationLabels: Record<string, string>;
   activities: Activity[];
   bookings: Booking[];
   pushSubscriptions: PushSubscription[];
@@ -253,7 +254,7 @@ export function AdminLiveTestConsole({
           >
             {trips.map((trip) => (
               <option key={trip.id} value={trip.id}>
-                {(trip.title || getTripDestinationLabel(trip) || "Trip").slice(0, 80)}
+                {(trip.title || destinationLabels[trip.id] || "Trip").slice(0, 80)}
               </option>
             ))}
           </select>

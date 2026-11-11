@@ -356,7 +356,38 @@ if (section("H")) {
 /* F. LIVE rebuild — Quebec City through the real collectors           */
 /* ------------------------------------------------------------------ */
 let liveSummary = null;
+
+// FORMAL GATE (Stage 4 test-net repair, 2026-11-10 — GATES register
+// entry GATE-PHASE3-LIVE-EGRESS): section F is this suite's ONLY live
+// section; it rebuilds a pack through the REAL Overpass collector.
+// The gate therefore probes the exact service the collector needs —
+// a minimal real query to the Overpass interpreter — rather than a
+// status page: this environment answers small GETs through a proxy
+// while real Overpass queries cannot complete (the baseline failure:
+// F exceeded its 75 s budget). If the interpreter answers a real
+// query inside the probe bound, F runs and its verdicts are real;
+// if not, F SKIPS with the named reason below while every offline
+// section still runs at full strength.
+let liveGated = false;
 if (section("F")) {
+  let interpreterOk = false;
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "data=[out:json][timeout:10];node(1);out 1;",
+      signal: AbortSignal.timeout(20_000)
+    });
+    interpreterOk = res.ok;
+  } catch {
+    interpreterOk = false;
+  }
+  if (!interpreterOk) {
+    liveGated = true;
+    console.log("F: GATED — the live Overpass interpreter does not answer a real query from this environment (no usable egress for the live collector). Offline sections run at full strength; see GATES.md entry GATE-PHASE3-LIVE-EGRESS.");
+  }
+}
+if (section("F") && !liveGated) {
   const store = new InMemoryPackStore();
   const quebec = breadthDestination("Quebec City");
   await store.registerDestination(quebec);
@@ -520,4 +551,4 @@ if (section("G")) {
   eqC(plan2.days.map((d) => d.items.map((i) => [i.key, i.start, i.end])), plan.days.map((d) => d.items.map((i) => [i.key, i.start, i.end])), "G: re-solving the pinned pack after a rebuild reproduces the identical schedule");
 }
 
-console.log(`roamly-wiring-phase3-checks: ${count} assertions PASS${liveSummary ? ` (live Quebec: ${liveSummary.candidates} candidates vs ${liveSummary.recorded} recorded)` : ""}`);
+console.log(`roamly-wiring-phase3-checks: ${count} assertions PASS${liveSummary ? ` (live Quebec: ${liveSummary.candidates} candidates vs ${liveSummary.recorded} recorded)` : ""}${liveGated ? " (section F GATED: no live egress)" : ""}`);

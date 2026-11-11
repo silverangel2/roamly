@@ -715,13 +715,19 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
 
   async function lookup(column: string, value: string) {
     if (!value) return null;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("roamly_bookings")
       .select("id,trip_id,user_id,title,booking_type,confirmation_number,provider_booking_id,flight_number,start_at")
       .eq("user_id", userId)
       .eq(column, value)
       .order("updated_at", { ascending: false })
       .limit(3);
+    // Stage 6 truth-path fix (2026-11-11): a failed read must never
+    // present as "no existing booking" — that is the duplicate-
+    // creation shape. The error aborts matching (the sync caller
+    // records it as a retryable failure), exactly like the trip
+    // query in bestTripMatch below.
+    if (error) throw new Error("EXISTING_BOOKING_LOOKUP_FAILED");
     const rows = (data || []) as Record<string, unknown>[];
     const tripIds = [...new Set(rows.map((row) => String(row.trip_id || "")).filter(Boolean))];
     if (tripIds.length > 1) return { ambiguous: true as const };
@@ -742,7 +748,7 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
 
   const startMs = startTime ? new Date(startTime).getTime() : NaN;
   if (flightNumber && Number.isFinite(startMs)) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("roamly_bookings")
       .select("id,trip_id,user_id,title,booking_type,flight_number,start_at")
       .eq("user_id", userId)
@@ -751,6 +757,7 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
       .lte("start_at", new Date(startMs + 12 * 60 * 60 * 1000).toISOString())
       .order("updated_at", { ascending: false })
       .limit(3);
+    if (error) throw new Error("EXISTING_BOOKING_LOOKUP_FAILED");
     const rows = (data || []) as Record<string, unknown>[];
     const tripIds = [...new Set(rows.map((item) => String(item.trip_id || "")).filter(Boolean))];
     if (tripIds.length > 1) return { ambiguous: true as const };
@@ -769,7 +776,15 @@ async function existingBookingTripMatch(supabase: SupabaseClient, userId: string
 }
 
 async function bestTripMatch(supabase: SupabaseClient, userId: string, extraction: StructuredBookingExtraction) {
-  const existing = await existingBookingTripMatch(supabase, userId, extraction).catch(() => null);
+  // Stage 6 (2026-11-11): no swallow here. If the existing-booking
+  // lookup fails, matching must stop rather than proceed on
+  // date-window scoring alone — proceeding is how an already-known
+  // booking gets duplicated onto another trip. The throw surfaces
+  // through extractAndMatchTravelEmailBooking to the sync caller,
+  // which records it as a retryable failure (Gmail) — the message
+  // is retried with its evidence intact instead of being matched
+  // half-blind.
+  const existing = await existingBookingTripMatch(supabase, userId, extraction);
   if (existing?.ambiguous) return null;
   let query = supabase
     .from("roamly_trips")
@@ -977,7 +992,20 @@ export async function extractAndMatchTravelEmailBooking(params: {
   const inBuild2Lane = build2ReconciliationLaneActive(params.connection.provider);
   const aiExtraction =
     !inBuild2Lane && deterministic.overallConfidence < 0.45
-      ? await extractBookingWithAiStructuredOutput(params.metadata).catch(() => null)
+      ? await extractBookingWithAiStructuredOutput(params.metadata).catch((error) => {
+          // Stage 6 truth-path fix (2026-11-11): the deterministic
+          // fallback remains the design, but an AI-lane failure is
+          // no longer silent — a dead AI lane used to be
+          // indistinguishable from a quiet one. Logged with context
+          // (ids only, never message content); the funnel proceeds
+          // on the deterministic extraction's own merits.
+          console.error("[Roamly booking extraction] AI extraction failed; deterministic extraction used", {
+            provider: params.metadata.provider,
+            messageId: params.metadata.messageId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+          return null;
+        })
       : null;
   let extraction = aiExtraction && aiExtraction.overallConfidence > deterministic.overallConfidence ? aiExtraction : deterministic;
   // KDE first-pass (consolidation 2026-11-06): when the raw MIME
@@ -992,7 +1020,18 @@ export async function extractAndMatchTravelEmailBooking(params: {
     const kde = await kdeExtractionFromRawMime({
       rawMime: params.metadata.rawMime,
       receivedAt: params.metadata.receivedAt
-    }).catch(() => null);
+    }).catch((error) => {
+      // Stage 6 truth-path fix (2026-11-11): KDE silence (a null
+      // return — nothing extractable) is by design and stays quiet;
+      // a KDE FAILURE (a throw) is a different fact and is logged
+      // with context. The funnel proceeds on the lanes above.
+      console.error("[Roamly booking extraction] KDE extraction failed; other lanes used", {
+        provider: params.metadata.provider,
+        messageId: params.metadata.messageId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return null;
+    });
     if (kde && kde.overallConfidence >= extraction.overallConfidence) {
       extraction = kde;
     }
