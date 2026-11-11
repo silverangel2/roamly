@@ -10,12 +10,24 @@ import { buildTravelSearchBrief } from "@/lib/roamly/travelSearchBrain";
 import {
   compareTransportOptions,
   isTransportOptionMarketResult,
-  transportOptionCostCents,
   type TransportOption
 } from "@/lib/roamly/transportOptions";
+import { calculateBudgetStatus, type BudgetStatus } from "@/lib/roamly/budgetStatus";
+import {
+  moneyFromCents,
+  transportConfidenceLabel,
+  transportOptionCostCents,
+  transportRangeLabel
+} from "@/lib/roamly/transportOptionMath";
+import {
+  applyTransportOptionSelection,
+  buildBudgetConstraintForItinerary
+} from "@/lib/roamly/discoverySelection";
+
+export { calculateBudgetStatus, type BudgetStatus };
+export { applyTransportOptionSelection, buildBudgetConstraintForItinerary };
 import type { StayOption, StaySelection } from "@/lib/roamly/stayOptions";
 
-export type BudgetStatus = "within_budget" | "tight" | "over_budget" | "unknown";
 export type BudgetCategoryConfidenceLabel =
   | "Live price"
   | "Recently searched"
@@ -179,9 +191,6 @@ function cents(amount: number) {
   return Math.max(0, Math.round(amount * 100));
 }
 
-function moneyFromCents(value: number, currency = "CAD") {
-  return `${currency.toUpperCase()} ${Math.round(value / 100).toLocaleString("en-CA")}`;
-}
 
 function cleanNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : fallback;
@@ -407,26 +416,6 @@ export async function estimateLocalTransport(input: TripPriceDiscoveryInput) {
   return cents(daily * days * (preference.includes("rental") ? 1 : travelers));
 }
 
-export function calculateBudgetStatus(input: {
-  budgetAmount: number | null;
-  budgetCurrency: string;
-  totalEstimateCents: number;
-  committedBudgetCents?: number | null;
-  committedBookingStatus?: ConfirmedBookingCostStatus;
-}) {
-  if (!input.budgetAmount) {
-    return { budgetStatus: "unknown" as BudgetStatus, remainingBudgetCents: null };
-  }
-  if (input.committedBookingStatus && input.committedBookingStatus !== "known_compatible") {
-    return { budgetStatus: "unknown" as BudgetStatus, remainingBudgetCents: null };
-  }
-  const budgetCents = cents(input.budgetAmount);
-  const remainingBudgetCents = budgetCents - input.totalEstimateCents;
-  const usedRatio = budgetCents ? input.totalEstimateCents / budgetCents : 0;
-  const budgetStatus: BudgetStatus =
-    remainingBudgetCents < 0 ? "over_budget" : usedRatio >= 0.86 ? "tight" : "within_budget";
-  return { budgetStatus, remainingBudgetCents };
-}
 
 function distributeNights(daysCount: number, stops: NormalizedPlace[]) {
   const nights = Math.max(1, daysCount - 1);
@@ -655,15 +644,6 @@ function selectMarketPrices(params: {
   };
 }
 
-function transportConfidenceLabel(transport: TransportOption | null | undefined): BudgetCategoryConfidenceLabel {
-  return transport?.price_confidence === "live_partner"
-    ? "Live price"
-    : transport?.price_confidence === "cached_recent"
-      ? "Recently searched"
-      : transport?.availability === "search_ready"
-        ? "Market estimate"
-        : "Conservative estimate";
-}
 
 function buildBudgetCategoryConfidence(params: {
   selectedMarketPrices: TravelMarketResult[];
@@ -991,122 +971,42 @@ export async function discoverTripPrices(input: TripPriceDiscoveryInput): Promis
   };
 }
 
-function transportRangeLabel(option: TransportOption | null | undefined, currency: string) {
-  if (!option) return "No recommended transport option selected.";
-  const min = option.estimated_cost_min == null ? null : moneyFromCents(option.estimated_cost_min * 100, currency);
-  const max = option.estimated_cost_max == null ? null : moneyFromCents(option.estimated_cost_max * 100, currency);
-  const range = min && max ? `${min}-${max}` : min || max || "price unknown";
-  return `${option.title}: ${range} (${option.availability}, ${option.realistic ? "realistic" : "not recommended"}, ${option.price_confidence}). ${option.why_recommended} ${option.warning}`;
-}
+
+export type TransportSelection = { mode: TransportOption["mode"]; title: string; selectedBy: "traveler" };
 
 /**
- * The traveller's confirmed pick from the transport selector, applied
- * to a completed discovery. Pure re-tabulation with the discovery's
- * own formula: transport cents come from the picked option (the same
- * transportOptionCostCents the engine used), fixed costs are whatever
- * the rest of the trip already totalled, buffer stays 12%, and budget
- * status is recomputed with the same calculateBudgetStatus the engine
- * used — so the trip's auto-calculation can never drift from the
- * engine's math. The pick is stamped as transportSelection so it is
- * never confused with the logic map's recommendation downstream.
- *
- * Guard rails: an option the logic map excluded by rule (or one with
- * no service on the route) can never be applied — the discovery is
- * returned unchanged. The map shortlists; the traveller confirms;
- * neither can resurrect an excluded mode.
+ * Carry a traveller's transport pick into a FRESH discovery
+ * (Stage 7, 2026-11-11 — the transport twin of
+ * carryForwardStaySelection). A market refresh or re-generation
+ * re-derives every estimate from scratch; until now the fresh
+ * discovery silently DROPPED the transportSelection stamp, so the
+ * pick vanished and the logic map's recommendation took over
+ * again. The pick is re-applied ONLY when the fresh discovery
+ * still offers the same option (mode + title — the identity
+ * applyTransportOptionSelection itself uses) and the engine's own
+ * apply accepts it; an option that is gone, excluded by rule, or
+ * no longer available RELEASES the pick — the fresh recommendation
+ * stands, and no figure is ever repriced from the stale pick.
  */
-export function applyTransportOptionSelection(discovery: TripPriceDiscovery, option: TransportOption): TripPriceDiscovery {
-  if (!option || option.availability === "not_available" || option.presentation === "excluded") return discovery;
-  const sameOption = (candidate: TransportOption) => candidate.mode === option.mode && candidate.title === option.title;
-  if (!discovery.transportOptions.some(sameOption)) return discovery;
-
-  const selectedTransportEstimateCents =
-    discovery.budgetIncludesFlights === false ? 0 : transportOptionCostCents(option) || discovery.flightEstimateCents;
-  const fixedTripCostCents = discovery.totalEstimateCents - discovery.bufferEstimateCents - discovery.selectedTransportEstimateCents;
-  const subtotalCents = selectedTransportEstimateCents + fixedTripCostCents;
-  const bufferEstimateCents = Math.round(subtotalCents * 0.12);
-  const totalEstimateCents = subtotalCents + bufferEstimateCents;
-  const budget = calculateBudgetStatus({
-    budgetAmount: discovery.budgetAmount,
-    budgetCurrency: discovery.budgetCurrency,
-    totalEstimateCents,
-    committedBudgetCents: discovery.committedBudgetCents,
-    committedBookingStatus: discovery.committedBookingCostStatus
-  });
-
-  const transportOptions = discovery.transportOptions.map((candidate) => {
-    if (sameOption(candidate)) {
-      return {
-        ...candidate,
-        budget_fit: "best" as TransportOption["budget_fit"],
-        presentation: "suggested" as const,
-        presentation_label: "Your pick — added to your itinerary and budget",
-        logic_rule: candidate.logic_rule ?? null
-      };
-    }
-    return candidate.budget_fit === "best"
-      ? { ...candidate, budget_fit: "okay" as TransportOption["budget_fit"], presentation: "available" as const, presentation_label: null }
-      : candidate;
-  });
-
-  const budgetCategoryConfidence = discovery.budgetCategoryConfidence.map((entry) =>
-    entry.category === "transport"
-      ? {
-          ...entry,
-          label: transportConfidenceLabel(option),
-          amountCents: selectedTransportEstimateCents,
-          source: option.source || entry.source,
-          note: option.warning || entry.note
-        }
-      : entry
-  );
-
-  return {
-    ...discovery,
-    transportOptions,
-    recommendedTransportOption: option,
-    transportSelection: { mode: option.mode, title: option.title, selectedBy: "traveler" },
-    selectedTransportEstimateCents,
-    bufferEstimateCents,
-    totalEstimateCents,
-    remainingBudgetCents: budget.remainingBudgetCents,
-    budgetStatus: budget.budgetStatus,
-    budgetCategoryConfidence
-  };
+export function carryForwardTransportSelection(
+  discovery: TripPriceDiscovery,
+  selection: TransportSelection | null | undefined
+): TripPriceDiscovery {
+  if (!selection) return discovery;
+  const option =
+    discovery.transportOptions.find((candidate) => candidate.mode === selection.mode && candidate.title === selection.title) ||
+    null;
+  if (!option) return discovery;
+  const applied = applyTransportOptionSelection(discovery, option);
+  return applied.transportSelection ? applied : discovery;
 }
 
-export function buildBudgetConstraintForItinerary(discovery: TripPriceDiscovery) {
-  const transportComparison = [
-    `${discovery.transportSelection ? "Traveller-selected transport" : "Recommended transport"}: ${transportRangeLabel(discovery.recommendedTransportOption, discovery.budgetCurrency)}`,
-    `Transport options: ${discovery.transportOptions.map((option) => transportRangeLabel(option, discovery.budgetCurrency)).join(" | ") || "none"}.`,
-    "Before finalizing the itinerary, compare flight, driving, train, bus, and mixed transport modes by route availability, travel time, budget fit, comfort, and time saved.",
-    "Do not recommend bus/train as best unless the option is verified or search-ready, realistic, and reasonable for the trip length.",
-    "If the budget is tight, prefer realistic cheaper options and explain tradeoffs with the phrases: \"Recommended because it keeps the trip closer to your budget\" or \"Faster but more expensive\" as appropriate."
-  ].join(" ");
-  const marketNote = [
-    `Price coverage: ${discovery.priceCoverage}.`,
-    "Full budget estimate generated using best available price sources. Some items use conservative market estimates and should be refreshed before booking.",
-    `Budget confidence: ${discovery.budgetCategoryConfidence.map((item) => `${item.category}: ${item.label} (${item.note})`).join(" | ")}.`,
-    discovery.cross_border ? `Cross-border trip: true. ${discovery.crossBorderWarnings.join(" ")}` : "Cross-border trip: false.",
-    "Use selectedMarketPrices and transportOptions for booking recommendation prices. Never invent exact live prices.",
-    transportComparison
-  ].join(" ");
-  if (discovery.budgetStatus === "over_budget") {
-    return [
-      "The trip may exceed budget. Build a budget-first itinerary with free or low-cost activities, public transit, affordable food, and clear warnings about expensive choices.",
-      "Suggest cheaper city order, shorter trip length, fewer paid activities, lower-cost hotel areas, public transit, excluding flights/hotel if already handled, or increasing budget where needed.",
-      `Selected total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. Uploaded/saved booking costs: ${discovery.committedBudgetCents == null ? "unresolved" : `${discovery.budgetCurrency} ${Math.round(discovery.committedBudgetCents / 100)}`}.`,
-      marketNote
-    ].join(" ");
-  }
-  if (discovery.budgetStatus === "tight") {
-    return `The budget is tight. Prioritize affordable stays, free attractions, public transit, and low-cost food while keeping the trip enjoyable. Selected total: ${discovery.budgetCurrency} ${Math.round(discovery.totalEstimateCents / 100)}. ${marketNote}`;
-  }
-  if (discovery.budgetStatus === "unknown") {
-    return `No total budget was provided. Keep prices transparent, separate free and paid activities, and remind the traveler to verify costs before booking. ${marketNote}`;
-  }
-  return `The trip appears possible within budget. Keep the itinerary practical and include price verification reminders. ${marketNote}`;
+/** The stored transport pick on a discovery row, or null. */
+export function transportSelectionFromRow(row: Record<string, unknown> | null | undefined): TransportSelection | null {
+  const rehydrated = discoveryFromDatabaseRow(row);
+  return rehydrated?.discovery.transportSelection ?? null;
 }
+
 
 export function discoveryToDatabaseRow(discovery: TripPriceDiscovery, input: TripPriceDiscoveryInput & { userId: string }) {
   const budgetCents = discovery.budgetAmount == null ? null : cents(discovery.budgetAmount);

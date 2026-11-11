@@ -1,5 +1,8 @@
 import { safeExternalUrl } from "@/lib/roamly/bookingLinks";
 import { resolveAffiliateLink } from "@/lib/roamly/affiliateResolver";
+import { optionAverage, transportOptionCostCents } from "@/lib/roamly/transportOptionMath";
+
+export { transportOptionCostCents };
 import { detectCrossBorderTrip } from "@/lib/roamly/crossBorder";
 import { recommendedPlaces, type NormalizedPlace } from "@/lib/roamly/places";
 import type { TripPlannerPayload } from "@/lib/trip-planner";
@@ -609,12 +612,6 @@ function unavailableOption(params: {
   } satisfies TransportOption;
 }
 
-function optionAverage(option: Pick<TransportOption, "estimated_cost_min" | "estimated_cost_max">) {
-  if (option.estimated_cost_min != null && option.estimated_cost_max != null) {
-    return (option.estimated_cost_min + option.estimated_cost_max) / 2;
-  }
-  return option.estimated_cost_min ?? option.estimated_cost_max ?? null;
-}
 
 function optionMax(option: Pick<TransportOption, "estimated_cost_min" | "estimated_cost_max">) {
   return option.estimated_cost_max ?? option.estimated_cost_min ?? null;
@@ -1333,10 +1330,6 @@ export function transportOptionProvenance(option: TransportOption): string {
   return "No price yet — search before booking";
 }
 
-export function transportOptionCostCents(option: TransportOption | null | undefined) {
-  const amount = option ? optionAverage(option) : null;
-  return amount == null ? null : Math.max(0, Math.round(amount * 100));
-}
 
 export function isTransportOptionMarketResult(result: TravelMarketResult) {
   return result.category === "transport" && result.metadata?.transport_option === true;

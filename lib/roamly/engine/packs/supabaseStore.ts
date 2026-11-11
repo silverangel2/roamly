@@ -1126,6 +1126,38 @@ export class SupabasePackStore implements PackStore {
     return candidates;
   }
 
+  /** Stage 7 by-keys refresh read (2026-11-11): the targeted
+   *  companion to getVersionCandidates. Reads ONLY the named
+   *  candidate rows (same column projection as the paginated pull,
+   *  enrichment column included, so the returned rows are the full
+   *  current stored truth for those keys) in bounded chunks — the
+   *  batch-1 post-enrichment refresh re-reads the finalist keys it
+   *  just enriched instead of re-serving the whole pack. Keys that
+   *  do not exist in the version are absent from the result; the
+   *  caller merges by candidateKey and keeps its held row for any
+   *  key not returned. */
+  async getVersionCandidatesByKeys(
+    packVersionId: string,
+    candidateKeys: readonly string[]
+  ): Promise<StoredCandidate[]> {
+    const uniqueKeys = [...new Set(candidateKeys)].filter(Boolean);
+    if (!uniqueKeys.length) return [];
+    const record = await this.rawVersion(packVersionId);
+    if (!record) throw new PackStoreError("VERSION_NOT_FOUND", `no pack version ${packVersionId}`);
+    const rows: CandidateRow[] = [];
+    const CHUNK = 200;
+    for (let i = 0; i < uniqueKeys.length; i += CHUNK) {
+      const { data, error } = await this.client
+        .from(CANDIDATES_TABLE)
+        .select(CANDIDATE_SELECT_COLUMNS)
+        .eq("pack_id", record.id)
+        .in("candidate_key", uniqueKeys.slice(i, i + CHUNK));
+      if (error) throw dbFailure("read pack candidates by keys", error);
+      rows.push(...((data as CandidateRow[] | null) ?? []));
+    }
+    return rows.map((row) => this.mapCandidate(row));
+  }
+
   /** The paginated candidate pull behind the cache/projection
    *  tiers: column-projected (CANDIDATE_SELECT_COLUMNS) and read
    *  in parallel waves planned from the version row's stored

@@ -655,6 +655,12 @@ async function recordOutlookTravelMessages(params: {
   messages: OutlookDeltaResponse["value"];
 }) {
   const results = [];
+  // Stage 6 H-5 fix (2026-11-11): per-message failures are counted,
+  // not swallowed. The Outlook path has no quarantine record (the
+  // Gmail G13 mechanism), so an unrecorded failure must keep the
+  // sync retryable — the caller holds the delta cursor and the
+  // last_synced_at stamp until every message is accounted for.
+  let failed = 0;
   for (const message of params.messages || []) {
     if (!message.id) continue;
     const address = clean(message.from?.emailAddress?.address);
@@ -667,23 +673,29 @@ async function recordOutlookTravelMessages(params: {
       receivedAt: message.receivedDateTime || null,
       snippet: message.bodyPreview || null
     };
-    const saved = await recordTravelEmailFilterResult({
-      supabase: params.supabase,
-      connection: params.connection,
-      metadata
-    });
-  if (saved.saved && saved.filter.shouldProcess) {
-      await extractAndMatchTravelEmailBooking({
+    try {
+      const saved = await recordTravelEmailFilterResult({
         supabase: params.supabase,
         connection: params.connection,
-        metadata,
-        filter: saved.filter,
-        emailMessageId: saved.messageRecordId
-      }).catch(() => null);
+        metadata
+      });
+      if (saved.filter.shouldProcess && !saved.saved) {
+        failed += 1;
+      } else if (saved.saved && saved.filter.shouldProcess) {
+        await extractAndMatchTravelEmailBooking({
+          supabase: params.supabase,
+          connection: params.connection,
+          metadata,
+          filter: saved.filter,
+          emailMessageId: saved.messageRecordId
+        });
+      }
+      results.push(saved);
+    } catch {
+      failed += 1;
     }
-    results.push(saved);
   }
-  return results;
+  return { results, failed };
 }
 
 export async function upsertGmailConnection(params: {
@@ -1583,9 +1595,23 @@ async function syncOutlookConnectionUnlocked(params: {
     headers: { authorization: `Bearer ${accessToken}` }
   });
   if (!response.ok) return { ok: false, error: "OUTLOOK_SYNC_FAILED", processed: 0 };
-  await recordOutlookTravelMessages({ supabase: writer, connection, messages: result.value }).catch(() => null);
+  // Stage 6 H-5 fix (2026-11-11): this checkpoint used to claim
+  // success unconditionally — message processing was swallowed
+  // (.catch(() => null)), the delta cursor advanced past failed
+  // messages (losing them permanently), and last_synced_at was
+  // stamped regardless. It now follows the Gmail checkpoint
+  // discipline in this same file — an unrecorded message failure
+  // returns a retryable error BEFORE the cursor moves or the stamp
+  // lands, and both checkpoint writes are error-checked. Message
+  // records upsert idempotently, so re-serving the same delta page
+  // on the next sync is safe.
+  const recorded = await recordOutlookTravelMessages({ supabase: writer, connection, messages: result.value });
+  const processedCount = Array.isArray(result.value) ? result.value.length : 0;
+  if (recorded.failed > 0) {
+    return { ok: false, error: "OUTLOOK_BOOKING_PROCESSING_RETRY", processed: processedCount };
+  }
   const nextCursor = result["@odata.deltaLink"] || result["@odata.nextLink"] || deltaCursor || null;
-  await writer.from("email_sync_cursors").upsert(
+  const cursorSaved = await writer.from("email_sync_cursors").upsert(
     {
       email_connection_id: connection.id,
       provider: OUTLOOK_PROVIDER,
@@ -1594,16 +1620,18 @@ async function syncOutlookConnectionUnlocked(params: {
     },
     { onConflict: "email_connection_id,provider" }
   );
-  await writer
+  if (cursorSaved.error) return { ok: false, error: "OUTLOOK_CURSOR_CHECKPOINT_FAILED", processed: processedCount };
+  const connectionSaved = await writer
     .from("email_connections")
     .update({ last_synced_at: new Date().toISOString() })
     .eq("id", connection.id)
     .eq("sync_lease_token", params.leaseToken);
+  if (connectionSaved.error) return { ok: false, error: "OUTLOOK_SYNC_CHECKPOINT_FAILED", processed: processedCount };
 
   return {
     ok: true,
     error: null,
-    processed: Array.isArray(result.value) ? result.value.length : 0
+    processed: processedCount
   };
 }
 
