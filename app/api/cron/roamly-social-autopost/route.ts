@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { cronTokenMatchesAnySecret } from "@/lib/roamly/cronAuth";
 import {
   generateFacebookQueue,
   getFacebookAutomationSummaries,
@@ -23,7 +24,9 @@ function authorized(request: NextRequest) {
   const expectedSecrets = [process.env.CRON_SECRET, process.env.ROAMLY_SOCIAL_CRON_SECRET]
     .map((value) => value?.trim() || "")
     .filter(Boolean);
-  return Boolean(token && expectedSecrets.includes(token));
+  // Constant-time compare via the shared helper (Stage 5, 2026-11-11);
+  // same Bearer carrier and fail-closed posture as before.
+  return cronTokenMatchesAnySecret(token, expectedSecrets);
 }
 
 function normalizeBrand(value: unknown): FacebookSocialBrand | undefined {

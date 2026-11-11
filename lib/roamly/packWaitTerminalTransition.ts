@@ -114,6 +114,13 @@ export async function runPackWaitTerminalTransition(params: {
     .select("id,trip_id,user_id,status,retry_count,next_attempt_at,lease_expires_at,completed_at,updated_at")
     .is("completed_at", null)
     .in("status", ["queued", "waiting"])
+    // STAGE 7 (KF-2): oldest-touched first. The scan is capped at
+    // 200; unordered, Postgres heap order could keep a cap-past job
+    // outside the window on every pass. A timeout sweep's correct
+    // bias is the longest-waiting jobs first (the recovery sweep's
+    // scan order), so the cap is spent on the jobs nearest their
+    // own caps.
+    .order("updated_at", { ascending: true })
     .limit(200);
   if (jobsResult.error) return { ok: false, transitioned: 0, skipped: 0, error: "PACK_WAIT_SCAN_FAILED" };
   const jobs = (jobsResult.data || []) as Array<{

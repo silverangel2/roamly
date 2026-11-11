@@ -73,7 +73,16 @@ check("D8 routeHidesBottomNav still always returns false (no regression)", /func
 check("D8 AppTabBar keeps all four tabs", shell.includes('label: t("ui.nav.itinerary", "Itinerary")') && shell.includes('label: t("ui.nav.live", "Live")') && shell.includes('label: t("ui.nav.alerts", "Alerts")') && shell.includes('label: t("ui.nav.account", "Account")'));
 check("D8 AppTabBar falls back to /dashboard with no active trip", shell.includes('tripId ? `/trip/${tripId}` : "/dashboard"'));
 check("D8 marketing nav still rendered for other non-app surfaces", shell.includes('aria-label="Mobile navigation"'));
-check("D8 wizard Back/Continue are in-flow (no sticky/fixed footer to collide)", planForm.includes('className="mt-7 grid grid-cols-2 gap-3 border-t border-cloud/80 pt-5"'));
+// Behaviour, not the frozen class string (Stage 4 re-pin, 2026-11-10):
+// the BoardUI re-clothe restyled this row (flex, border-chair) and added
+// bui-safe-bottom. The D8 invariant is unchanged: the wizard's
+// Back/Continue row stays IN FLOW — no fixed/sticky positioning that
+// could overlap the AppTabBar on /plan — and it clears the bottom edge
+// with safe-area padding.
+const wizardFooter = planForm.match(/<div className="([^"]*)">\s*<BuiButton[^>]*onClick=\{goBack\}/);
+check("D8 wizard Back/Continue row exists (Back wired to goBack)", Boolean(wizardFooter));
+check("D8 wizard Back/Continue are in-flow (no sticky/fixed footer to collide)", wizardFooter !== null && !/\b(fixed|sticky)\b/.test(wizardFooter[1]));
+check("D8 wizard footer clears the bottom edge (bui-safe-bottom)", wizardFooter !== null && wizardFooter[1].includes("bui-safe-bottom"));
 check("D8 plan page keeps .safe-bottom clearance", planPage.includes("safe-bottom"));
 
 // ---------- Entry: domestic tunnel trips (CODE-VERIFIED, not screen) ----------

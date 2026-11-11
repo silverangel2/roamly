@@ -2,6 +2,19 @@ import { chromium } from "@playwright/test";
 
 const baseUrl = process.env.ROAMLY_BASE_URL || "http://127.0.0.1:3000";
 const viewportFilter = process.env.ROAMLY_VIEWPORT;
+
+// FORMAL GATE (Stage 4 test-net repair, 2026-11-10 — GATES register
+// entry GATE-SERVED-BUILD): this suite drives a REAL served build of
+// the app. When no server answers at the base URL it SKIPS with this
+// named reason; when one answers — any HTTP response at all — every
+// check below runs at full strength and judges what it serves.
+try {
+  await fetch(baseUrl, { signal: AbortSignal.timeout(5_000) });
+} catch {
+  console.log(`GATED test:finds-interactions — missing service: the Roamly app served at ${baseUrl} (point ROAMLY_BASE_URL at a running build). See GATES.md entry GATE-SERVED-BUILD.`);
+  process.exit(0);
+}
+
 const browser = await chromium.launch({ headless: true });
 
 try {
@@ -27,15 +40,32 @@ try {
     // RE-PIN (A19, Jakob's Law round, 2026-11-03): the old pin ("no
     // native search form may render") encoded the pre-A19 editorial-only
     // surface. A19 orders a persistent search entry at the top of Deals
-    // routing into the existing live tools, so the pin now asserts that
-    // entry exists exactly once, carries one search field and the three
-    // category controls, and sits above the editorial shelves — equal
-    // strictness, new ordered behaviour.
+    // routing into the existing live tools, so the pin asserts that
+    // entry exists exactly once and carries one search field, and sits
+    // above the editorial shelves — equal strictness, new ordered
+    // behaviour.
+    // RE-PIN (Stage 4, 2026-11-10): the A19 pin also demanded the three
+    // category controls as buttons INSIDE #finds-search. The NEW-5
+    // consolidation (2026-11-06, documented in FindsTabs.tsx) removed
+    // those pills on purpose: the tab row is the page's single category
+    // control, the search follows the active tab, and the live tools
+    // (tablist + panels) render once the search is opened. The pin now
+    // drives that real behaviour: submit the entry, the tablist must
+    // appear with exactly one tab per category, and switching tabs
+    // must re-route the search entry (its state line follows the tab).
     if (await page.locator("#finds-search").count() !== 1) throw new Error(`${viewport.name}: persistent Deals search entry is missing`);
     if (await page.locator('#finds-search input[name="findsQuery"]').count() !== 1) throw new Error(`${viewport.name}: Deals search field is missing`);
+    await page.locator('#finds-search input[name="findsQuery"]').fill("Lisbon");
+    await page.locator("#finds-search").getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByRole("tab", { name: "Stays", exact: true }).waitFor({ state: "visible", timeout: 10_000 });
     for (const label of ["Stays", "Flights", "Things to do"]) {
-      if (await page.locator("#finds-search").getByRole("button", { name: label, exact: true }).count() !== 1) throw new Error(`${viewport.name}: Deals search category is missing: ${label}`);
+      if (await page.getByRole("tab", { name: label, exact: true }).count() !== 1) throw new Error(`${viewport.name}: Deals category tab is missing: ${label}`);
     }
+    await page.getByRole("tab", { name: "Flights", exact: true }).click();
+    if (!(await page.locator("#finds-search").innerText()).includes("Searching flights")) throw new Error(`${viewport.name}: Flights tab does not route the search entry to flights`);
+    await page.getByRole("tab", { name: "Things to do", exact: true }).click();
+    if (!(await page.locator("#finds-search").innerText()).includes("Searching things to do")) throw new Error(`${viewport.name}: Things to do tab does not route the search entry to activities`);
+    await page.getByRole("tab", { name: "Stays", exact: true }).click();
     const searchBeforeShelves = await page.evaluate(() => {
       const search = document.querySelector("#finds-search");
       const shelves = document.querySelector("#worth-packing");

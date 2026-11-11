@@ -147,9 +147,21 @@ function bookingLine(
     .join(" · ");
 }
 
-async function loadTripBookings(
+// Stage 6 scoping (2026-11-11): both loaders filter user_id AND
+// trip_id, matching every other briefing/money/itinerary read path
+// (dailyTripBriefing.ts, preTrip1DayBriefing.ts, preTrip7DayBriefing.ts,
+// bookings.ts). They run through the service-role client, which
+// bypasses RLS, so the filter is the only confinement: without it a
+// booking whose trip_id was repointed at another traveller's trip
+// would be read into that traveller's briefing. The only caller
+// (scheduleCompanionBriefings) iterates trip rows and always holds
+// trip.user_id — trips without one are skipped before this point —
+// so scoping changes no legitimate behaviour. Exported for the
+// Stage 6 scoping suite.
+export async function loadTripBookings(
   supabase: SupabaseClient,
   tripId: string,
+  userId: string,
   today: string,
   timezone: string
 ): Promise<BookingRow[]> {
@@ -159,6 +171,7 @@ async function loadTripBookings(
       "id,booking_type,booking_status,title,provider_name,start_at,end_at,check_in_at,check_out_at,flight_number,terminal,gate"
     )
     .eq("trip_id", tripId)
+    .eq("user_id", userId)
     .is("superseded_by_booking_id", null)
     .in("booking_status", [
       "booked",
@@ -196,14 +209,16 @@ async function loadTripBookings(
   );
 }
 
-async function unresolvedRepairCount(
+export async function unresolvedRepairCount(
   supabase: SupabaseClient,
-  tripId: string
+  tripId: string,
+  userId: string
 ): Promise<number> {
   const result = await supabase
     .from("companion_repair_proposals")
     .select("id,status")
-    .eq("trip_id", tripId);
+    .eq("trip_id", tripId)
+    .eq("user_id", userId);
 
   if (result.error) return 0;
 
@@ -345,6 +360,7 @@ export async function scheduleCompanionBriefings() {
     const bookings = await loadTripBookings(
       admin,
       trip.id,
+      trip.user_id,
       localDate,
       timezone
     );
@@ -352,7 +368,8 @@ export async function scheduleCompanionBriefings() {
     const repairCount =
       await unresolvedRepairCount(
         admin,
-        trip.id
+        trip.id,
+        trip.user_id
       );
 
     const finalDay =

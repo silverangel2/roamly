@@ -35,6 +35,11 @@ function loadTsModule(entryFile) {
           const local = path.join(path.dirname(file), id);
           return load(local.match(/\.(ts|tsx|mjs|json)$/) ? local : `${local}.ts`);
         }
+        // "server-only" is a Next.js marker with no runtime exports; it is
+        // absent from this checkout's node_modules — stub it (Stage 4
+        // harness repair, 2026-11-10; same idiom as
+        // roamly-b02b06-booking-fixes-checks.mjs).
+        if (id === "server-only") return {};
         return require(id);
       }
     };
@@ -47,6 +52,18 @@ function loadTsModule(entryFile) {
 }
 
 const { enforceGroundedTimelineCandidates } = loadTsModule("lib/roamly/stagedItineraryGeneration.ts");
+
+// Stage 4 fixture repair (2026-11-10): the discovery stamps in the
+// payload below are RELATIVE to the run moment on purpose. A Klook
+// candidate's price only counts as verified while its discovery is
+// fresh (expires_at in the future — activityMarketFreshness checks the
+// real clock); the original fixture froze Sep/Oct 2026 stamps, so any
+// run after 2026-10-11 saw a stale candidate and the canonical price
+// came back null. The scenario is unchanged: fresh live discovery,
+// searched a day ago, expiring in two days.
+const fixtureNow = Date.now();
+const fixtureSearchedAt = new Date(fixtureNow - 24 * 3600 * 1000).toISOString();
+const fixtureExpiresAt = new Date(fixtureNow + 48 * 3600 * 1000).toISOString();
 
 const payload = {
   destination: "Montreal, Canada",
@@ -69,8 +86,8 @@ const payload = {
         price_amount: 42,
         price_type: "live_partner",
         confidence: "high",
-        searched_at: "2026-09-24T12:00:00.000Z",
-        expires_at: "2026-10-11T12:00:00.000Z",
+        searched_at: fixtureSearchedAt,
+        expires_at: fixtureExpiresAt,
         metadata: {}
       },
       {
@@ -84,8 +101,8 @@ const payload = {
         currency: "CAD",
         price_type: "search_ready",
         confidence: "medium",
-        searched_at: "2026-09-24T12:00:00.000Z",
-        expires_at: "2026-10-11T12:00:00.000Z",
+        searched_at: fixtureSearchedAt,
+        expires_at: fixtureExpiresAt,
         metadata: {}
       }
     ]

@@ -55,6 +55,10 @@ function makeFake(jobs, trips) {
       is(col, val) { filters.push({ kind: "is", col, val }); return q; },
       eq(col, val) { filters.push({ kind: "eq", col, val }); return q; },
       in(col, vals) { filters.push({ kind: "in", col, vals }); return q; },
+      // STAGE 7 (KF-2): the transition's scan now orders oldest-first;
+      // the fake honours it (stable sort — rows without the column
+      // keep fixture order, so every assertion below is unaffected).
+      order(col, opts) { filters.push({ kind: "order", col, asc: opts?.ascending !== false }); return q; },
       limit() { return q; },
       async maybeSingle() {
         if (op !== "update") return { data: null, error: null };
@@ -79,6 +83,14 @@ function makeFake(jobs, trips) {
               : true
             )
           );
+          const ord = filters.find((f) => f.kind === "order");
+          if (ord) {
+            data = [...data].sort((a, b) => {
+              const av = String(a[ord.col] ?? "");
+              const bv = String(b[ord.col] ?? "");
+              return (av < bv ? -1 : av > bv ? 1 : 0) * (ord.asc ? 1 : -1);
+            });
+          }
         } else if (table === "roamly_trips") {
           data = rows.trips.filter((row) =>
             filters.every((f) => (f.kind === "in" ? f.vals.includes(row[f.col]) : true))
