@@ -1163,6 +1163,9 @@ export async function processGenerationQueue(params: {
       config: claimConfig(workerId, config)
     });
     if (!claimed.ok) {
+      logGenerationDiagnostic("generation_worker_claim_error", {
+        error: claimed.error
+      });
       return summarize({ workerId, requestId, config, claimed: 0, results: [], error: claimed.error });
     }
     jobs = claimed.job ? [claimed.job] : [];
@@ -1173,6 +1176,9 @@ export async function processGenerationQueue(params: {
       config: claimConfig(workerId, config)
     });
     if (!claimed.ok) {
+      logGenerationDiagnostic("generation_worker_claim_error", {
+        error: claimed.error
+      });
       return summarize({ workerId, requestId, config, claimed: 0, results: [], error: claimed.error });
     }
     jobs = claimed.jobs;

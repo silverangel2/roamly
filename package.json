@@ -259,6 +259,7 @@
     "test:live-companion-during-trip": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-live-companion-during-trip-checks.mjs",
     "test:kf2-kill-resume": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-kf2-kill-resume-checks.mjs",
     "test:kf2-wake-chain": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-kf2-wake-chain-checks.mjs",
+    "test:retry-claim-pair": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-retry-claim-pair-checks.mjs",
     "test:stage-boundary-validation": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-stage-boundary-validation-checks.mjs",
     "test:pack-by-keys-refresh": "node --experimental-strip-types --import ./scripts/roamly-gap-test-register.mjs scripts/roamly-pack-by-keys-refresh-checks.mjs",
     "test:stranded-recovery": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-stranded-recovery-checks.mjs",
