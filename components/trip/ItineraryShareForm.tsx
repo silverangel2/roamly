@@ -3,6 +3,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
 import { BuiCard } from "@/components/boardui/Card";
 import { BuiFieldError, useBuiField, type BuiField } from "@/components/boardui/Field";
@@ -159,6 +160,7 @@ function tripLabel(trip: CompletedTripOption) {
 let rowKey = 1;
 
 export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segmentsError, existingSubmission }: Props) {
+  const { translateText } = useI18n();
   const router = useRouter();
   const selectedTrip = useMemo(
     () => trips.find((trip) => trip.id === selectedTripId) || null,
@@ -168,7 +170,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
   const [destination, setDestination] = useState(selectedTrip?.destinationCity || selectedTrip?.destination || "");
   // The form's one field-level rule, word-for-word the submit check's
   // message: blur surfaces it at the field; the submit check stands.
-  const destinationField = useBuiField((value) => (value.trim() ? "" : "Destination is required."));
+  const destinationField = useBuiField((value) => (value.trim() ? "" : translateText("Destination is required.")));
   const [startDate, setStartDate] = useState(selectedTrip?.startDate || "");
   const [endDate, setEndDate] = useState(selectedTrip?.endDate || "");
   const [title, setTitle] = useState(selectedTrip?.title || "");
@@ -198,20 +200,20 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
     event.preventDefault();
     setError(null);
     if (!selectedTripId) {
-      setError("Choose the completed trip you want to share.");
+      setError(translateText("Choose the completed trip you want to share."));
       return;
     }
     if (!destination.trim()) {
-      setError("Destination is required.");
+      setError(translateText("Destination is required."));
       return;
     }
     if (!ratedRows.length) {
-      setError("Rate at least one booked item from your trip.");
+      setError(translateText("Rate at least one booked item from your trip."));
       return;
     }
     for (const row of ratedRows) {
       if (row.rating == null && !row.verdict) {
-        setError("Each rated item needs a star rating or a verdict.");
+        setError(translateText("Each rated item needs a star rating or a verdict."));
         return;
       }
     }
@@ -246,15 +248,15 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
       const body = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) {
         setError(body.error === "ALREADY_SUBMITTED"
-          ? "This trip was already shared. One submission per completed trip."
+          ? translateText("This trip was already shared. One submission per completed trip.")
           : body.error === "ITINERARY_LIBRARY_TABLES_NOT_READY"
-            ? "The library tables are not ready yet — please try again later."
+            ? translateText("The library tables are not ready yet — please try again later.")
             : `Could not save your submission${body.error ? `: ${body.error}` : "."}`);
         return;
       }
       setDone(true);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Submission failed.");
+      setError(submitError instanceof Error ? submitError.message : translateText("Submission failed."));
     } finally {
       setSubmitting(false);
     }
@@ -263,15 +265,15 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
   if (done) {
     return (
       <BuiCard className="px-6 py-10 text-center">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Shared</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-chead">Thanks — your proven itinerary is in the library.</h2>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateText("Shared")}</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-chead">{translateText("Thanks — your proven itinerary is in the library.")}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-cink">
           {consent
-            ? "You consented to anonymized reuse, so future travelers heading the same way may benefit from what you learned."
-            : "You did not consent to anonymized reuse, so this stays as your personal record only."}
+            ? translateText("You consented to anonymized reuse, so future travelers heading the same way may benefit from what you learned.")
+            : translateText("You did not consent to anonymized reuse, so this stays as your personal record only.")}
         </p>
         <BuiButtonLink href={selectedTripId ? `/trip/${selectedTripId}` : "/dashboard"} className="mt-6">
-          Back to your trip
+          {translateText("Back to your trip")}
         </BuiButtonLink>
       </BuiCard>
     );
@@ -280,14 +282,14 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
   if (existingSubmission) {
     return (
       <BuiCard className="px-6 py-10 text-center">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Already shared</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-chead">This trip is already in the library.</h2>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateText("Already shared")}</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-chead">{translateText("This trip is already in the library.")}</h2>
         <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-cink">
-          One submission per completed trip keeps the library honest. Shared{" "}
-          {existingSubmission.created_at ? new Date(existingSubmission.created_at).toLocaleDateString() : "earlier"}.
+          {translateText("One submission per completed trip keeps the library honest. Shared")}{" "}
+          {existingSubmission.created_at ? new Date(existingSubmission.created_at).toLocaleDateString() : translateText("earlier")}.
         </p>
         <BuiButtonLink href={`/trip/${existingSubmission.trip_id}`} className="mt-6">
-          View your trip
+          {translateText("View your trip")}
         </BuiButtonLink>
       </BuiCard>
     );
@@ -296,20 +298,20 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
   return (
     <form onSubmit={handleSubmit} className="grid gap-6">
       <BuiCard className="px-5 py-6 sm:px-7">
-        <h2 className="text-lg font-black text-chead">Which trip?</h2>
+        <h2 className="text-lg font-black text-chead">{translateText("Which trip?")}</h2>
         {trips.length === 0 ? (
           <p className="mt-2 text-sm font-semibold leading-6 text-cink">
-            You have no completed trips yet. Once a trip is marked completed, it will appear here.
+            {translateText("You have no completed trips yet. Once a trip is marked completed, it will appear here.")}
           </p>
         ) : (
           <div className="mt-3">
             <ShareSelectField
               id="share-trip"
-              label="Completed trip"
+              label={translateText("Completed trip")}
               value={selectedTripId || ""}
               onChange={(value) => router.push(value ? `/trips/share?trip=${value}` : "/trips/share")}
             >
-              <option value="">Choose a completed trip…</option>
+              <option value="">{translateText("Choose a completed trip…")}</option>
               {trips.map((trip) => (
                 <option key={trip.id} value={trip.id}>{tripLabel(trip)}</option>
               ))}
@@ -321,28 +323,28 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
       {selectedTripId ? (
         <>
           <BuiCard className="px-5 py-6 sm:px-7">
-            <h2 className="text-lg font-black text-chead">The trip</h2>
+            <h2 className="text-lg font-black text-chead">{translateText("The trip")}</h2>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              <ShareField id="share-title" label="Trip title" value={title} onChange={setTitle} maxLength={160} placeholder="e.g. Slow week in Lisbon" />
-              <ShareField id="share-destination" label="Destination *" value={destination} onChange={setDestination} maxLength={200} field={destinationField} />
-              <ShareField id="share-start-date" label="Start date" type="date" value={startDate} onChange={setStartDate} />
-              <ShareField id="share-end-date" label="End date" type="date" value={endDate} onChange={setEndDate} />
+              <ShareField id="share-title" label={translateText("Trip title")} value={title} onChange={setTitle} maxLength={160} placeholder={translateText("e.g. Slow week in Lisbon")} />
+              <ShareField id="share-destination" label={translateText("Destination *")} value={destination} onChange={setDestination} maxLength={200} field={destinationField} />
+              <ShareField id="share-start-date" label={translateText("Start date")} type="date" value={startDate} onChange={setStartDate} />
+              <ShareField id="share-end-date" label={translateText("End date")} type="date" value={endDate} onChange={setEndDate} />
             </div>
             <div className="mt-4">
-              <ShareAreaField id="share-highlights" label="What made this trip eventful / fruitful?" value={highlights} onChange={setHighlights} maxLength={4000} rows={4} placeholder="The moments, places, or decisions future travelers should know about…" />
+              <ShareAreaField id="share-highlights" label={translateText("What made this trip eventful / fruitful?")} value={highlights} onChange={setHighlights} maxLength={4000} rows={4} placeholder={translateText("The moments, places, or decisions future travelers should know about…")} />
             </div>
           </BuiCard>
 
           <BuiCard className="px-5 py-6 sm:px-7">
-            <h2 className="text-lg font-black text-chead">Rate what you booked</h2>
+            <h2 className="text-lg font-black text-chead">{translateText("Rate what you booked")}</h2>
             <p className="mt-1 text-sm font-semibold leading-6 text-cink">
-              Only items from your own booking wallet appear here — every rating is booking-proof.
+              {translateText("Only items from your own booking wallet appear here — every rating is booking-proof.")}
             </p>
             {segmentsError ? (
               <BuiNotice tone="error" title={`Could not load your bookings: ${segmentsError}`} className="mt-3" />
             ) : bookedSegments.length === 0 ? (
               <p className="mt-3 text-sm font-semibold leading-6 text-cink">
-                No bookings found on this trip, so there is nothing to rate yet.
+                {translateText("No bookings found on this trip, so there is nothing to rate yet.")}
               </p>
             ) : (
               <div className="mt-4 grid gap-4">
@@ -353,11 +355,11 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                         <ShareSelectField
                           id={`share-row-${row.key}-item`}
-                          label="Booked item"
+                          label={translateText("Booked item")}
                           value={row.optionValue}
                           onChange={(value) => updateRow(row.key, { optionValue: value })}
                         >
-                          <option value="">Choose a booked item…</option>
+                          <option value="">{translateText("Choose a booked item…")}</option>
                           {bookedSegments.map((booked) => (
                             <option key={optionValueFor(booked)} value={optionValueFor(booked)}>
                               {booked.itemType.toUpperCase()} · {booked.itemLabel}
@@ -365,40 +367,40 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                           ))}
                         </ShareSelectField>
                         <BuiButton type="button" variant="secondary" onClick={() => removeRow(row.key)}>
-                          Remove
+                          {translateText("Remove")}
                         </BuiButton>
                       </div>
                       {option ? (
                         <div className="mt-3 grid gap-3 sm:grid-cols-3">
                           <ShareSelectField
                             id={`share-row-${row.key}-stars`}
-                            label="Stars"
+                            label={translateText("Stars")}
                             value={String(row.rating ?? "")}
                             onChange={(value) => updateRow(row.key, { rating: value ? Number(value) : null })}
                           >
-                            <option value="">Not rated</option>
+                            <option value="">{translateText("Not rated")}</option>
                             {[1, 2, 3, 4, 5].map((score) => (
                               <option key={score} value={score}>{score} ★</option>
                             ))}
                           </ShareSelectField>
                           <ShareSelectField
                             id={`share-row-${row.key}-verdict`}
-                            label="Verdict"
+                            label={translateText("Verdict")}
                             value={row.verdict}
                             onChange={(value) => updateRow(row.key, { verdict: value as VerdictRow["verdict"] })}
                           >
-                            <option value="">No verdict</option>
-                            <option value="loved">Loved it</option>
-                            <option value="fine">Fine</option>
-                            <option value="avoid">Avoid</option>
+                            <option value="">{translateText("No verdict")}</option>
+                            <option value="loved">{translateText("Loved it")}</option>
+                            <option value="fine">{translateText("Fine")}</option>
+                            <option value="avoid">{translateText("Avoid")}</option>
                           </ShareSelectField>
                           <ShareField
                             id={`share-row-${row.key}-note`}
-                            label="Note"
+                            label={translateText("Note")}
                             value={row.note}
                             onChange={(value) => updateRow(row.key, { note: value })}
                             maxLength={1000}
-                            placeholder="One line for future travelers…"
+                            placeholder={translateText("One line for future travelers…")}
                           />
                         </div>
                       ) : null}
@@ -406,7 +408,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                   );
                 })}
                 <BuiButton type="button" variant="secondary" onClick={addRow} className="self-start">
-                  + Rate another booked item
+                  {translateText("+ Rate another booked item")}
                 </BuiButton>
               </div>
             )}
@@ -421,8 +423,9 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
                 className="mt-1 h-5 w-5 shrink-0 accent-cblue"
               />
               <span>
-                I consent to Roamly reusing this itinerary <strong>anonymously</strong> in suggestions for
-                future travelers (no name, no contact details, no booking references ever shared).
+                {translateText("I consent to Roamly reusing this itinerary")}{" "}
+                <strong>{translateText("anonymously")}</strong>{" "}
+                {translateText("in suggestions for future travelers (no name, no contact details, no booking references ever shared).")}
               </span>
             </label>
             {error ? <BuiNotice tone="error" title={error} className="mt-4" /> : null}
@@ -432,7 +435,7 @@ export function ItineraryShareForm({ trips, selectedTripId, bookedSegments, segm
               busy={submitting}
               className="mt-5"
             >
-              {submitting ? "Sharing…" : "Share my proven itinerary"}
+              {submitting ? translateText("Sharing…") : translateText("Share my proven itinerary")}
             </BuiButton>
           </BuiCard>
         </>

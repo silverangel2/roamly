@@ -1,4 +1,7 @@
+"use client";
+
 import type { TimeProvenance } from "@/lib/roamly/timeProvenance";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { timeProvenanceLabel } from "@/lib/roamly/timeProvenance";
 
 /**
@@ -18,6 +21,7 @@ export function TimeProvenanceLabel({
   kind: TimeProvenance;
   className?: string;
 }) {
+  const { translateText } = useI18n();
   return (
     <span
       className={
@@ -25,7 +29,7 @@ export function TimeProvenanceLabel({
         "mt-0.5 inline-block rounded-md bg-[rgba(31,45,77,0.08)] px-2 py-0.5 text-xs font-semibold text-chead"
       }
     >
-      {timeProvenanceLabel(kind)}
+      {translateText(timeProvenanceLabel(kind))}
     </span>
   );
 }

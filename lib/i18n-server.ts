@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { NextRequest } from "next/server";
 import {
   ROAMLY_DEFAULT_LOCALE,
@@ -9,7 +9,18 @@ import {
 
 export async function getServerLocale(): Promise<RoamlyLocale> {
   const cookieStore = await cookies();
-  return resolveRoamlyLocale({ persistedLocale: cookieStore.get(ROAMLY_LOCALE_COOKIE)?.value });
+  // Flash-of-English fix (2026-11-12): a first-time visitor with no
+  // persisted language still gets their browser language on the
+  // server render, from Accept-Language, so the first paint is not
+  // English-by-default. Persisted cookie still wins over the browser.
+  const acceptLanguage = (await headers()).get("accept-language");
+  const browserLocale = acceptLanguage
+    ? acceptLanguage.split(",")[0]?.trim() || null
+    : null;
+  return resolveRoamlyLocale({
+    persistedLocale: cookieStore.get(ROAMLY_LOCALE_COOKIE)?.value,
+    browserLocale
+  });
 }
 
 export function getRequestLocale(request: NextRequest, language?: string | null): RoamlyLocale {

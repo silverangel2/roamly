@@ -34,6 +34,7 @@
  *    with 10 minutes to spare.").
  */
 
+import { translateExactText, translateKey, type RoamlyLocale } from "@/lib/i18n";
 import { minutesToClock, type LocalDate, type PlanMinutes } from "./engine/time";
 import type {
   CompanionItemState,
@@ -137,8 +138,20 @@ export function isPanelKind(kind: string): boolean {
   return PANEL_KINDS.has(kind);
 }
 
-export function panelDateLabel(date: LocalDate): string {
-  return new Intl.DateTimeFormat("en-CA", {
+/** "Thursday, November 12, 2026" — the pass/panel date line. The locale
+ *  is a parameter (default "en", byte-identical): the pass page passes the
+ *  traveller's locale, the live panel keeps the English default. */
+const PANEL_DATE_INT: Record<RoamlyLocale, string> = {
+  en: "en-CA",
+  fr: "fr-CA",
+  es: "es",
+  ja: "ja",
+  ko: "ko",
+  zh: "zh-Hans"
+};
+
+export function panelDateLabel(date: LocalDate, locale: RoamlyLocale = "en"): string {
+  return new Intl.DateTimeFormat(PANEL_DATE_INT[locale] ?? "en-CA", {
     timeZone: "UTC",
     weekday: "long",
     month: "long",
@@ -1033,7 +1046,9 @@ export function buildWalletPassView(params: {
   nowMin: PlanMinutes;
   cachedAt: string | null;
   pendingSyncActions: number;
+  locale?: RoamlyLocale;
 }): WalletPassView {
+  const locale = params.locale ?? "en";
   const dayItems = params.activities
     .filter((activity) => activity.date === params.date && isPanelKind(activity.kind))
     .slice()
@@ -1049,10 +1064,10 @@ export function buildWalletPassView(params: {
     partyLabel: params.partyLabel,
     destination: params.destination,
     date: params.date,
-    dateLabel: panelDateLabel(params.date),
+    dateLabel: panelDateLabel(params.date, locale),
     headline: next
-      ? `Hey, your next destination is ${next.place}.`
-      : "Hey, your day is all set.",
+      ? translateKey(locale, "ui.trip.passNextDestination", "Hey, your next destination is {place}.", { place: next.place })
+      : translateExactText(locale, "Hey, your day is all set."),
     nextActivity: next
       ? {
           id: next.id,
@@ -1072,9 +1087,9 @@ export function buildWalletPassView(params: {
     offline: {
       ready: true,
       cachedAt: params.cachedAt,
-      scope: "Day pass, today's plan, booking references, provenance, and map choices",
+      scope: translateExactText(locale, "Day pass, today's plan, booking references, provenance, and map choices"),
       pendingSyncActions: params.pendingSyncActions,
-      rule: "The day works with no signal; offline actions keep their original timestamps and sync later."
+      rule: translateExactText(locale, "The day works with no signal; offline actions keep their original timestamps and sync later.")
     }
   };
 }

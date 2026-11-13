@@ -1,3 +1,7 @@
+"use client";
+
+// This module is shared with the client CompanionPanel, so it is client
+// code; the hook below is legal here.
 /*
  * Build 2 Live Companion — panel v2 presentational views
  * (DESIGN-PRODUCTION.md Phase 7). Pure components over the
@@ -12,6 +16,7 @@
  */
 import Image from "next/image";
 import { Check } from "lucide-react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { ROAMLY_ICON_PATH } from "@/lib/roamly/companionPanel";
 import type {
   ActivityDetailView,
@@ -38,6 +43,7 @@ export function CompanionPushCardView({
   push: CompactPushView;
   onAction?: PanelActionHandler;
 }) {
+  const { translateText } = useI18n();
   return (
     <article
       data-measure="push"
@@ -89,6 +95,7 @@ function StripActions({
   strip: CompactStripView;
   onAction: PanelActionHandler;
 }) {
+  const { translateText } = useI18n();
   return (
     <div className="mt-[7px] flex gap-[8px]">
       {strip.checkIn ? (
@@ -98,7 +105,7 @@ function StripActions({
             onClick={() => onAction("check-in", strip.itemId)}
             className="inline-flex h-11 items-center justify-center rounded-[10px] bg-cblue px-3 text-[12.5px] font-bold text-white"
           >
-            Check in
+            {translateText("Check in")}
           </button>
         ) : (
           <span className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-3 text-[12.5px] font-semibold text-[#7a8f88]">
@@ -112,7 +119,7 @@ function StripActions({
           onClick={() => onAction("directions", strip.itemId)}
           className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-cblue px-3 text-[12.5px] font-bold text-cblue"
         >
-          Directions
+          {translateText("Directions")}
         </button>
       ) : null}
       {strip.skip ? (
@@ -121,7 +128,7 @@ function StripActions({
           onClick={() => onAction("skip", strip.itemId)}
           className="inline-flex h-11 items-center justify-center rounded-[10px] border-[1.5px] border-[#c4d6d0] px-3 text-[12.5px] font-semibold text-ink"
         >
-          Skip
+          {translateText("Skip")}
         </button>
       ) : null}
     </div>
@@ -169,6 +176,7 @@ export function CompanionSlimLineView({
   itemId: string | null;
   onAction?: PanelActionHandler;
 }) {
+  const { translateText } = useI18n();
   return (
     <div
       data-measure="slim"
@@ -184,7 +192,7 @@ export function CompanionSlimLineView({
           onClick={() => onAction("undo", itemId)}
           className="shrink-0 text-[11.5px] font-bold text-cblue"
         >
-          Undo
+          {translateText("Undo")}
         </button>
       ) : null}
     </div>
@@ -198,6 +206,7 @@ export function CompanionRowView({
   row: CompactRowView;
   onAction?: PanelActionHandler;
 }) {
+  const { translateText } = useI18n();
   if (row.mode === "slim") {
     return (
       <CompanionSlimLineView
@@ -222,11 +231,11 @@ export function CompanionRowView({
         </h3>
         {warn ? (
           <span className="shrink-0 rounded-full bg-[#fff0d9] px-[6px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-[#8a5a00]">
-            {row.state === "collision" ? "Heads up" : "Leave by"}
+            {row.state === "collision" ? translateText("Heads up") : translateText("Leave by")}
           </span>
         ) : row.state === "current" ? (
           <span className="shrink-0 rounded-full bg-[#e2f2ec] px-[6px] py-[2px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-cblue">
-            Now
+            {translateText("Now")}
           </span>
         ) : null}
       </div>
@@ -239,7 +248,7 @@ export function CompanionRowView({
               onClick={() => onAction("check-in", row.itemId)}
               className="inline-flex h-[27px] items-center justify-center rounded-[9px] bg-cblue px-[10px] text-[11.5px] font-bold text-white"
             >
-              Check in
+              {translateText("Check in")}
             </button>
           ) : (
             <span className="text-[11px] font-semibold text-[#7a8f88]">{row.checkIn.label}</span>
@@ -282,17 +291,18 @@ export function DirectionsChooserView({
   placeName: string;
   onClose: () => void;
 }) {
+  const { translateText } = useI18n();
   return (
     <div className="absolute inset-x-4 bottom-[14px] rounded-[20px] bg-white px-[14px] pb-3 pt-[10px] shadow-[0_18px_44px_rgba(10,40,30,0.30)]">
       <div className="mx-auto mb-2 h-1 w-[38px] rounded-full bg-[#d5e2dd]" />
       <div className="flex items-baseline justify-between">
         <h3 className="text-[14.5px] font-bold text-ink">Directions to {placeName}</h3>
         <button type="button" onClick={onClose} className="text-[12px] font-bold text-cblue">
-          Close
+          {translateText("Close")}
         </button>
       </div>
       <p className="mt-[2px] text-[11.5px] text-[#5d726c]">
-        Pick your map — your place in the day stays right here.
+        {translateText("Pick your map \u2014 your place in the day stays right here.")}
       </p>
       {control.options.map((option) =>
         option.available && option.url ? (
@@ -309,7 +319,7 @@ export function DirectionsChooserView({
             <span className="flex-1 text-right text-[11.5px] text-[#5d726c]">{option.note}</span>
             {option.recommended ? (
               <span className="rounded-full bg-cblue px-[6px] py-[1px] text-[9.5px] font-extrabold uppercase tracking-[0.04em] text-white">
-                Best
+                {translateText("Best")}
               </span>
             ) : null}
           </a>
@@ -341,38 +351,39 @@ export function ActivityDetailView({
   onAction?: PanelActionHandler;
   onDirections?: (itemId: string) => void;
 }) {
+  const { translateText } = useI18n();
   const fields = detail.fields;
   return (
     <section className="mx-auto w-[358px] max-w-full rounded-[20px] border border-[#dce7e3] bg-white p-4">
       <p className="text-[15px] font-bold leading-snug text-ink">{detail.headline}</p>
       <dl className="mt-3 space-y-[6px] text-[13px] text-[#44605a]">
         <div className="flex justify-between gap-3">
-          <dt className="font-semibold text-ink">When</dt>
+          <dt className="font-semibold text-ink">{translateText("When")}</dt>
           <dd>
             {fields.dateLabel} · {fields.startLabel}–{fields.endLabel}
           </dd>
         </div>
         {fields.boardingLabel ? (
           <div className="flex justify-between gap-3">
-            <dt className="font-semibold text-ink">Boarding</dt>
+            <dt className="font-semibold text-ink">{translateText("Boarding")}</dt>
             <dd>{fields.boardingLabel}</dd>
           </div>
         ) : null}
         {fields.address ? (
           <div className="flex justify-between gap-3">
-            <dt className="font-semibold text-ink">Address</dt>
+            <dt className="font-semibold text-ink">{translateText("Address")}</dt>
             <dd className="text-right">{fields.address}</dd>
           </div>
         ) : null}
         {fields.bookingRef ? (
           <div className="flex justify-between gap-3">
-            <dt className="font-semibold text-ink">Booking ref</dt>
+            <dt className="font-semibold text-ink">{translateText("Booking ref")}</dt>
             <dd>{fields.bookingRef}</dd>
           </div>
         ) : null}
         {detail.leaveBy ? (
           <div className="flex justify-between gap-3">
-            <dt className="font-semibold text-ink">Leave by</dt>
+            <dt className="font-semibold text-ink">{translateText("Leave by")}</dt>
             <dd>{detail.leaveBy.leaveByLabel}</dd>
           </div>
         ) : null}
@@ -390,7 +401,7 @@ export function ActivityDetailView({
             onClick={() => onAction("check-in", detail.itemId)}
             className="inline-flex h-11 items-center justify-center rounded-[10px] bg-cblue px-4 text-[13px] font-bold text-white"
           >
-            Check in
+            {translateText("Check in")}
           </button>
         ) : null}
         {detail.actions.includes("directions") && onDirections ? (
@@ -421,6 +432,7 @@ export function ActivityDetailView({
 /* ------------------------------------------------------------------ */
 
 export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
+  const { translateText } = useI18n();
   const next = pass.nextActivity;
   return (
     <section
@@ -430,7 +442,7 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
       <div className="flex items-center gap-[9px] px-5 pt-5">
         <Image
           src={ROAMLY_ICON_PATH}
-          alt="Roamly logo"
+          alt={translateText("Roamly logo")}
           width={38}
           height={38}
           className="h-[38px] w-[38px] rounded-[10px]"
@@ -451,7 +463,7 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
         <p className="text-[16px] font-bold leading-snug">{pass.headline}</p>
         {next ? (
           <div className="mt-3 rounded-2xl bg-white/10 px-4 py-3">
-            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/70">Next up</p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-white/70">{translateText("Next up")}</p>
             <p className="mt-1 text-[15px] font-bold leading-snug">{next.name}</p>
             <p className="mt-[2px] text-[12.5px] text-white/70">
               {next.startLabel}–{next.endLabel}
@@ -462,7 +474,7 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
         <dl className="mt-3 space-y-[5px] pb-3 text-[12.5px]">
           {pass.travelerName ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-white/70">Traveler</dt>
+              <dt className="text-white/70">{translateText("Traveler")}</dt>
               <dd className="font-semibold">
                 {pass.travelerName}
                 {pass.partyLabel ? ` · ${pass.partyLabel}` : ""}
@@ -471,13 +483,13 @@ export function WalletPassCardView({ pass }: { pass: WalletPassView }) {
           ) : null}
           {pass.essentials.hotelName ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-white/70">Staying at</dt>
+              <dt className="text-white/70">{translateText("Staying at")}</dt>
               <dd className="font-semibold">{pass.essentials.hotelName}</dd>
             </div>
           ) : null}
           {pass.essentials.flightLabel ? (
             <div className="flex justify-between gap-3">
-              <dt className="text-white/70">Flight</dt>
+              <dt className="text-white/70">{translateText("Flight")}</dt>
               <dd className="font-semibold">
                 {pass.essentials.flightLabel}
                 {pass.essentials.flightBookingRef ? ` · ${pass.essentials.flightBookingRef}` : ""}

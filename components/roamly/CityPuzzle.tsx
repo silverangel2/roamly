@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { BuiButton, BuiButtonLink } from "@/components/boardui/Button";
@@ -75,6 +76,7 @@ const dailyNumber = () => Math.floor(Date.now() / 86_400_000) % destinations.len
 const shuffledOrder = () => [8, 0, 7, 2, 6, 3, 4, 1, 5];
 
 export function CityPuzzle() {
+  const { t, translateText } = useI18n();
   const [destinationIndex, setDestinationIndex] = useState(dailyNumber);
   const [order, setOrder] = useState<number[]>(shuffledOrder);
   const [selected, setSelected] = useState<number | null>(null);
@@ -112,11 +114,11 @@ export function CityPuzzle() {
     <BuiCard className="overflow-hidden">
       <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
         <div className="flex flex-col justify-center bg-cbg p-6 sm:p-8 lg:p-9">
-          <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-cblue">A small travel break · {destinationIndex + 1} of {destinations.length}</p>
-          <h2 id="puzzle-title" className="mt-3 text-2xl font-bold tracking-tight text-chead sm:text-3xl">Where will the pieces take you?</h2>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-cink">Swap two pieces at a time to discover somewhere new. Solve the picture when you feel like playing, then decide whether it belongs on your trip.</p>
-          <p aria-live="polite" className="mt-4 text-xs font-bold text-cgray">{solved ? `Solved in ${moves} swaps` : selected === null ? `Choose a piece · ${moves} ${moves === 1 ? "swap" : "swaps"}` : "Now choose another piece to swap."}</p>
-          <p className="mt-5 text-[0.68rem] leading-5 text-cgray">Explore 100 destinations through travel photos and destination illustrations. Planning remains one tap away above.</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.17em] text-cblue">{t("ui.home.puzzle.progress", "A small travel break · {current} of {total}", { current: destinationIndex + 1, total: destinations.length })}</p>
+          <h2 id="puzzle-title" className="mt-3 text-2xl font-bold tracking-tight text-chead sm:text-3xl">{translateText("Where will the pieces take you?")}</h2>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-cink">{translateText("Swap two pieces at a time to discover somewhere new. Solve the picture when you feel like playing, then decide whether it belongs on your trip.")}</p>
+          <p aria-live="polite" className="mt-4 text-xs font-bold text-cgray">{solved ? t("ui.home.puzzle.solved", "Solved in {moves} {swaps}", { moves, swaps: moves === 1 ? t("ui.home.puzzle.swapOne", "swap") : t("ui.home.puzzle.swapMany", "swaps") }) : selected === null ? t("ui.home.puzzle.choose", "Choose a piece · {moves} {swaps}", { moves, swaps: moves === 1 ? t("ui.home.puzzle.swapOne", "swap") : t("ui.home.puzzle.swapMany", "swaps") }) : translateText("Now choose another piece to swap.")}</p>
+          <p className="mt-5 text-[0.68rem] leading-5 text-cgray">{translateText("Explore 100 destinations through travel photos and destination illustrations. Planning remains one tap away above.")}</p>
         </div>
         <div className="p-4 sm:p-7 lg:p-9">
           <div role="group" aria-label={`Jigsaw puzzle ${destination.kind === "photo" ? "photo of" : "illustration inspired by"} ${destination.city}, ${destination.country}`} className="mx-auto grid aspect-square w-full max-w-[29rem] grid-cols-3 gap-1.5 overflow-hidden rounded-2xl bg-white p-1.5 shadow-bui-card sm:gap-2 sm:p-2">
@@ -128,19 +130,19 @@ export function CityPuzzle() {
             })}
           </div>
           <p className="mx-auto mt-3 max-w-[29rem] text-center text-[0.68rem] leading-5 text-cgray">
-            {destination.kind === "photo" ? <>Photo: <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || "Photographer"}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">Source</a> · reduced-size Commons thumbnail</> : "A destination illustration."}
+            {destination.kind === "photo" ? <>{translateText("Photo:")} <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="font-semibold underline">{destination.credit || translateText("Photographer")}</a> · <a href={destination.licenseUrl} target="_blank" rel="noreferrer" className="underline">{destination.license}</a> · <a href={destination.sourceUrl} target="_blank" rel="noreferrer" className="underline">{translateText("Source")}</a> · {translateText("reduced-size Commons thumbnail")}</> : translateText("A destination illustration.")}
           </p>
           {solved ? <div className="roamly-enter mx-auto mt-5 max-w-[29rem] rounded-2xl border border-chair bg-cbg p-4 sm:p-5">
-            <p role="status" aria-live="polite" className="text-lg font-black text-chead">You found {destination.city}, {destination.country}!</p>
-            <p className="mt-1 text-sm leading-6 text-cink">Make it a real trip. Explore planning, compare current fares, or find a stay through the seller.</p>
+            <p role="status" aria-live="polite" className="text-lg font-black text-chead">{t("ui.home.puzzle.found", "You found {city}, {country}!", { city: destination.city, country: destination.country })}</p>
+            <p className="mt-1 text-sm leading-6 text-cink">{translateText("Make it a real trip. Explore planning, compare current fares, or find a stay through the seller.")}</p>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <BuiButtonLink href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="rounded-full">Plan a trip</BuiButtonLink>
-              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} variant="secondary" className="rounded-full">Check flights</BuiButtonLink>
-              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} variant="secondary" className="rounded-full">Find hotels</BuiButtonLink>
-              <BuiButton type="button" variant="ghost" onClick={nextPuzzle} className="rounded-full">Next puzzle <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} /></BuiButton>
+              <BuiButtonLink href={`/plan?destination=${encodeURIComponent(destination.city)}`} className="rounded-full">{translateText("Plan a trip")}</BuiButtonLink>
+              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-flights`} variant="secondary" className="rounded-full">{translateText("Check flights")}</BuiButtonLink>
+              <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination.city)}#finds-tab-stays`} variant="secondary" className="rounded-full">{translateText("Find hotels")}</BuiButtonLink>
+              <BuiButton type="button" variant="ghost" onClick={nextPuzzle} className="rounded-full">{translateText("Next puzzle")} <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} /></BuiButton>
             </div>
-            <p className="mt-3 text-[0.68rem] leading-5 text-cgray">Availability depends on the seller. Prices and booking are confirmed before you commit.</p>
-          </div> : <p className="mx-auto mt-3 max-w-[29rem] text-center text-xs text-cgray">Tap a tile, then another tile to swap them.</p>}
+            <p className="mt-3 text-[0.68rem] leading-5 text-cgray">{translateText("Availability depends on the seller. Prices and booking are confirmed before you commit.")}</p>
+          </div> : <p className="mx-auto mt-3 max-w-[29rem] text-center text-xs text-cgray">{translateText("Tap a tile, then another tile to swap them.")}</p>}
         </div>
       </div>
     </BuiCard>

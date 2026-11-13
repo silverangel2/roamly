@@ -5,6 +5,7 @@ import {
   ROAMLY_LOCALE_COOKIE,
   ROAMLY_LOCALE_STORAGE_KEY,
   resolveRoamlyLocale,
+  supportedLocales,
   translateExactText,
   translateKey,
   type RoamlyLocale
@@ -13,7 +14,7 @@ import {
 type I18nContextValue = {
   locale: RoamlyLocale;
   setLocale: (locale: RoamlyLocale) => void;
-  t: (key: string, fallback?: string) => string;
+  t: (key: string, fallback?: string, values?: Record<string, string | number>) => string;
   translateText: (text: string) => string;
 };
 
@@ -28,11 +29,25 @@ function cookieLocale() {
     ?.split("=")[1];
 }
 
-export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<RoamlyLocale>("en");
+export function I18nProvider({ children, initialLocale }: { children: React.ReactNode; initialLocale?: RoamlyLocale }) {
+  // Flash-of-English fix (2026-11-12): the provider used to initialise
+  // to "en" and flip after hydration, so a cold load painted ~2 s of
+  // English before the stored language applied. The server locale
+  // (from the roamly_lang cookie) is now the initial state, so the
+  // server render — the first paint — is already in the picked
+  // language. The effect below only re-resolves client-side signals
+  // (localStorage / browser) when the server had nothing persisted.
+  const [locale, setLocaleState] = useState<RoamlyLocale>(() =>
+    initialLocale && supportedLocales.includes(initialLocale) ? initialLocale : "en"
+  );
 
   useEffect(() => {
     const cookie = cookieLocale();
+    // The server already used the cookie as the provider's initial state:
+    // re-resolving here could only flip a cookie-set user to a stale
+    // localStorage / browser value. Re-resolve only when the server had
+    // nothing persisted (no cookie) to honour.
+    if (cookie) return;
     const stored = window.localStorage.getItem(ROAMLY_LOCALE_STORAGE_KEY);
     setLocaleState(resolveRoamlyLocale({
       persistedLocale: cookie,
@@ -57,7 +72,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     () => ({
       locale,
       setLocale,
-      t: (key, fallback) => translateKey(locale, key, fallback),
+      t: (key, fallback, values) => translateKey(locale, key, fallback, values),
       translateText: (text) => translateExactText(locale, text)
     }),
     [locale]

@@ -50,6 +50,7 @@ import {
   type DirectionsRouteEvidence,
   type DirectionsStep
 } from "@/lib/roamly/directionsPanel";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 export type DirectionsPanelProps = {
   tripId: string;
@@ -122,6 +123,7 @@ function ExternalIcon() {
 }
 
 export function DirectionsPanel(props: DirectionsPanelProps) {
+  const { translateText } = useI18n();
   const [localLocation, setLocalLocation] = useState<LiveCoordinates | null>(null);
   const [localLocationError, setLocalLocationError] = useState<string | null>(null);
   const [locationRequesting, setLocationRequesting] = useState(false);
@@ -209,7 +211,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
   // never the raw plan title; the maps destination (coordinates) is
   // untouched. An address identical to the raw title is not repeated
   // (it IS the title); the plan-title line below carries traceability.
-  const displayTitle = props.unverified ? "Unverified stop" : placeTitle;
+  const displayTitle = props.unverified ? translateText("Unverified stop") : placeTitle;
   const displayAddress =
     props.destination.address && props.destination.address !== placeTitle
       ? props.destination.address
@@ -239,7 +241,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
   const summaryLine =
     durationText || distanceText
       ? [durationText, distanceText].filter(Boolean).join(" · ")
-      : "Live routing opens in your maps app";
+      : translateText("Live routing opens in your maps app");
   const walkValuesLine = [durationText, distanceText].filter(Boolean).join(" · ") || null;
 
   const requestLocation = () => {
@@ -248,7 +250,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
       return;
     }
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setLocalLocationError("This browser does not support location sensing.");
+      setLocalLocationError(translateText("This browser does not support location sensing."));
       return;
     }
     setLocationRequesting(true);
@@ -266,8 +268,8 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
       (error) => {
         setLocalLocationError(
           error.code === error.PERMISSION_DENIED
-            ? "Location permission was denied. You can still open Maps for directions."
-            : "Location is unavailable right now. Try again."
+            ? translateText("Location permission was denied. You can still open Maps for directions.")
+            : translateText("Location is unavailable right now. Try again.")
         );
         setLocationRequesting(false);
       }
@@ -283,7 +285,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
 
   return (
     <section
-      aria-label="Getting to your next stop"
+      aria-label={translateText("Getting to your next stop")}
       data-trip-id={props.tripId}
       className="mx-auto w-full bg-cbg"
     >
@@ -293,7 +295,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
           <button
             type="button"
             onClick={props.onBack}
-            aria-label="Back"
+            aria-label={translateText("Back")}
             className="grid min-h-11 min-w-11 shrink-0 place-items-center text-chead"
           >
             <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
@@ -301,14 +303,14 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
         ) : (
           <a
             href={`/trip/${props.tripId}`}
-            aria-label="Back to itinerary"
+            aria-label={translateText("Back to itinerary")}
             className="grid min-h-11 min-w-11 shrink-0 place-items-center text-chead"
           >
             <ChevronLeft size={18} strokeWidth={2} aria-hidden="true" />
           </a>
         )}
         <div className="min-w-0 flex-1 text-center">
-          <h2 className="text-[17px] font-bold leading-tight text-chead">Getting to your next stop</h2>
+          <h2 className="text-[17px] font-bold leading-tight text-chead">{translateText("Getting to your next stop")}</h2>
           <p className="mt-0.5 text-[13px] font-normal text-cgray">{dayLabel}</p>
         </div>
         {mapsLinks.primary ? (
@@ -316,7 +318,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
             href={mapsLinks.primary}
             target="_blank"
             rel="noreferrer"
-            aria-label="Open in Maps"
+            aria-label={translateText("Open in Maps")}
             className="grid min-h-11 min-w-11 shrink-0 place-items-center"
           >
             <MapIcon />
@@ -339,21 +341,21 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
         <BuiCard className="px-4 py-4">
           <div className="grid gap-2">
             <p className="text-sm font-normal leading-6 text-cink">
-              <span className="font-semibold text-chead">From: </span>
-              {gate.state === "verified" ? "Your current location" : "Starting point not confirmed yet"}
+              <span className="font-semibold text-chead">{translateText("From:")}{" "}</span>
+              {gate.state === "verified" ? translateText("Your current location") : translateText("Starting point not confirmed yet")}
             </p>
             <p className="text-sm font-normal leading-6 text-cink">
-              <span className="font-semibold text-chead">To: </span>
+              <span className="font-semibold text-chead">{translateText("To:")}{" "}</span>
               {displayTitle}
               {displayAddress ? <span className="text-cgray"> · {displayAddress}</span> : null}
             </p>
             {props.unverified && props.planTitle ? (
               <p className="text-sm font-normal leading-6 text-cgray">
-                Plan title: {props.planTitle}
+                {translateText("Plan title:")}{" "}{props.planTitle}
               </p>
             ) : null}
             <p className="text-sm font-normal leading-6 text-cink">
-              <span className="font-semibold text-chead">Route: </span>
+              <span className="font-semibold text-chead">{translateText("Route:")}{" "}</span>
               {summaryLine}
             </p>
           </div>
@@ -379,7 +381,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               <p className="text-sm font-normal leading-6 text-cgray">{walkValuesLine}</p>
             ) : null}
             <p className="text-sm font-normal leading-6 text-cgray">
-              Terrain and sidewalk details aren&apos;t available for this stop.
+              {translateText("Terrain and sidewalk details aren't available for this stop.")}
             </p>
           </div>
         </BuiCard>
@@ -395,7 +397,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
             rel="noreferrer"
             className="min-h-12 w-full text-[17px]"
           >
-            Open in Maps
+            {translateText("Open in Maps")}
             <ExternalIcon />
           </BuiButtonLink>
         ) : (
@@ -404,12 +406,12 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
             disabled
             className="min-h-12 w-full text-[17px]"
           >
-            Open in Maps
+            {translateText("Open in Maps")}
           </BuiButton>
         )}
         {!mapsLinks.available ? (
           <p className="mt-2 text-center text-[13px] font-normal leading-5 text-cgray">
-            Destination details are missing, so Maps links can&apos;t be built for this stop.
+            {translateText("Destination details are missing, so Maps links can't be built for this stop.")}
           </p>
         ) : (
           <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[13px] font-semibold text-cblue">
@@ -426,20 +428,20 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
         )}
         {gate.state === "verified" ? (
           <p className="mt-2 text-center text-[13px] font-normal leading-5 text-cgray">
-            Maps links start from your verified current location.
+            {translateText("Maps links start from your verified current location.")}
           </p>
         ) : null}
       </div>
 
       {/* Step-by-step directions. */}
       <div className="mt-5 px-4">
-        <h3 className="text-[17px] font-bold text-chead">Step-by-step directions</h3>
+        <h3 className="text-[17px] font-bold text-chead">{translateText("Step-by-step directions")}</h3>
         {stepsState.state === "location_needed" ? (
           <BuiCard className="mt-3 px-4 py-4">
-            <p className="text-[15px] font-semibold leading-6 text-chead">Location needed for directions from here</p>
+            <p className="text-[15px] font-semibold leading-6 text-chead">{translateText("Location needed for directions from here")}</p>
             <p className="mt-1 text-sm font-normal leading-6 text-cink">
-              {stepsState.gate.state === "location_needed" ? stepsState.gate.detail : "Your current location is unavailable right now."}{" "}
-              Step-by-step directions from your current location can&apos;t be shown until a fresh location is available.
+              {stepsState.gate.state === "location_needed" ? stepsState.gate.detail : translateText("Your current location is unavailable right now.")}{" "}
+              {translateText("Step-by-step directions from your current location can't be shown until a fresh location is available.")}
             </p>
             {localLocationError ? (
               <p className="mt-2 text-sm font-normal leading-6 text-cgray">{localLocationError}</p>
@@ -450,15 +452,14 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               disabled={locationRequesting}
               className="mt-3 min-h-11 px-1 text-left text-[15px] font-semibold text-cblue disabled:text-cgray"
             >
-              {locationRequesting ? "Checking location…" : "Use my current location"}
+              {locationRequesting ? translateText("Checking location…") : translateText("Use my current location")}
             </button>
           </BuiCard>
         ) : stepsState.state === "steps_unavailable" ? (
           <BuiCard className="mt-3 px-4 py-4">
-            <p className="text-[15px] font-semibold leading-6 text-chead">Step-by-step directions aren&apos;t available yet</p>
+            <p className="text-[15px] font-semibold leading-6 text-chead">{translateText("Step-by-step directions aren't available yet")}</p>
             <p className="mt-1 text-sm font-normal leading-6 text-cink">
-              Your current location is verified for this trip, but Roamly doesn&apos;t have a step-by-step routing source for
-              this stop yet. Open in Maps above for turn-by-turn directions — no street names or distances are guessed here.
+              {translateText("Your current location is verified for this trip, but Roamly doesn't have a step-by-step routing source for this stop yet. Open in Maps above for turn-by-turn directions — no street names or distances are guessed here.")}
             </p>
           </BuiCard>
         ) : (
@@ -466,7 +467,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
           <ol>
             <li className="flex items-start gap-3 py-2">
               <span aria-hidden="true" className="mt-1.5 h-3 w-3 shrink-0 rounded-full bg-cblue ring-4 ring-cbg" />
-              <span className="text-[15px] font-normal leading-6 text-cink">Start from your current location</span>
+              <span className="text-[15px] font-normal leading-6 text-cink">{translateText("Start from your current location")}</span>
             </li>
             {visibleSteps.map((step, index) => (
               <li key={`${step.instruction}-${index}`} className="flex items-start gap-3 py-2">
@@ -516,11 +517,11 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               onClick={() => setShowAll((value) => !value)}
               className="min-h-11 px-2 text-[15px] font-semibold text-cblue"
             >
-              {showAll ? "Show fewer directions" : "Show all directions"}
+              {showAll ? translateText("Show fewer directions") : translateText("Show all directions")}
             </button>
           ) : stepsState.state === "ready" ? (
             <p className="text-[13px] font-normal leading-5 text-cgray">
-              All directions are shown above.
+              {translateText("All directions are shown above.")}
             </p>
           ) : null}
         </div>
@@ -533,7 +534,7 @@ export function DirectionsPanel(props: DirectionsPanelProps) {
               href={props.standaloneHref}
               className="min-h-11 px-2 py-2 text-[15px] font-semibold text-cblue"
             >
-              Open full directions screen
+              {translateText("Open full directions screen")}
             </a>
           </div>
         ) : null}

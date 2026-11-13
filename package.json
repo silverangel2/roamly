@@ -281,7 +281,8 @@
     "test:boardui-account": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-boardui-account-checks.mjs",
     "test:boardui-public": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-boardui-public-checks.mjs",
     "test:boardui-guest": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-boardui-guest-checks.mjs",
-    "test:boardui-finish": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-boardui-finish-checks.mjs"
+    "test:boardui-finish": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-boardui-finish-checks.mjs",
+    "test:free-translation": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-free-translation-checks.mjs"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

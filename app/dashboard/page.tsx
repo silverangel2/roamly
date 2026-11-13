@@ -8,7 +8,7 @@ import { hasUsedFreeItinerary, isTripLocked } from "@/lib/roamly/billing";
 import { ensureRoamlyProfileBestEffort } from "@/lib/roamly/profile";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
-import { formatRoamlyDate, type RoamlyLocale } from "@/lib/i18n";
+import { formatRoamlyDate, translateExactText, type RoamlyLocale } from "@/lib/i18n";
 import { getServerLocale } from "@/lib/i18n-server";
 import { selectActiveTrip } from "@/lib/roamly/liveCompanion";
 import { compareDashboardTrips, dashboardTripPresentation, dashboardTripSortRank } from "@/lib/roamly/dashboardTripPresentation";
@@ -81,10 +81,10 @@ export default async function DashboardPage() {
     return (
       <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <BuiCard className="p-5">
-          <BuiBadge tone="warm">Setup needed</BuiBadge>
-          <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">Dashboard needs Supabase.</h1>
+          <BuiBadge tone="warm">{translateExactText(locale, "Setup needed")}</BuiBadge>
+          <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">{translateExactText(locale, "Dashboard needs Supabase.")}</h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">
-            Once Supabase env vars are set, Roamly shows only this user&apos;s trips.
+            {translateExactText(locale, "Once Supabase env vars are set, Roamly shows only this user's trips.")}
           </p>
         </BuiCard>
       </div>

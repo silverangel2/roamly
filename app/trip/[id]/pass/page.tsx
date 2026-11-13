@@ -24,7 +24,9 @@ import {
 } from "@/lib/roamly/liveEligibility";
 import { resolveTripTimezoneServer } from "@/lib/roamly/tripTimezoneServer";
 import { localizeActivityRecords } from "@/lib/roamly/liveActivityBinding";
-import { getLocalizedItinerary } from "@/lib/roamly/itineraryTranslations";
+import { getLocalizedItinerary, getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { translateExactText } from "@/lib/i18n";
+import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { getTripDaysCount, getTripDestinationLabel } from "@/lib/roamly/tripMetadata";
 import { addCalendarDays, instantStringToLocal } from "@/lib/roamly/engine/time";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
@@ -60,8 +62,8 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
     return (
       <div className="safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <BuiCard className="p-5">
-          <BuiBadge tone="warm">Setup</BuiBadge>
-          <h1 className="mt-4 text-3xl font-black text-ink">Connect Supabase to use your day pass.</h1>
+          <BuiBadge tone="warm">{translateExactText(locale, "Setup")}</BuiBadge>
+          <h1 className="mt-4 text-3xl font-black text-ink">{translateExactText(locale, "Connect Supabase to use your day pass.")}</h1>
         </BuiCard>
       </div>
     );
@@ -116,9 +118,13 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
     : todayLocal;
   const nowParts = instantStringToLocal(nowInstant, timezone);
 
-  const localizedFull = bundle.data.itinerary?.full_json
-    ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
+  const localizedResult = bundle.data.itinerary?.full_json
+    ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale })
     : null;
+  const localizedFull = localizedResult?.itinerary ?? null;
+  // Auto-translate wiring (2026-11-12, audit §2): same button as the
+  // trip page, same displayed-language derivation.
+  const displayedItineraryLanguage = localizedResult?.language || getTripItineraryLanguage(bundle.data.trip.metadata);
   const localizedActivities = localizeActivityRecords(
     bundle.data.activities,
     localizedFull,
@@ -156,7 +162,7 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
         : null;
 
   const passView = buildWalletPassView({
-    destination: getTripDestinationLabel(bundle.data.trip) || "your trip",
+    destination: getTripDestinationLabel(bundle.data.trip) || translateExactText(locale, "your trip"),
     date: passDate,
     travelerName,
     partyLabel: null,
@@ -165,28 +171,35 @@ export default async function TripPassPage({ params }: { params: Promise<{ id: s
     hotelCheckInLabel,
     nowMin: passDate === todayLocal ? nowParts.minutes : 0,
     cachedAt: null,
-    pendingSyncActions: 0
+    pendingSyncActions: 0,
+    locale
   });
 
   const signer = getWalletPassSignerFromEnv();
 
   return (
     <div className="bui-enter safe-bottom mx-auto w-full max-w-xl px-4 py-6 sm:px-6">
+      {/* Auto-translate (2026-11-12): same button as the trip page —
+          renders nothing when the stored translation already matches
+          the picked language, auto-fires once otherwise. */}
+      <div className="mb-4">
+        <TranslateItineraryButton tripId={id} displayedLanguage={displayedItineraryLanguage} />
+      </div>
       {/* Jakob's Law A1 (2026-11-03): "Back to today" sat top-right;
           back belongs top-left, so it now renders through the shared
           BackHeader with the same destination and wording. */}
       <div className="mb-5">
-        <BackHeader href={`/trip/${id}/live`} label="Back to today" ariaLabel="Back to today" />
+        <BackHeader href={`/trip/${id}/live`} label={translateExactText(locale, "Back to today")} ariaLabel={translateExactText(locale, "Back to today")} />
         <div className="mt-3">
-          <p className="text-[0.75rem] font-medium text-slate-500">Live Companion</p>
-          <h1 className="mt-1 text-[1.6rem] font-semibold tracking-[-0.03em] text-ink">Your day pass</h1>
+          <p className="text-[0.75rem] font-medium text-slate-500">{translateExactText(locale, "Live Companion")}</p>
+          <h1 className="mt-1 text-[1.6rem] font-semibold tracking-[-0.03em] text-ink">{translateExactText(locale, "Your day pass")}</h1>
         </div>
       </div>
       <WalletPassCardView pass={passView} />
       <p className="mx-auto mt-4 w-[358px] max-w-full text-[12px] leading-[1.5] text-slate-600">
         {signer
-          ? "Wallet download is configured for this trip — your pass above is the same day the wallet file carries."
-          : "This screen is your pass for today — it works offline once your day is cached in the app. Adding it to Apple Wallet or Google Wallet arrives when Roamly's wallet certificate is in place; nothing about your day changes when it does."}
+          ? translateExactText(locale, "Wallet download is configured for this trip — your pass above is the same day the wallet file carries.")
+          : translateExactText(locale, "This screen is your pass for today — it works offline once your day is cached in the app. Adding it to Apple Wallet or Google Wallet arrives when Roamly's wallet certificate is in place; nothing about your day changes when it does.")}
       </p>
     </div>
   );

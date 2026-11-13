@@ -99,6 +99,7 @@ function ScoreSelect({
   value: number | null;
   onChange: (value: number | null) => void;
 }) {
+  const { translateText } = useI18n();
   return (
     <FeedbackSelectField
       id={id}
@@ -106,7 +107,7 @@ function ScoreSelect({
       value={String(value ?? "")}
       onChange={(next) => onChange(next ? Number(next) : null)}
     >
-      <option value="">Not rated</option>
+      <option value="">{translateText("Not rated")}</option>
       {[1, 2, 3, 4, 5].map((score) => (
         <option key={score} value={score}>
           {score}
@@ -117,7 +118,7 @@ function ScoreSelect({
 }
 
 export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: string; initialFeedback?: TripFeedbackRecord[] }) {
-  const { locale, t } = useI18n();
+  const { locale, t, translateText } = useI18n();
   const [mode, setMode] = useState<FeedbackMode>("post_trip");
   const [overallSatisfaction, setOverallSatisfaction] = useState<number | null>(null);
   const [transportationSatisfaction, setTransportationSatisfaction] = useState<number | null>(null);
@@ -235,31 +236,31 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {mode === "in_trip" ? (
-          <FeedbackField id="feedback-trip-day" label="Trip day" type="number" inputMode="numeric" min={1} value={tripDay} onChange={setTripDay} />
+          <FeedbackField id="feedback-trip-day" label={translateText("Trip day")} type="number" inputMode="numeric" min={1} value={tripDay} onChange={setTripDay} />
         ) : null}
-        <FeedbackSelectField id="feedback-pace" label="Pace" value={pace} onChange={setPace}>
-          <option value="too_busy">Too busy</option>
-          <option value="right">Right</option>
-          <option value="too_slow">Too slow</option>
+        <FeedbackSelectField id="feedback-pace" label={translateText("Pace")} value={pace} onChange={setPace}>
+          <option value="too_busy">{translateText("Too busy")}</option>
+          <option value="right">{translateText("Right")}</option>
+          <option value="too_slow">{translateText("Too slow")}</option>
         </FeedbackSelectField>
-        <ScoreSelect id="feedback-score-overall" label="Overall satisfaction" value={overallSatisfaction} onChange={setOverallSatisfaction} />
-        <ScoreSelect id="feedback-score-transportation" label="Transportation" value={transportationSatisfaction} onChange={setTransportationSatisfaction} />
-        <ScoreSelect id="feedback-score-hotel-location" label="Hotel location" value={hotelLocationSatisfaction} onChange={setHotelLocationSatisfaction} />
-        <ScoreSelect id="feedback-score-hotel-quality" label="Hotel quality" value={hotelQualitySatisfaction} onChange={setHotelQualitySatisfaction} />
-        <ScoreSelect id="feedback-score-budget" label="Budget accuracy" value={budgetAccuracy} onChange={setBudgetAccuracy} />
-        <ScoreSelect id="feedback-score-schedule" label="Schedule realism" value={scheduleRealism} onChange={setScheduleRealism} />
-        <ScoreSelect id="feedback-score-recommendations" label="Recommendation usefulness" value={recommendationUsefulness} onChange={setRecommendationUsefulness} />
+        <ScoreSelect id="feedback-score-overall" label={translateText("Overall satisfaction")} value={overallSatisfaction} onChange={setOverallSatisfaction} />
+        <ScoreSelect id="feedback-score-transportation" label={translateText("Transportation")} value={transportationSatisfaction} onChange={setTransportationSatisfaction} />
+        <ScoreSelect id="feedback-score-hotel-location" label={translateText("Hotel location")} value={hotelLocationSatisfaction} onChange={setHotelLocationSatisfaction} />
+        <ScoreSelect id="feedback-score-hotel-quality" label={translateText("Hotel quality")} value={hotelQualitySatisfaction} onChange={setHotelQualitySatisfaction} />
+        <ScoreSelect id="feedback-score-budget" label={translateText("Budget accuracy")} value={budgetAccuracy} onChange={setBudgetAccuracy} />
+        <ScoreSelect id="feedback-score-schedule" label={translateText("Schedule realism")} value={scheduleRealism} onChange={setScheduleRealism} />
+        <ScoreSelect id="feedback-score-recommendations" label={translateText("Recommendation usefulness")} value={recommendationUsefulness} onChange={setRecommendationUsefulness} />
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        <FeedbackField id="feedback-favourites" label="Favourite activities" value={favourites} onChange={setFavourites} />
-        <FeedbackField id="feedback-disappointments" label="Disappointing activities" value={disappointments} onChange={setDisappointments} />
-        <FeedbackField id="feedback-skipped" label="Skipped activities" value={skipped} onChange={setSkipped} />
+        <FeedbackField id="feedback-favourites" label={translateText("Favourite activities")} value={favourites} onChange={setFavourites} />
+        <FeedbackField id="feedback-disappointments" label={translateText("Disappointing activities")} value={disappointments} onChange={setDisappointments} />
+        <FeedbackField id="feedback-skipped" label={translateText("Skipped activities")} value={skipped} onChange={setSkipped} />
       </div>
 
       <div className="mt-4 grid gap-3">
         <label className="block">
-          <span className="text-sm font-black text-chead">Notes</span>
+          <span className="text-sm font-black text-chead">{translateText("Notes")}</span>
           <textarea
             id="feedback-notes"
             value={freeText}
@@ -270,12 +271,12 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
         </label>
         <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-chead">
           <input type="checkbox" checked={transportDifficult} onChange={(event) => setTransportDifficult(event.target.checked)} className="h-5 w-5 shrink-0 accent-cblue" />
-          Transportation was difficult
+          {translateText("Transportation was difficult")}
         </label>
         {mode === "in_trip" ? (
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-chead">
             <input type="checkbox" checked={adjustTomorrow} onChange={(event) => setAdjustTomorrow(event.target.checked)} className="h-5 w-5 shrink-0 accent-cblue" />
-            Adjust tomorrow
+            {translateText("Adjust tomorrow")}
           </label>
         ) : (
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-bold text-chead">
@@ -285,7 +286,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
               onChange={(event) => setWouldUseAgain(event.target.checked ? true : null)}
               className="h-5 w-5 shrink-0 accent-cblue"
             />
-            Would use Roamly again
+            {translateText("Would use Roamly again")}
           </label>
         )}
       </div>
@@ -298,7 +299,7 @@ export function TripFeedbackForm({ tripId, initialFeedback = [] }: { tripId: str
       {message ? <BuiNotice tone="success" title={message} className="mt-3" /> : null}
       {learned.length ? (
         <div className="mt-4 rounded-bui-card bg-cbg px-4 py-4">
-          <p className="text-sm font-black text-chead">Here is what Roamly learned from your trip.</p>
+          <p className="text-sm font-black text-chead">{translateText("Here is what Roamly learned from your trip.")}</p>
           <ul className="mt-2 grid gap-2 text-sm font-bold text-cink">
             {learned.map((item, index) => (
               <li key={`${item.preference_key}-${index}`}>

@@ -1,4 +1,10 @@
+"use client";
+
+// Client component (2026-11-13): StaySelector ("use client") renders this
+// card, so it cannot call getServerLocale() (next/headers is server-only).
+// The locale comes from the I18nProvider hook instead; same strings.
 import { BookingRecommendationButton } from "@/components/trip/BookingRecommendationButton";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import type { HotelPartnerChoice } from "@/lib/roamly/affiliateResolver";
 
 type HotelPartnerChoicesProps = {
@@ -11,16 +17,17 @@ type HotelPartnerChoicesProps = {
 };
 
 export function HotelPartnerChoices({ partners, tripId, title, recommendationId = null, priceNote }: HotelPartnerChoicesProps) {
+  const { translateText, t } = useI18n();
   if (!partners.length) return null;
   const single = partners.length === 1;
 
   return (
     <div className="mt-3 min-w-0 max-w-lg">
-      {priceNote ? <p className="text-sm font-medium text-ink">{priceNote}</p> : null}
+      {priceNote ? <p className="text-sm font-medium text-ink">{translateText(priceNote)}</p> : null}
       <p className={`${priceNote ? "mt-0.5 " : ""}text-[0.8125rem] leading-5 text-cgray`}>
         {single
-          ? `Book stay options on ${partners[0].label}. Opens their search for these dates.`
-          : "Same dates and area. Choose a partner."}
+          ? t("ui.trip.bookStayOnPartner", "Book stay options on {partner}. Opens their search for these dates.", { partner: partners[0].label })
+          : translateText("Same dates and area. Choose a partner.")}
       </p>
       <div className="roamly-partner-row mt-2 flex gap-1 overflow-x-auto pb-0.5">
         {partners.map((partner, index) => {
@@ -29,7 +36,7 @@ export function HotelPartnerChoices({ partners, tripId, title, recommendationId 
             <BookingRecommendationButton
               key={partner.id}
               href={partner.href}
-              label={single ? "Book stay options" : partner.label}
+              label={single ? translateText("Book stay options") : partner.label}
               tripId={tripId}
               category="hotel"
               title={title}
@@ -44,7 +51,7 @@ export function HotelPartnerChoices({ partners, tripId, title, recommendationId 
         })}
       </div>
       <p className="mt-2 text-[0.75rem] leading-5 text-cgray2">
-        Roamly may earn a commission if you book. We don’t set the price.
+        {translateText("Roamly may earn a commission if you book. We don’t set the price.")}
       </p>
     </div>
   );

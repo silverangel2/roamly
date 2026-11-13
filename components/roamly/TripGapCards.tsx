@@ -10,6 +10,7 @@ import {
 } from "@/components/roamly/FindsCommercialWidgets";
 import type { FindsWidgetConfig } from "@/lib/roamly/findsCommercialConfig";
 import { GAP_AFFILIATE_DISCLOSURE } from "@/lib/roamly/tripGapCore";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type GapCard = {
   type: string;
@@ -44,6 +45,7 @@ function widgetConfigFor(card: GapCard): FindsWidgetConfig | null {
  * gates this component on trackingUnlocked.
  */
 export function TripGapCards({ tripId }: { tripId: string }) {
+  const { translateText } = useI18n();
   const [cards, setCards] = useState<GapCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -56,7 +58,7 @@ export function TripGapCards({ tripId }: { tripId: string }) {
         const data = (await response.json().catch(() => ({}))) as { ok?: boolean; gaps?: GapCard[]; error?: string };
         if (cancelled) return;
         if (!response.ok || !data.ok) {
-          setError(data.error || "Could not load trip suggestions.");
+          setError(data.error || translateText("Could not load trip suggestions."));
           setCards([]);
           return;
         }
@@ -64,7 +66,7 @@ export function TripGapCards({ tripId }: { tripId: string }) {
       })
       .catch(() => {
         if (!cancelled) {
-          setError("Could not load trip suggestions.");
+          setError(translateText("Could not load trip suggestions."));
           setCards([]);
         }
       });
@@ -91,12 +93,12 @@ export function TripGapCards({ tripId }: { tripId: string }) {
   if (!cards || cards.length === 0) return null;
 
   return (
-    <section aria-label="Trip suggestions" className="mt-8">
+    <section aria-label={translateText("Trip suggestions")} className="mt-8">
       <div className="mb-4">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-cblue">Before you go</p>
-        <h2 className="mt-1 text-xl font-black tracking-tight text-chead">A few gaps worth closing</h2>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-cblue">{translateText("Before you go")}</p>
+        <h2 className="mt-1 text-xl font-black tracking-tight text-chead">{translateText("A few gaps worth closing")}</h2>
         <p className="mt-1 max-w-2xl text-sm leading-6 text-cgray">
-          Based on what&apos;s already booked for this trip. Dismiss anything that doesn&apos;t fit — it won&apos;t come back.
+          {translateText("Based on what's already booked for this trip. Dismiss anything that doesn't fit — it won't come back.")}
         </p>
       </div>
       <div className="grid gap-4">
@@ -127,7 +129,7 @@ export function TripGapCards({ tripId }: { tripId: string }) {
                 )}
               </div>
               <p className="mt-3 text-xs leading-5 text-cgray2">
-                {GAP_AFFILIATE_DISCLOSURE} Provider: {card.providerLabel}.
+                {GAP_AFFILIATE_DISCLOSURE} {translateText("Provider:")}{" "}{card.providerLabel}.
               </p>
             </BuiCard>
           );

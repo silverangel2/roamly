@@ -1,4 +1,6 @@
 import { BuiButtonLink } from "@/components/boardui/Button";
+import { translateExactText, translateKey } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 import type { ExploreCandidate } from "@/lib/roamly/exploreViewModel";
 
 /*
@@ -24,7 +26,7 @@ function externalDetailsLabel(candidate: ExploreCandidate): string {
   return `View details for ${place}`;
 }
 
-export function ExploreDiscovery({
+export async function ExploreDiscovery({
   tripId,
   destination = "this destination",
   candidates
@@ -33,14 +35,15 @@ export function ExploreDiscovery({
   destination?: string;
   candidates: ExploreCandidate[];
 }) {
+  const locale = await getServerLocale();
   return (
     <div className="min-h-[calc(100dvh-5rem)] bg-cbg px-4 pb-8 pt-5 text-chead sm:px-6 sm:py-8 md:pb-10">
       <div className="mx-auto w-full max-w-5xl">
         <header className="border-b border-chair pb-5">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">For this trip</p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">Worth considering</h1>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateExactText(locale, "For this trip")}</p>
+          <h1 className="mt-1 text-3xl font-black tracking-tight sm:text-4xl">{translateExactText(locale, "Worth considering")}</h1>
           <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-cink">
-            A short list of grounded ideas that fit the trip. Nothing is added unless you choose it.
+            {translateExactText(locale, "A short list of grounded ideas that fit the trip. Nothing is added unless you choose it.")}
           </p>
         </header>
 
@@ -48,8 +51,8 @@ export function ExploreDiscovery({
           <section className="mt-6" aria-labelledby="explore-results-heading">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Curated for your trip</p>
-                <h2 id="explore-results-heading" className="mt-1 text-2xl font-black tracking-tight">Start with these</h2>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateExactText(locale, "Curated for your trip")}</p>
+                <h2 id="explore-results-heading" className="mt-1 text-2xl font-black tracking-tight">{translateExactText(locale, "Start with these")}</h2>
               </div>
               <span className="text-xs font-black text-cgray2">{candidates.length} options</span>
             </div>
@@ -60,7 +63,7 @@ export function ExploreDiscovery({
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className={`text-xs font-black uppercase tracking-[0.14em] ${index === 0 ? "text-cblue" : "text-cgray2"}`}>{index === 0 ? "Best fit for this trip" : candidate.evidenceLabel}</p>
+                        <p className={`text-xs font-black uppercase tracking-[0.14em] ${index === 0 ? "text-cblue" : "text-cgray2"}`}>{index === 0 ? translateExactText(locale, "Best fit for this trip") : candidate.evidenceLabel}</p>
                       </div>
                       <h3 className="mt-1 text-lg font-black text-chead">{candidate.title}</h3>
                       <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-cink">{candidate.reason}</p>
@@ -87,7 +90,7 @@ export function ExploreDiscovery({
                         {externalDetailsLabel(candidate)}
                       </a>
                     ) : null}
-                    {candidate.publicEvent ? <span className="text-xs font-bold text-cgray">Public event details may change; verify the organizer&apos;s page.</span> : null}
+                    {candidate.publicEvent ? <span className="text-xs font-bold text-cgray">{translateExactText(locale, "Public event details may change; verify the organizer's page.")}</span> : null}
                   </div>
                 </article>
               ))}
@@ -95,17 +98,17 @@ export function ExploreDiscovery({
           </section>
         ) : (
           <section className="mt-8 border-y border-dashed border-chair py-7">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Explore is intentionally quiet</p>
-            <h2 className="mt-2 text-2xl font-black tracking-tight">Not enough grounded discoveries yet</h2>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateExactText(locale, "Explore is intentionally quiet")}</p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight">{translateExactText(locale, "Not enough grounded discoveries yet")}</h2>
             <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-cink">
-              Roamly does not have enough trip-specific activity or event evidence to recommend something responsibly for these dates. Nothing is invented here. Check back when discoveries are ready, or open Finds for inspiration.
+              {translateExactText(locale, "Roamly does not have enough trip-specific activity or event evidence to recommend something responsibly for these dates. Nothing is invented here. Check back when discoveries are ready, or open Finds for inspiration.")}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <BuiButtonLink href={`/finds?destination=${encodeURIComponent(destination)}`}>
-                Open Finds for {destination}
+                {translateKey(locale, "ui.trip.openFindsFor", "Open Finds for {destination}", { destination })}
               </BuiButtonLink>
               <BuiButtonLink variant="secondary" href={`/trip/${tripId}#day-by-day`}>
-                Return to your plan
+                {translateExactText(locale, "Return to your plan")}
               </BuiButtonLink>
             </div>
           </section>

@@ -44,8 +44,8 @@ type Booking = {
 
 const bookingTypes = ["flight", "hotel", "attraction", "restaurant", "transport", "car_rental", "event", "other"];
 
-function formatMoney(cents: number | null | undefined, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
-  if (cents == null) return "No cost saved";
+function formatMoney(cents: number | null | undefined, currency: string, locale: Parameters<typeof formatRoamlyCurrency>[2], translateText: (text: string) => string) {
+  if (cents == null) return translateText("No cost saved");
   return formatRoamlyCurrency(cents / 100, (currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
 }
 
@@ -53,12 +53,12 @@ function bookingProvider(booking: Booking) {
   return booking.provider_name || booking.provider || "";
 }
 
-function bookingCostLabel(booking: Booking, locale: Parameters<typeof formatRoamlyCurrency>[2]) {
-  if (typeof booking.amount_cents === "number") return formatMoney(booking.amount_cents, booking.currency || "CAD", locale);
+function bookingCostLabel(booking: Booking, locale: Parameters<typeof formatRoamlyCurrency>[2], translateText: (text: string) => string) {
+  if (typeof booking.amount_cents === "number") return formatMoney(booking.amount_cents, booking.currency || "CAD", locale, translateText);
   if (typeof booking.total_price === "number") {
     return formatRoamlyCurrency(booking.total_price, (booking.currency || "CAD").toUpperCase(), locale, { maximumFractionDigits: 0 });
   }
-  return "No cost saved";
+  return translateText("No cost saved");
 }
 
 function bookingWhen(booking: Booking, locale: Parameters<typeof formatRoamlyDate>[1]) {
@@ -73,7 +73,7 @@ function bookingWhen(booking: Booking, locale: Parameters<typeof formatRoamlyDat
 }
 
 export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
-  const { locale } = useI18n();
+  const { locale, translateText } = useI18n();
   // B13: canonical confirmation + per-currency totals (see
   // lib/roamly/bookingBudgetCard.ts). Pending, cancelled, superseded, and
   // unknown-amount rows never count as committed cost.
@@ -81,17 +81,17 @@ export function CommittedBudgetCard({ bookings }: { bookings: Booking[] }) {
 
   return (
     <BuiCard className="p-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Committed budget</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Committed budget")}</p>
       {totals.length ? (
         totals.map(({ currency, cents }) => (
-          <p key={currency} className="bui-display-number mt-2 text-3xl font-black text-ink">{formatMoney(cents, currency, locale)}</p>
+          <p key={currency} className="bui-display-number mt-2 text-3xl font-black text-ink">{formatMoney(cents, currency, locale, translateText)}</p>
         ))
       ) : (
-        <p className="mt-2 text-3xl font-black text-ink">No confirmed bookings yet</p>
+        <p className="mt-2 text-3xl font-black text-ink">{translateText("No confirmed bookings yet")}</p>
       )}
       <p className="mt-1 text-sm font-bold leading-6 text-slate-600">
         {confirmedCount ? `${confirmedCount} confirmed booking${confirmedCount === 1 ? "" : "s"} count${confirmedCount === 1 ? "s" : ""} as committed cost. ` : ""}
-        Pending and unconfirmed bookings are not counted here. Price estimates stay separate.
+        {translateText("Pending and unconfirmed bookings are not counted here. Price estimates stay separate.")}
       </p>
     </BuiCard>
   );
@@ -123,12 +123,12 @@ function Field({
 }
 
 export function TripBookingsList({ tripId, bookings }: { tripId: string; bookings: Booking[] }) {
-  const { locale } = useI18n();
+  const { locale, translateText } = useI18n();
   void tripId;
   if (!bookings.length) {
     return (
       <div className="rounded-bui-card border border-chair bg-csoft px-4 py-3 text-sm font-black text-cgray">
-        No confirmed bookings yet.
+        {translateText("No confirmed bookings yet.")}
       </div>
     );
   }
@@ -148,32 +148,32 @@ export function TripBookingsList({ tripId, bookings }: { tripId: string; booking
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">{booking.booking_type}</p>
-                <h3 className="mt-1 text-lg font-black text-ink">{booking.title || "Booking"}</h3>
+                <h3 className="mt-1 text-lg font-black text-ink">{booking.title || translateText("Booking")}</h3>
                 <p className="mt-1 text-sm font-bold text-slate-500">
                   {[bookingProvider(booking), booking.flight_number, bookingWhen(booking, locale)].filter(Boolean).join(" · ")}
                 </p>
                 {address ? <p className="mt-1 text-sm font-bold text-slate-500">{address}</p> : null}
               </div>
               <div className="bui-display-number w-fit rounded-full bg-csoft px-3 py-2 text-xs font-black text-ink">
-                {bookingCostLabel(booking, locale)}
+                {bookingCostLabel(booking, locale, translateText)}
               </div>
             </div>
             <BuiAccordion
-              title={<span className="text-sm font-black text-ink">Booking details</span>}
+              title={<span className="text-sm font-black text-ink">{translateText("Booking details")}</span>}
               className="mt-3 rounded-2xl bg-mist px-3"
             >
               <div className="grid gap-2 pb-3 text-sm font-bold text-slate-600">
-                {booking.confirmation_number || booking.confirmation_code ? <p>Reference: <span className="bui-display-number">{booking.confirmation_number || booking.confirmation_code}</span></p> : null}
-                {booking.terminal ? <p>Terminal: {booking.terminal}</p> : null}
-                {booking.gate ? <p>Gate: {booking.gate}</p> : null}
-                {booking.booking_status ? <p>Status: {booking.booking_status}</p> : null}
-                {booking.extraction_confidence ? <p>Extraction: {booking.extraction_confidence}</p> : null}
-                {!booking.confirmation_number && !booking.booking_status && !booking.extraction_confidence ? <p>No extra details saved.</p> : null}
+                {booking.confirmation_number || booking.confirmation_code ? <p>{translateText("Reference:")}{" "}<span className="bui-display-number">{booking.confirmation_number || booking.confirmation_code}</span></p> : null}
+                {booking.terminal ? <p>{translateText("Terminal:")}{" "}{booking.terminal}</p> : null}
+                {booking.gate ? <p>{translateText("Gate:")}{" "}{booking.gate}</p> : null}
+                {booking.booking_status ? <p>{translateText("Status:")}{" "}{booking.booking_status}</p> : null}
+                {booking.extraction_confidence ? <p>{translateText("Extraction:")}{" "}{booking.extraction_confidence}</p> : null}
+                {!booking.confirmation_number && !booking.booking_status && !booking.extraction_confidence ? <p>{translateText("No extra details saved.")}</p> : null}
               </div>
             </BuiAccordion>
             {mapsLink ? (
               <BuiButtonLink href={mapsLink.href} target="_blank" rel="noreferrer" className="mt-3 w-full">
-                Open in Maps
+                {translateText("Open in Maps")}
               </BuiButtonLink>
             ) : null}
           </BuiCard>
@@ -194,15 +194,16 @@ export function ExtractedBookingReviewCard({
   onConfirm: () => void;
   busy: boolean;
 }) {
+  const { translateText } = useI18n();
   return (
     <BuiCard className="bui-enter p-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Review extracted booking</p>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Review extracted booking")}</p>
       <p className="mt-2 text-sm font-bold leading-6 text-cgray">
-        Roamly extracted these details. Submit them for review; screenshot extraction alone does not confirm a booking.
+        {translateText("Roamly extracted these details. Submit them for review; screenshot extraction alone does not confirm a booking.")}
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="text-sm font-black text-chead">Type</span>
+          <span className="text-sm font-black text-chead">{translateText("Type")}</span>
           <select
             value={booking.booking_type || "other"}
             onChange={(event) => setBooking({ ...booking, booking_type: event.target.value })}
@@ -215,35 +216,35 @@ export function ExtractedBookingReviewCard({
             ))}
           </select>
         </label>
-        <Field label="Title" value={booking.title || ""} onChange={(value) => setBooking({ ...booking, title: value })} />
+        <Field label={translateText("Title")} value={booking.title || ""} onChange={(value) => setBooking({ ...booking, title: value })} />
         <Field
-          label="Provider"
+          label={translateText("Provider")}
           value={booking.provider_name || ""}
           onChange={(value) => setBooking({ ...booking, provider_name: value })}
         />
         <Field
-          label="Confirmation"
+          label={translateText("Confirmation")}
           value={booking.confirmation_number || ""}
           onChange={(value) => setBooking({ ...booking, confirmation_number: value })}
         />
         <Field
-          label="Amount"
+          label={translateText("Amount")}
           type="number"
           value={booking.amount_cents == null ? "" : String(Math.round(booking.amount_cents / 100))}
           onChange={(value) => setBooking({ ...booking, amount_cents: value ? Number(value) * 100 : null })}
         />
         <Field
-          label="Currency"
+          label={translateText("Currency")}
           value={(booking.currency || "CAD").toUpperCase()}
           onChange={(value) => setBooking({ ...booking, currency: value })}
         />
-        <Field label="Start date" type="date" value={booking.start_date || ""} onChange={(value) => setBooking({ ...booking, start_date: value })} />
-        <Field label="Start time" type="time" value={booking.start_time || ""} onChange={(value) => setBooking({ ...booking, start_time: value })} />
-        <Field label="Address" value={booking.address || ""} onChange={(value) => setBooking({ ...booking, address: value })} />
-        <Field label="City" value={booking.city || ""} onChange={(value) => setBooking({ ...booking, city: value })} />
+        <Field label={translateText("Start date")} type="date" value={booking.start_date || ""} onChange={(value) => setBooking({ ...booking, start_date: value })} />
+        <Field label={translateText("Start time")} type="time" value={booking.start_time || ""} onChange={(value) => setBooking({ ...booking, start_time: value })} />
+        <Field label={translateText("Address")} value={booking.address || ""} onChange={(value) => setBooking({ ...booking, address: value })} />
+        <Field label={translateText("City")} value={booking.city || ""} onChange={(value) => setBooking({ ...booking, city: value })} />
       </div>
       <BuiButton type="button" onClick={onConfirm} busy={busy} className="mt-4">
-        {busy ? "Saving for review..." : "Submit booking details for review"}
+        {busy ? translateText("Saving for review...") : translateText("Submit booking details for review")}
       </BuiButton>
     </BuiCard>
   );
@@ -260,6 +261,7 @@ export function BookingScreenshotUploader({
   setBusy: (busy: boolean) => void;
   setError: (error: string) => void;
 }) {
+  const { translateText } = useI18n();
   async function upload(file?: File | null) {
     if (!file) return;
     setBusy(true);
@@ -270,11 +272,11 @@ export function BookingScreenshotUploader({
       form.append("tripId", tripId);
       const response = await fetch("/api/roamly/bookings/extract", { method: "POST", body: form });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || "Booking extraction failed.");
-      if (typeof data.evidenceToken !== "string" || !data.evidenceToken) throw new Error("Booking evidence signing failed.");
+      if (!response.ok) throw new Error(data?.error || translateText("Booking extraction failed."));
+      if (typeof data.evidenceToken !== "string" || !data.evidenceToken) throw new Error(translateText("Booking evidence signing failed."));
       onExtracted(data.booking, data.evidenceToken);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Booking extraction failed.");
+      setError(err instanceof Error ? err.message : translateText("Booking extraction failed."));
     } finally {
       setBusy(false);
     }
@@ -288,15 +290,16 @@ export function BookingScreenshotUploader({
         className="sr-only"
         onChange={(event) => void upload(event.target.files?.[0])}
       />
-      <span className="text-sm font-black text-ink">Upload booking screenshot</span>
+      <span className="text-sm font-black text-ink">{translateText("Upload booking screenshot")}</span>
       <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">
-        Flight, hotel, ticket, restaurant, car rental, or reservation screenshot.
+        {translateText("Flight, hotel, ticket, restaurant, car rental, or reservation screenshot.")}
       </span>
     </label>
   );
 }
 
 export function TripBookingsManager({ tripId, initialBookings }: { tripId: string; initialBookings: Booking[] }) {
+  const { translateText } = useI18n();
   const [bookings, setBookings] = useState(initialBookings);
   const [extracted, setExtracted] = useState<Booking | null>(null);
   const [evidenceToken, setEvidenceToken] = useState("");
@@ -324,11 +327,11 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
         body: JSON.stringify({ tripId, evidenceToken, corrections: extracted })
       });
       const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || "Could not save booking.");
+      if (!response.ok) throw new Error(data?.error || translateText("Could not save booking."));
       const refreshed = await fetch(`/api/roamly/bookings?tripId=${encodeURIComponent(tripId)}`, { cache: "no-store" });
       const refreshedData = await refreshed.json().catch(() => null);
       if (!refreshed.ok || !Array.isArray(refreshedData?.bookings)) {
-        throw new Error(refreshedData?.error || "Booking saved, but canonical booking reload failed.");
+        throw new Error(refreshedData?.error || translateText("Booking saved, but canonical booking reload failed."));
       }
       setBookings(refreshedData.bookings);
       setExtracted(null);
@@ -337,7 +340,7 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
         setNotice(`Your corrections were saved for review (${data.correctionCount || 0} field${data.correctionCount === 1 ? "" : "s"}). They are not confirmed yet.`);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save booking.");
+      setError(err instanceof Error ? err.message : translateText("Could not save booking."));
     } finally {
       setBusy(false);
     }
@@ -347,23 +350,23 @@ export function TripBookingsManager({ tripId, initialBookings }: { tripId: strin
     <section className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
       <div className="space-y-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Already booked something?</p>
-          <h2 className="mt-2 text-2xl font-black text-ink">Import bookings by screenshot.</h2>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateText("Already booked something?")}</p>
+          <h2 className="mt-2 text-2xl font-black text-ink">{translateText("Import bookings by screenshot.")}</h2>
           <p className="mt-2 text-sm font-bold leading-6 text-slate-600">
-            Upload a screenshot of your flight, hotel, ticket, or reservation. Roamly will read it and add it to your trip.
+            {translateText("Upload a screenshot of your flight, hotel, ticket, or reservation. Roamly will read it and add it to your trip.")}
           </p>
         </div>
         <BookingScreenshotUploader tripId={tripId} onExtracted={(booking, token) => { setExtracted(booking); setEvidenceToken(token); }} setBusy={setBusy} setError={setError} />
         <CommittedBudgetCard bookings={bookings} />
         {hasOverBudgetWarning ? (
-          <BuiNotice tone="info" title="If confirmed bookings exceed your budget, Roamly will prioritize free and low-cost activities." />
+          <BuiNotice tone="info" title={translateText("If confirmed bookings exceed your budget, Roamly will prioritize free and low-cost activities.")} />
         ) : null}
         {error ? <BuiNotice tone="error" title={error} /> : null}
         {notice ? <BuiNotice tone="success" title={notice} /> : null}
         {busy && !extracted ? (
           <BuiCard className="flex items-center gap-3 px-4 py-3">
             <BuiSkeleton className="h-4 w-24 shrink-0" />
-            <p className="text-sm font-black text-ink">Reading screenshot...</p>
+            <p className="text-sm font-black text-ink">{translateText("Reading screenshot...")}</p>
           </BuiCard>
         ) : null}
       </div>

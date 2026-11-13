@@ -62,6 +62,7 @@ import {
   type RoamlyItinerary
 } from "@/lib/itinerary";
 import { getServerLocale } from "@/lib/i18n-server";
+import { translateExactText, translateKey, type RoamlyLocale } from "@/lib/i18n";
 import { TripHashSync } from "@/components/roamly/TripContextNav";
 import { HouseAdSlot } from "@/components/roamly/HouseAdCard";
 import { CustomizeYourTrip } from "@/components/roamly/CustomizeYourTrip";
@@ -137,12 +138,12 @@ type TripPageProps = {
 };
 
 /** Skeleton stays on the trip home page only. Live must not inherit it, or returning there flashes an empty shell while the saved trip is about to render. */
-function TripHomeLoading() {
+function TripHomeLoading({ locale }: { locale: RoamlyLocale }) {
   return (
     <div
       className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6"
       role="status"
-      aria-label="Loading trip"
+      aria-label={translateExactText(locale, "Loading trip")}
     >
       <BuiSkeleton className="h-9 w-2/3" />
       <BuiSkeleton className="mt-3 h-5 w-1/3" />
@@ -151,7 +152,7 @@ function TripHomeLoading() {
         <BuiSkeleton className="h-64" />
       </div>
       <BuiSkeleton className="mt-4 h-40" />
-      <span className="sr-only">Loading your trip…</span>
+      <span className="sr-only">{translateExactText(locale, "Loading your trip…")}</span>
     </div>
   );
 }
@@ -181,7 +182,7 @@ function compact(value: string | null | undefined, fallback: string, max = 190) 
   return `${text.slice(0, max - 1).trim()}...`;
 }
 
-function formatTripDate(value?: string | null, locale = "en") {
+function formatTripDate(value?: string | null, locale: RoamlyLocale = "en") {
   if (!value) return "";
   const date = new Date(`${value}T00:00:00`);
   if (!Number.isFinite(date.getTime())) return "";
@@ -192,7 +193,7 @@ function formatTripDate(value?: string | null, locale = "en") {
   }).format(date);
 }
 
-function formatBookingTimestamp(value: unknown, locale = "en", timeZone = "UTC") {
+function formatBookingTimestamp(value: unknown, locale: RoamlyLocale = "en", timeZone = "UTC") {
   const text = getString(value);
   if (!text) return "";
   const date = new Date(text);
@@ -234,7 +235,7 @@ function isConfirmedBookingSnapshot(booking: Record<string, unknown>) {
   });
 }
 
-function bookingDetailText(booking: Record<string, unknown>, locale = "en") {
+function bookingDetailText(booking: Record<string, unknown>, locale: RoamlyLocale = "en") {
   const metadata = getRecord(booking.metadata);
   const zone = getString(booking.timezone || metadata?.timezone) || "UTC";
   let timestamp = "";
@@ -250,20 +251,20 @@ function bookingDetailText(booking: Record<string, unknown>, locale = "en") {
   ].filter(Boolean).join(" · ");
 }
 
-function formatDateRange(trip: RoamlyTripRecord, locale = "en") {
+function formatDateRange(trip: RoamlyTripRecord, locale: RoamlyLocale = "en") {
   const start = formatTripDate(trip.start_date, locale);
   const end = formatTripDate(trip.end_date, locale);
   if (start && end) return start === end ? start : `${start} - ${end}`;
-  return start || end || "Dates flexible";
+  return start || end || translateExactText(locale, "Dates flexible");
 }
 
 /** Eyebrow range in the mock's form: "Oct 23 – 25" inside one month,
  *  "Oct 30 – Nov 2" across months. No year — the header's quiet meta
  *  line carries the full range. */
-function formatShortDateRange(trip: RoamlyTripRecord, locale = "en") {
+function formatShortDateRange(trip: RoamlyTripRecord, locale: RoamlyLocale = "en") {
   const start = trip.start_date ? new Date(`${trip.start_date}T00:00:00`) : null;
   const end = trip.end_date ? new Date(`${trip.end_date}T00:00:00`) : null;
-  if (!start || !Number.isFinite(start.getTime())) return "Dates flexible";
+  if (!start || !Number.isFinite(start.getTime())) return translateExactText(locale, "Dates flexible");
   const monthDay = (date: Date) =>
     new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date);
   if (!end || !Number.isFinite(end.getTime()) || start.getTime() === end.getTime()) return monthDay(start);
@@ -275,9 +276,11 @@ function formatShortDateRange(trip: RoamlyTripRecord, locale = "en") {
 }
 
 /** "1 day" / "3 days" — never "1 days". */
-function formatDayCount(dayCount: number, flexibleLabel = "Dates flexible") {
-  if (!dayCount) return flexibleLabel;
-  return dayCount === 1 ? "1 day" : `${dayCount} days`;
+function formatDayCount(dayCount: number, locale: RoamlyLocale = "en", flexibleLabel?: string) {
+  if (!dayCount) return flexibleLabel ?? translateExactText(locale, "Dates flexible");
+  return dayCount === 1
+    ? translateKey(locale, "ui.trip.dayCountOne", "1 day")
+    : translateKey(locale, "ui.trip.dayCountMany", "{count} days", { count: dayCount });
 }
 
 function maskEmailAddress(email?: string | null) {
@@ -294,15 +297,15 @@ function getTravelStyle(trip: RoamlyTripRecord) {
   return trip.travel_style || getString(planning.travelStyle) || getString(planning.travel_style) || "Balanced";
 }
 
-function SetupCard({ title, summary }: { title: string; summary: string }) {
+function SetupCard({ title, summary, locale }: { title: string; summary: string; locale: RoamlyLocale }) {
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
       <BuiCard className="p-5">
-        <BuiBadge tone="warm">Setup</BuiBadge>
+        <BuiBadge tone="warm">{translateExactText(locale, "Setup")}</BuiBadge>
         <h1 className="mt-4 text-3xl font-black text-ink sm:text-5xl">{title}</h1>
         <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{summary}</p>
         <div className="mt-5">
-          <BuiButtonLink href="/plan">Plan trip</BuiButtonLink>
+          <BuiButtonLink href="/plan">{translateExactText(locale, "Plan trip")}</BuiButtonLink>
         </div>
       </BuiCard>
     </div>
@@ -324,6 +327,7 @@ function NoticeBanner({ tone = "ocean", children }: { tone?: BadgeTone; children
 
 function PrimaryTripAction({
   tripId,
+  locale,
   itineraryLocked,
   generationInProgress,
   trackingUnlocked,
@@ -334,6 +338,7 @@ function PrimaryTripAction({
   isPhilippinesTrip
 }: {
   tripId: string;
+  locale: RoamlyLocale;
   itineraryLocked: boolean;
   generationInProgress: boolean;
   trackingUnlocked: boolean;
@@ -346,7 +351,7 @@ function PrimaryTripAction({
   if (generationInProgress) {
     return (
       <span className="inline-flex w-full rounded-bui-card border border-chair bg-csoft px-5 py-4 text-sm font-black text-cblue shadow-bui-card sm:w-auto">
-        Generation in progress
+        {translateExactText(locale, "Generation in progress")}
       </span>
     );
   }
@@ -354,7 +359,7 @@ function PrimaryTripAction({
   if (itineraryLocked) {
     return trackingUnlocked ? (
       <BuiButtonLink href={`/trip/${tripId}/live`} className="w-full sm:w-auto">
-        Start Live Trip Companion
+        {translateExactText(locale, "Start Live Trip Companion")}
       </BuiButtonLink>
     ) : (
       <div className="w-full sm:max-w-xs">
@@ -376,8 +381,8 @@ function PrimaryTripAction({
       <div className="w-full sm:max-w-xs">
         <GenerateLockedItineraryButton
           tripId={tripId}
-          label="Generate itinerary"
-          subtext="This will lock the final itinerary permanently."
+          label={translateExactText(locale, "Generate itinerary")}
+          subtext={translateExactText(locale, "This will lock the final itinerary permanently.")}
           apiAuthToken={apiAuthToken}
         />
       </div>
@@ -389,8 +394,8 @@ function PrimaryTripAction({
       <div className="w-full sm:max-w-xs">
         <GenerateLockedItineraryButton
           tripId={tripId}
-          label="Generate my free itinerary"
-          subtext="You get 1 free itinerary per account."
+          label={translateExactText(locale, "Generate my free itinerary")}
+          subtext={translateExactText(locale, "You get 1 free itinerary per account.")}
           apiAuthToken={apiAuthToken}
         />
       </div>
@@ -418,13 +423,15 @@ function BudgetSummary({
   itinerary,
   currency,
   priceDiscovery,
-  confirmedBookingCount
+  confirmedBookingCount,
+  locale
 }: {
   trip: RoamlyTripRecord;
   itinerary: RoamlyItinerary;
   currency: string;
   priceDiscovery: Record<string, unknown> | null;
   confirmedBookingCount: number;
+  locale: RoamlyLocale;
 }) {
   const estimate = itinerary.estimated_budget_breakdown;
   const budgetAmount = getTripBudgetAmount(trip);
@@ -438,10 +445,10 @@ function BudgetSummary({
   return (
     <div className="grid gap-4">
       <section className="border-y border-chair bg-white/70 py-4 sm:py-5">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">How am I doing?</p>
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateExactText(locale, "How am I doing?")}</p>
         <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-bold text-slate-500">Your target</p>
+            <p className="text-xs font-bold text-slate-500">{translateExactText(locale, "Your target")}</p>
             <p className="bui-display-number mt-1 text-3xl font-black tracking-tight text-ink sm:text-4xl">{presentation.targetLabel}</p>
           </div>
           <div className="sm:text-right">
@@ -453,12 +460,12 @@ function BudgetSummary({
           <p className="text-base font-black">{presentation.statusLabel}</p>
           <p className="mt-1 text-sm font-semibold leading-6">{presentation.statusDetail}</p>
           <p className="mt-2 text-sm font-black">{presentation.pricedCaption}: {presentation.pricedLabel}</p>
-          <p className="mt-1 text-sm font-bold">Unpriced: {presentation.unpricedLabel}</p>
+          <p className="mt-1 text-sm font-bold">{translateExactText(locale, "Unpriced:")} {presentation.unpricedLabel}</p>
           {presentation.remainingLabel ? <p className="mt-2 text-sm font-black">{presentation.remainingLabel}</p> : null}
         </div>
         {!['archived', 'cancelled', 'completed'].includes(trip.status) ? (
           <p className="roamly-no-print mt-4 text-sm font-semibold leading-6 text-slate-600">
-            <a href="#customize" className="font-black text-cblue">Customize your trip</a> to change the budget, dates, destination, or who is going.
+            <a href="#customize" className="font-black text-cblue">{translateExactText(locale, "Customize your trip")}</a>{" "}{translateExactText(locale, "to change the budget, dates, destination, or who is going.")}
           </p>
         ) : null}
       </section>
@@ -467,13 +474,13 @@ function BudgetSummary({
         <section className="grid gap-3 sm:grid-cols-2">
           {presentation.committedCount ? (
             <div className="border-b border-chair pb-3">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">Already committed</p>
-              <p className="mt-1 text-sm font-bold text-slate-700">{presentation.committedCount} confirmed {presentation.committedCount === 1 ? "booking" : "bookings"} stay protected.</p>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-cblue">{translateExactText(locale, "Already committed")}</p>
+              <p className="mt-1 text-sm font-bold text-slate-700">{presentation.committedCount === 1 ? translateKey(locale, "ui.trip.committedOne", "{count} confirmed booking stay protected.", { count: presentation.committedCount }) : translateKey(locale, "ui.trip.committedMany", "{count} confirmed bookings stay protected.", { count: presentation.committedCount })}</p>
             </div>
           ) : null}
           {presentation.uncertainty.length ? (
             <div className="border-b border-chair pb-3">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">Not priced yet</p>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-800">{translateExactText(locale, "Not priced yet")}</p>
               {presentation.uncertainty.map((item) => <p key={item} className="mt-1 text-sm font-bold text-slate-700">{item}</p>)}
             </div>
           ) : null}
@@ -481,18 +488,18 @@ function BudgetSummary({
       ) : null}
 
       <details className="border-y border-chair py-3">
-        <summary className="bui-touch flex min-h-11 cursor-pointer items-center text-base font-black text-cblue">See cost drivers</summary>
+        <summary className="bui-touch flex min-h-11 cursor-pointer items-center text-base font-black text-cblue">{translateExactText(locale, "See cost drivers")}</summary>
         <div className="mt-3 divide-y divide-chair">
           {presentation.costDrivers.map((row) => (
             <div key={row.label} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">
                 <p className="text-sm font-black text-ink">{row.label}</p>
-                <p className="text-xs font-bold text-slate-500">{row.status === "committed" ? "Committed" : row.status === "unknown" ? "Not priced yet" : "Expected"}</p>
+                <p className="text-xs font-bold text-slate-500">{row.status === "committed" ? translateExactText(locale, "Committed") : row.status === "unknown" ? translateExactText(locale, "Not priced yet") : translateExactText(locale, "Expected")}</p>
               </div>
               <p className="bui-display-number shrink-0 text-sm font-black text-ink">{row.value}</p>
             </div>
           ))}
-          {!presentation.costDrivers.length ? <p className="py-3 text-sm font-bold text-slate-500">No category-level costs are available yet.</p> : null}
+          {!presentation.costDrivers.length ? <p className="py-3 text-sm font-bold text-slate-500">{translateExactText(locale, "No category-level costs are available yet.")}</p> : null}
         </div>
       </details>
     </div>
@@ -602,7 +609,7 @@ function tripDate(trip: RoamlyTripRecord, key: "start" | "end") {
   return trip.end_date || getString(planning.endDate) || getString(planning.end_date);
 }
 
-function savedTripPayload(trip: RoamlyTripRecord, locale: string): TripPlannerPayload {
+function savedTripPayload(trip: RoamlyTripRecord, locale: RoamlyLocale): TripPlannerPayload {
   const planning = getTripPlanningMetadata(trip.metadata);
   const travelers = tripTravelerDetails(trip);
   const destination = getTripDestinationLabel(trip) || getString(planning.destination) || "your destination";
@@ -733,9 +740,9 @@ function fallbackBookingUrl(suggestion: RoamlyItinerary["booking_suggestions"][n
   return "";
 }
 
-function bookingProvider(suggestion: RoamlyItinerary["booking_suggestions"][number], fallback: string) {
+function bookingProvider(suggestion: RoamlyItinerary["booking_suggestions"][number], fallback: string, locale: RoamlyLocale = "en") {
   const provider = suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || fallback;
-  if (/stay22/i.test(provider)) return "Hotel search";
+  if (/stay22/i.test(provider)) return translateExactText(locale, "Hotel search");
   return provider;
 }
 
@@ -751,14 +758,14 @@ function isGoogleSearchFallbackUrl(value?: string | null) {
   }
 }
 
-function providerForBookingHref(href: string, fallback: string) {
+function providerForBookingHref(href: string, fallback: string, locale: RoamlyLocale = "en") {
   try {
     const host = new URL(href).hostname.toLowerCase().replace(/^www\./, "");
     if (host === "aviasales.com") return "Travelpayouts";
     if (host === "stay22.com" || host.endsWith(".stay22.com")) return "Hotel search";
     if (host === "klook.com" || host.endsWith(".klook.com")) return "Klook";
     if (host === "google.com" && href.includes("/maps/")) return "Google Maps";
-    if (host === "google.com") return "Google search";
+    if (host === "google.com") return translateExactText(locale, "Google search");
   } catch {
     return fallback;
   }
@@ -837,7 +844,7 @@ function isCompleteStay22HotelContext(href: string, suggestion: RoamlyItinerary[
   }
 }
 
-function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
+function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord, locale: RoamlyLocale = "en") {
   const category = bookingCategory(suggestion);
   const categoryValue = String(category);
   const rawAffiliate = safeBookingUrl(suggestion.affiliate_url);
@@ -850,7 +857,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
       if (providerAction) {
         return {
           href: providerAction,
-          provider: bookingProvider(suggestion, "Booking.com"),
+          provider: bookingProvider(suggestion, "Booking.com", locale),
           hasAffiliateUrl: false,
           urlType: "normal_search" as BookingUrlType
         };
@@ -860,7 +867,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     if (affiliate && isCompleteStay22HotelContext(affiliate, suggestion, trip)) {
       return {
         href: affiliate,
-        provider: providerForBookingHref(affiliate, bookingProvider(suggestion, "Affiliate partner")),
+        provider: providerForBookingHref(affiliate, bookingProvider(suggestion, translateExactText(locale, "Affiliate partner"), locale), locale),
         hasAffiliateUrl: true,
         urlType: "affiliate" as BookingUrlType
       };
@@ -869,7 +876,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
     if (stay22Fallback) {
       return {
         href: stay22Fallback,
-        provider: providerForBookingHref(stay22Fallback, bookingProvider(suggestion, "Stay22")),
+        provider: providerForBookingHref(stay22Fallback, bookingProvider(suggestion, "Stay22", locale), locale),
         hasAffiliateUrl: true,
         urlType: "affiliate" as BookingUrlType
       };
@@ -881,7 +888,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   if (affiliate) {
     return {
       href: affiliate,
-      provider: providerForBookingHref(affiliate, bookingProvider(suggestion, "Affiliate partner")),
+      provider: providerForBookingHref(affiliate, bookingProvider(suggestion, translateExactText(locale, "Affiliate partner"), locale), locale),
       hasAffiliateUrl: true,
       urlType: "affiliate" as BookingUrlType
     };
@@ -898,7 +905,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   if (shouldPreferAffiliateFallback) {
     return {
       href: fallback,
-      provider: providerForBookingHref(fallback, bookingProvider(suggestion, "Affiliate partner")),
+      provider: providerForBookingHref(fallback, bookingProvider(suggestion, translateExactText(locale, "Affiliate partner"), locale), locale),
       hasAffiliateUrl: true,
       urlType: "affiliate" as BookingUrlType
     };
@@ -907,7 +914,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   if (normal) {
     return {
       href: normal,
-      provider: providerForBookingHref(normal, bookingProvider(suggestion, "Normal search")),
+      provider: providerForBookingHref(normal, bookingProvider(suggestion, translateExactText(locale, "Normal search"), locale), locale),
       hasAffiliateUrl: false,
       urlType: "normal_search" as BookingUrlType
     };
@@ -916,7 +923,7 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   if (fallback) {
     return {
       href: fallback,
-      provider: providerForBookingHref(fallback, bookingProvider(suggestion, "Fallback search")),
+      provider: providerForBookingHref(fallback, bookingProvider(suggestion, translateExactText(locale, "Fallback search"), locale), locale),
       hasAffiliateUrl: isAffiliateBookingHref(fallback),
       urlType: isAffiliateBookingHref(fallback) ? "affiliate" as BookingUrlType : "fallback" as BookingUrlType
     };
@@ -925,11 +932,11 @@ function resolveBookingLink(suggestion: RoamlyItinerary["booking_suggestions"][n
   return null;
 }
 
-function priceConfidenceLabel(value?: string) {
-  if (value === "partner") return "Live price";
-  if (value === "user_uploaded") return "Live price";
-  if (value === "unknown") return "Search only";
-  return "Estimated";
+function priceConfidenceLabel(value?: string, locale: RoamlyLocale = "en") {
+  if (value === "partner") return translateExactText(locale, "Live price");
+  if (value === "user_uploaded") return translateExactText(locale, "Live price");
+  if (value === "unknown") return translateExactText(locale, "Search only");
+  return translateExactText(locale, "Estimated");
 }
 
 function isExpired(value?: string | null) {
@@ -938,11 +945,11 @@ function isExpired(value?: string | null) {
   return Number.isFinite(date.getTime()) && date.getTime() <= Date.now();
 }
 
-function formatMarketDateTime(value?: string | null) {
+function formatMarketDateTime(value?: string | null, locale: RoamlyLocale = "en") {
   if (!value) return "";
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return "";
-  return new Intl.DateTimeFormat("en", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -950,17 +957,17 @@ function formatMarketDateTime(value?: string | null) {
   }).format(date);
 }
 
-function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  if (suggestion.free_or_paid === "free") return "Free";
-  if (suggestion.price_confidence === "user_uploaded") return "Live price";
+function priceSourceLabel(suggestion: RoamlyItinerary["booking_suggestions"][number], locale: RoamlyLocale = "en") {
+  if (suggestion.free_or_paid === "free") return translateExactText(locale, "Free");
+  if (suggestion.price_confidence === "user_uploaded") return translateExactText(locale, "Live price");
   if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
-    return "Search only";
+    return translateExactText(locale, "Search only");
   }
-  if (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent") return "Live price";
-  if (suggestion.price_type === "search_ready") return "Search only";
-  if (suggestion.price_type === "estimated_fallback") return "Estimated";
-  if (suggestion.advance_booking_recommended) return "Booking required";
-  return priceConfidenceLabel(suggestion.price_confidence);
+  if (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent") return translateExactText(locale, "Live price");
+  if (suggestion.price_type === "search_ready") return translateExactText(locale, "Search only");
+  if (suggestion.price_type === "estimated_fallback") return translateExactText(locale, "Estimated");
+  if (suggestion.advance_booking_recommended) return translateExactText(locale, "Booking required");
+  return priceConfidenceLabel(suggestion.price_confidence, locale);
 }
 
 function hasLiveFlightPrice(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
@@ -991,39 +998,39 @@ function recommendedTransportFromItinerary(itinerary: RoamlyItinerary) {
   );
 }
 
-function transportModeLabel(mode: TransportOption["mode"]) {
-  if (mode === "drive") return "Drive";
-  if (mode === "train") return "Train";
-  if (mode === "bus") return "Bus";
-  if (mode === "mixed") return "Mixed route";
-  return "Flight";
+function transportModeLabel(mode: TransportOption["mode"], locale: RoamlyLocale = "en") {
+  if (mode === "drive") return translateExactText(locale, "Drive");
+  if (mode === "train") return translateExactText(locale, "Train");
+  if (mode === "bus") return translateExactText(locale, "Bus");
+  if (mode === "mixed") return translateExactText(locale, "Mixed route");
+  return translateExactText(locale, "Flight");
 }
 
-function transportActionLabel(mode: TransportOption["mode"]) {
-  if (mode === "flight") return "Search flights";
-  if (mode === "train") return "Check train";
-  if (mode === "bus") return "Check bus";
-  if (mode === "drive") return "Open driving route";
-  return "Search route";
+function transportActionLabel(mode: TransportOption["mode"], locale: RoamlyLocale = "en") {
+  if (mode === "flight") return translateExactText(locale, "Search flights");
+  if (mode === "train") return translateExactText(locale, "Check train");
+  if (mode === "bus") return translateExactText(locale, "Check bus");
+  if (mode === "drive") return translateExactText(locale, "Open driving route");
+  return translateExactText(locale, "Search route");
 }
 
-function transportSourceLabel(option: TransportOption) {
-  if (option.price_confidence === "live_partner") return "Live partner price";
-  if (option.price_confidence === "cached_recent") return "Recently searched price";
-  if (option.availability === "verified") return "Verified route";
-  if (option.availability === "search_ready") return "Search-ready";
-  if (option.availability === "not_available") return "Not available";
-  if (option.availability === "unverified") return "Unverified";
-  if (option.mode === "drive") return "Drive estimate";
-  return "Planning estimate";
+function transportSourceLabel(option: TransportOption, locale: RoamlyLocale = "en") {
+  if (option.price_confidence === "live_partner") return translateExactText(locale, "Live partner price");
+  if (option.price_confidence === "cached_recent") return translateExactText(locale, "Recently searched price");
+  if (option.availability === "verified") return translateExactText(locale, "Verified route");
+  if (option.availability === "search_ready") return translateExactText(locale, "Search-ready");
+  if (option.availability === "not_available") return translateExactText(locale, "Not available");
+  if (option.availability === "unverified") return translateExactText(locale, "Unverified");
+  if (option.mode === "drive") return translateExactText(locale, "Drive estimate");
+  return translateExactText(locale, "Planning estimate");
 }
 
-function transportEstimate(option: TransportOption) {
+function transportEstimate(option: TransportOption, locale: RoamlyLocale = "en") {
   if ((option.mode === "flight" || option.mode === "mixed") && option.price_confidence !== "live_partner" && option.price_confidence !== "cached_recent") {
-    return "Search live prices";
+    return translateExactText(locale, "Search live prices");
   }
   const range = formatRange(option.estimated_cost_min, option.estimated_cost_max, option.currency || "CAD");
-  return range || "Search-ready. Verify live price.";
+  return range || translateExactText(locale, "Search-ready. Verify live price.");
 }
 
 function transportHref(option: TransportOption) {
@@ -1061,26 +1068,26 @@ function transportHasAffiliateLink(option: TransportOption, href: string) {
   }
 }
 
-function transportMissingNote(option: TransportOption, href: string) {
+function transportMissingNote(option: TransportOption, href: string, locale: RoamlyLocale = "en") {
   if (href) return "";
   if ((option.mode === "train" || option.mode === "bus") && option.availability === "not_available") return "";
-  if (option.mode === "flight" || option.mode === "mixed") return "Live booking search is temporarily unavailable";
+  if (option.mode === "flight" || option.mode === "mixed") return translateExactText(locale, "Live booking search is temporarily unavailable");
   return "";
 }
 
-function transportBadges(option: TransportOption) {
+function transportBadges(option: TransportOption, locale: RoamlyLocale = "en") {
   return [
-    transportSourceLabel(option),
-    option.realistic ? "" : "Not recommended",
-    option.warning?.toLowerCase().includes("too long") ? "Too long for this trip" : "",
-    option.price_confidence === "estimated" || option.price_confidence === "unknown" ? "Needs live price check" : "",
-    option.warning?.toLowerCase().includes("border") ? "Border time buffer" : ""
+    transportSourceLabel(option, locale),
+    option.realistic ? "" : translateExactText(locale, "Not recommended"),
+    option.warning?.toLowerCase().includes("too long") ? translateExactText(locale, "Too long for this trip") : "",
+    option.price_confidence === "estimated" || option.price_confidence === "unknown" ? translateExactText(locale, "Needs live price check") : "",
+    option.warning?.toLowerCase().includes("border") ? translateExactText(locale, "Border time buffer") : ""
   ].filter((label): label is string => Boolean(label));
 }
 
-function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][number], locale: RoamlyLocale = "en") {
   if (bookingCategory(suggestion) === "flight" && !hasLiveFlightPrice(suggestion)) {
-    return "Search live prices";
+    return translateExactText(locale, "Search live prices");
   }
   const currency = suggestion.currency || "CAD";
   const nightly = formatRange(suggestion.estimated_nightly_cost_min, suggestion.estimated_nightly_cost_max, currency);
@@ -1090,31 +1097,35 @@ function bookingEstimate(suggestion: RoamlyItinerary["booking_suggestions"][numb
     currency
   );
   if (isExpired(suggestion.expires_at) && (suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent")) {
-    return total ? `Previously searched ${total}. Refresh price before using it for booking.` : "Refresh price before using this option.";
+    return total
+      ? translateKey(locale, "ui.trip.previouslySearched", "Previously searched {total}. Refresh price before using it for booking.", { total })
+      : translateExactText(locale, "Refresh price before using this option.");
   }
-  if (suggestion.price_type === "search_ready") return "Search-only result. Verify price and availability.";
-  if (nightly && total) return `Estimate: nightly ${nightly}; stay ${total}.`;
-  if (total) return `Estimate: ${total}.`;
-  if (suggestion.free_or_paid === "free") return "Free option. Verify hours and access rules.";
-  return "Verify current prices before booking.";
+  if (suggestion.price_type === "search_ready") return translateExactText(locale, "Search-only result. Verify price and availability.");
+  if (nightly && total) return translateKey(locale, "ui.trip.estimateNightlyStay", "Estimate: nightly {nightly}; stay {total}.", { nightly, total });
+  if (total) return translateKey(locale, "ui.trip.estimateTotal", "Estimate: {total}.", { total });
+  if (suggestion.free_or_paid === "free") return translateExactText(locale, "Free option. Verify hours and access rules.");
+  return translateExactText(locale, "Verify current prices before booking.");
 }
 
-function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  const source = suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || "Search link";
+function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number], locale: RoamlyLocale = "en") {
+  const source = suggestion.provider_or_search_source || suggestion.provider || suggestion.affiliate_provider || translateExactText(locale, "Search link");
   return [
-    `Source: ${/stay22/i.test(source) ? "Hotel search" : source}`,
-    `Verification: ${priceSourceLabel(suggestion)}`,
+    translateKey(locale, "ui.trip.bookingSource", "Source: {source}", { source: /stay22/i.test(source) ? translateExactText(locale, "Hotel search") : source }),
+    translateKey(locale, "ui.trip.bookingVerification", "Verification: {label}", { label: priceSourceLabel(suggestion, locale) }),
     suggestion.market_source,
     presentTravelerArea(suggestion.location || suggestion.neighborhood || suggestion.city, false, String(bookingCategory(suggestion))),
     suggestion.date || suggestion.departure_date,
     suggestion.time_window,
     suggestion.duration,
     suggestion.room_type,
-    suggestion.searched_at ? `Retrieved ${formatMarketDateTime(suggestion.searched_at)}` : "Retrieved: not live-verified",
+    suggestion.searched_at
+      ? translateKey(locale, "ui.trip.retrievedAt", "Retrieved {date}", { date: formatMarketDateTime(suggestion.searched_at, locale) })
+      : translateExactText(locale, "Retrieved: not live-verified"),
     suggestion.expires_at
       ? isExpired(suggestion.expires_at)
-        ? "Refresh price"
-        : `Expires ${formatMarketDateTime(suggestion.expires_at)}`
+        ? translateExactText(locale, "Refresh price")
+        : translateKey(locale, "ui.trip.expiresAt", "Expires {date}", { date: formatMarketDateTime(suggestion.expires_at, locale) })
       : ""
   ]
     .map((item) => getString(item))
@@ -1122,21 +1133,21 @@ function bookingMeta(suggestion: RoamlyItinerary["booking_suggestions"][number])
     .slice(0, 5);
 }
 
-function bookingActionLabel(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], link: ReturnType<typeof resolveBookingLink>) {
-  if (category === "flight") return link?.hasAffiliateUrl ? "Compare flights" : "Search flights";
-  if (category === "hotel") return "Book stay options";
-  if (suggestion.market_source === "public_web") return "Check current event details";
-  if (category === "attraction" || category === "tour" || category === "activity") return link?.hasAffiliateUrl ? "Book activity" : "Open official search";
-  if (category === "transport" || category === "car_rental") return link?.hasAffiliateUrl ? "Book transfer" : "Open route";
-  if (category === "restaurant") return "View on Google Maps";
-  return suggestion.booking_label || "View option";
+function bookingActionLabel(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], link: ReturnType<typeof resolveBookingLink>, locale: RoamlyLocale = "en") {
+  if (category === "flight") return link?.hasAffiliateUrl ? translateExactText(locale, "Compare flights") : translateExactText(locale, "Search flights");
+  if (category === "hotel") return translateExactText(locale, "Book stay options");
+  if (suggestion.market_source === "public_web") return translateExactText(locale, "Check current event details");
+  if (category === "attraction" || category === "tour" || category === "activity") return link?.hasAffiliateUrl ? translateExactText(locale, "Book activity") : translateExactText(locale, "Open official search");
+  if (category === "transport" || category === "car_rental") return link?.hasAffiliateUrl ? translateExactText(locale, "Book transfer") : translateExactText(locale, "Open route");
+  if (category === "restaurant") return translateExactText(locale, "View on Google Maps");
+  return suggestion.booking_label || translateExactText(locale, "View option");
 }
 
 function positiveHotelAmount(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function hotelTravelerPrice(suggestion: RoamlyItinerary["booking_suggestions"][number]) {
+function hotelTravelerPrice(suggestion: RoamlyItinerary["booking_suggestions"][number], locale: RoamlyLocale = "en") {
   const live = suggestion.price_type === "live_partner" || suggestion.price_type === "cached_recent";
   const hasAmount = Boolean(
     positiveHotelAmount(suggestion.estimated_total_cost_min ?? suggestion.estimated_cost_min) ||
@@ -1144,8 +1155,8 @@ function hotelTravelerPrice(suggestion: RoamlyItinerary["booking_suggestions"][n
     positiveHotelAmount(suggestion.estimated_nightly_cost_min) ||
     positiveHotelAmount(suggestion.estimated_nightly_cost_max)
   );
-  if (!live || suggestion.price_confidence === "unknown" || !hasAmount) return "Price not available";
-  return bookingEstimate(suggestion);
+  if (!live || suggestion.price_confidence === "unknown" || !hasAmount) return translateExactText(locale, "Price not available");
+  return bookingEstimate(suggestion, locale);
 }
 
 function hotelPartnerInput(suggestion: RoamlyItinerary["booking_suggestions"][number], trip: RoamlyTripRecord) {
@@ -1195,12 +1206,12 @@ function areaHotelPartners(trip: RoamlyTripRecord) {
   });
 }
 
-function bookingStatusBadge(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number]) {
-  if (category === "flight" && !hasLiveFlightPrice(suggestion)) return "Estimate";
-  const source = priceSourceLabel(suggestion);
+function bookingStatusBadge(category: string, suggestion: RoamlyItinerary["booking_suggestions"][number], locale: RoamlyLocale = "en") {
+  if (category === "flight" && !hasLiveFlightPrice(suggestion)) return translateExactText(locale, "Estimate");
+  const source = priceSourceLabel(suggestion, locale);
   if (source) return source;
-  if (category === "restaurant" && suggestion.advance_booking_recommended) return "Reservation recommended";
-  if (suggestion.advance_booking_recommended) return "Booking required";
+  if (category === "restaurant" && suggestion.advance_booking_recommended) return translateExactText(locale, "Reservation recommended");
+  if (suggestion.advance_booking_recommended) return translateExactText(locale, "Booking required");
   return "";
 }
 
@@ -1250,11 +1261,13 @@ function BookingRecommendationCard({
   suggestion,
   trip,
   tripId,
+  locale,
   suppressFlightFraming = false
 }: {
   suggestion: RoamlyItinerary["booking_suggestions"][number];
   trip: RoamlyTripRecord;
   tripId: string;
+  locale: RoamlyLocale;
   suppressFlightFraming?: boolean;
 }) {
   const category = bookingCategory(suggestion);
@@ -1265,13 +1278,13 @@ function BookingRecommendationCard({
     destination: suggestion.destination || suggestion.city || getTripDestinationLabel(trip),
     suppressFlightFraming
   }).title;
-  const link = resolveBookingLink(suggestion, trip);
+  const link = resolveBookingLink(suggestion, trip, locale);
   if (!link?.href) return null;
   const mapQuery = category === "hotel"
     ? [title, suggestion.neighborhood || suggestion.city || getTripDestinationLabel(trip)].filter(Boolean).join(" ")
     : suggestion.location || suggestion.neighborhood || suggestion.city || title;
-  const statusBadge = bookingStatusBadge(category, suggestion);
-  const actionLabel = bookingActionLabel(category, suggestion, link);
+  const statusBadge = bookingStatusBadge(category, suggestion, locale);
+  const actionLabel = bookingActionLabel(category, suggestion, link, locale);
   const guardedHotelAction = category === "hotel" && suggestion.provider_action_origin === "provider_response" && suggestion.factual_status === "verified";
   const hotelPartners = category === "hotel" ? partnersForHotelSuggestion(suggestion, trip) : [];
   const visibleHotelPartners = guardedHotelAction ? hotelPartners.filter((partner) => partner.id !== "booking") : hotelPartners;
@@ -1280,8 +1293,8 @@ function BookingRecommendationCard({
     <article className="bui-enter rounded-bui-panel border border-chair bg-white px-4 py-4 shadow-bui-card">
       {category === "hotel" && suggestion.photo_urls?.[0] ? (
         <div className="relative mb-4 h-52 overflow-hidden rounded-bui-card border border-chair bg-cbg sm:h-64">
-          <GuardedImage src={suggestion.photo_urls[0]} alt={`${title} property photo`} fill unoptimized sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
-          <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1.5 text-[0.68rem] font-extrabold text-[#31594f] shadow-sm">Property photo · Booking.com</span>
+          <GuardedImage src={suggestion.photo_urls[0]} alt={`${title} ${translateExactText(locale, "property photo")}`} fill unoptimized sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
+          <span className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1.5 text-[0.68rem] font-extrabold text-[#31594f] shadow-sm">{translateExactText(locale, "Property photo · Booking.com")}</span>
         </div>
       ) : null}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1297,10 +1310,10 @@ function BookingRecommendationCard({
           </div>
           <h3 className="mt-2 text-lg font-semibold leading-6 tracking-tight text-ink">{title}</h3>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{suppressFlightFraming ? presentGroundTransportText(bookingDescription(suggestion)) : bookingDescription(suggestion)}</p>
-          <p className="bui-display-number mt-2 text-sm font-medium text-slate-600">{category === "hotel" ? hotelTravelerPrice(suggestion) : bookingEstimate(suggestion)}</p>
+          <p className="bui-display-number mt-2 text-sm font-medium text-slate-600">{category === "hotel" ? hotelTravelerPrice(suggestion, locale) : bookingEstimate(suggestion, locale)}</p>
           {category === "hotel" ? (
             <>
-              {guardedHotelAction ? <div className="mt-3"><GuardedHotelActionButton tripId={tripId} label="Book this hotel" /></div> : null}
+              {guardedHotelAction ? <div className="mt-3"><GuardedHotelActionButton tripId={tripId} label={translateExactText(locale, "Book this hotel")} /></div> : null}
               {visibleHotelPartners.length ? (
                 <HotelPartnerChoices
                   partners={visibleHotelPartners}
@@ -1312,7 +1325,7 @@ function BookingRecommendationCard({
                 <div className="mt-3">
                   <BookingRecommendationButton
                     href={link.href}
-                    label="Book stay options"
+                    label={translateExactText(locale, "Book stay options")}
                     tripId={tripId}
                     category={category}
                     title={title}
@@ -1325,14 +1338,14 @@ function BookingRecommendationCard({
               ) : null}
             </>
           ) : null}
-          {suggestion.why_recommended || bookingMeta(suggestion).length || category === "hotel" ? (
+          {suggestion.why_recommended || bookingMeta(suggestion, locale).length || category === "hotel" ? (
             <details className="mt-3 rounded-[0.9rem] bg-[#f8faf8] px-3 py-2">
-              <summary className="bui-touch flex cursor-pointer items-center text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Details</summary>
+              <summary className="bui-touch flex cursor-pointer items-center text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{translateExactText(locale, "Details")}</summary>
               {suggestion.why_recommended ? (
                 <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{suggestion.why_recommended}</p>
               ) : null}
-              {bookingMeta(suggestion).length ? (
-                <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{bookingMeta(suggestion).join(" · ")}</p>
+              {bookingMeta(suggestion, locale).length ? (
+                <p className="mt-2 text-xs font-medium leading-5 text-slate-500">{bookingMeta(suggestion, locale).join(" · ")}</p>
               ) : null}
               {category === "hotel" ? <NavigationChipList query={mapQuery} /> : null}
             </details>
@@ -1341,7 +1354,7 @@ function BookingRecommendationCard({
         </div>
         {category === "hotel" ? (
           <p className="roamly-print-only hidden text-xs font-black text-cblue">
-            Book stay options: {visibleHotelPartners.length ? visibleHotelPartners.map((partner) => partner.label).join(", ") : actionLabel}
+            {translateExactText(locale, "Book stay options")}: {visibleHotelPartners.length ? visibleHotelPartners.map((partner) => partner.label).join(", ") : actionLabel}
           </p>
         ) : (
           <div className="flex shrink-0 flex-col gap-2 lg:items-end">
@@ -1357,7 +1370,7 @@ function BookingRecommendationCard({
               urlType={link.urlType}
             />
             <p className="roamly-print-only hidden text-xs font-black text-cblue">
-              Search: {actionLabel}
+              {translateExactText(locale, "Search:")} {actionLabel}
             </p>
           </div>
         )}
@@ -1487,6 +1500,7 @@ function buildRelevantBookingGroups(params: {
   activityItems: RoamlyItinerary["booking_suggestions"];
   transportItems: RoamlyItinerary["booking_suggestions"];
   confirmedBookings: Array<Record<string, unknown>>;
+  locale: RoamlyLocale;
 }) {
   const notes = readTripNoteText(params.trip);
   const rank = <T extends { title?: string | null; booking_label?: string | null }>(items: readonly T[]) => rankChoicesForNotes(items, notes, (item) => `${item.title || ""} ${item.booking_label || ""}`);
@@ -1500,16 +1514,16 @@ function buildRelevantBookingGroups(params: {
   const hasRecommendedTransport = Boolean(recommendedTransportFromItinerary(params.itinerary));
   return [
     (showFlightItems || (showFlightFallback && !confirmedNeedSatisfied("flight", params.confirmedBookings, params.trip.id)))
-      ? { title: "Flights", fallback: "flight" as const, items: rank(params.flightItems) }
+      ? { title: translateExactText(params.locale, "Flights"), fallback: "flight" as const, items: rank(params.flightItems) }
       : null,
     (params.hotelItems.length > 0 || (params.trip.budget_includes_hotel !== false && !confirmedNeedSatisfied("hotel", params.confirmedBookings, params.trip.id)))
-      ? { title: "Hotels", fallback: "hotel" as const, items: rank(params.hotelItems) }
+      ? { title: translateExactText(params.locale, "Hotels"), fallback: "hotel" as const, items: rank(params.hotelItems) }
       : null,
     (params.activityItems.length > 0 || tripIncludesActivities(params.trip))
-      ? { title: "Important activities", fallback: "activity" as const, items: rank(params.activityItems) }
+      ? { title: translateExactText(params.locale, "Important activities"), fallback: "activity" as const, items: rank(params.activityItems) }
       : null,
     params.transportItems.length > 0 && !hasRecommendedTransport
-      ? { title: "Transport", fallback: null, items: params.transportItems }
+      ? { title: translateExactText(params.locale, "Transport"), fallback: null, items: params.transportItems }
       : null
   ].filter((group): group is {
     title: string;
@@ -1560,23 +1574,25 @@ function fallbackSearchHref(category: "flight" | "hotel" | "activity", trip: Roa
 function BookingSearchFallbackCard({
   category,
   trip,
-  tripId
+  tripId,
+  locale
 }: {
   category: "flight" | "hotel" | "activity";
   trip: RoamlyTripRecord;
   tripId: string;
+  locale: RoamlyLocale;
 }) {
   const href = safeBookingUrl(fallbackSearchHref(category, trip));
   const hotelPartners = category === "hotel" ? areaHotelPartners(trip) : [];
   if (!href && !hotelPartners.length) return null;
-  const label = category === "flight" ? "Search flights" : category === "hotel" ? "Book stay options" : "Search activities";
+  const label = category === "flight" ? translateExactText(locale, "Search flights") : category === "hotel" ? translateExactText(locale, "Book stay options") : translateExactText(locale, "Search activities");
   const preference = trip.transportation_preference || "";
   if (category === "flight" && isDriveMode(preference)) return null;
   const title = category === "flight"
-    ? isMixedMode(preference) ? "Ways to get there" : "Flights to compare"
-    : category === "hotel" ? "Stay to confirm" : "Events to confirm";
+    ? isMixedMode(preference) ? translateExactText(locale, "Ways to get there") : translateExactText(locale, "Flights to compare")
+    : category === "hotel" ? translateExactText(locale, "Stay to confirm") : translateExactText(locale, "Events to confirm");
   const hasAffiliateUrl = isAffiliateBookingHref(href);
-  const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : "Google search");
+  const provider = providerForBookingHref(href, category === "flight" ? "Travelpayouts" : translateExactText(locale, "Google search"), locale);
   return (
     <article className="bui-enter rounded-bui-panel border border-chair bg-white px-4 py-4 shadow-bui-card">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1584,12 +1600,12 @@ function BookingSearchFallbackCard({
           <h3 className="text-lg font-semibold leading-6 tracking-tight text-ink">{title}</h3>
           <p className="mt-1 text-sm leading-6 text-slate-600">
             {category === "flight"
-              ? "Estimate only. Search live prices for the trip dates, baggage, seats, schedule, and currency before booking."
+              ? translateExactText(locale, "Estimate only. Search live prices for the trip dates, baggage, seats, schedule, and currency before booking.")
               : category === "hotel"
-                ? "No stay is confirmed yet. These open a partner search for your dates."
-                : "Search current options for the trip dates and verify price, schedule, and availability."}
+                ? translateExactText(locale, "No stay is confirmed yet. These open a partner search for your dates.")
+                : translateExactText(locale, "Search current options for the trip dates and verify price, schedule, and availability.")}
           </p>
-          <p className="mt-2 text-sm font-medium text-slate-500">{category === "flight" ? "Estimate only" : category === "hotel" ? "Price not available" : "Search only"}</p>
+          <p className="mt-2 text-sm font-medium text-slate-500">{category === "flight" ? translateExactText(locale, "Estimate only") : category === "hotel" ? translateExactText(locale, "Price not available") : translateExactText(locale, "Search only")}</p>
         </div>
         {category === "hotel" && hotelPartners.length ? (
           <HotelPartnerChoices partners={hotelPartners} tripId={tripId} title={title} />
@@ -1611,7 +1627,7 @@ function BookingSearchFallbackCard({
   );
 }
 
-function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppressFlightFraming = false }: { itinerary: RoamlyItinerary; tripId: string; confirmedBookings: Array<Record<string, unknown>>; suppressFlightFraming?: boolean }) {
+function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, locale, suppressFlightFraming = false }: { itinerary: RoamlyItinerary; tripId: string; confirmedBookings: Array<Record<string, unknown>>; locale: RoamlyLocale; suppressFlightFraming?: boolean }) {
   const recommended = recommendedTransportFromItinerary(itinerary);
   if (!recommended || !recommended.realistic || recommended.availability === "not_available") return null;
   if ((recommended.mode === "flight" || recommended.mode === "mixed") && reconcileAffiliateAction({
@@ -1624,21 +1640,21 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppre
     endDate: recommended.return_date
   }, confirmedBookings).decision === "SUPPRESS") return null;
   const href = transportHref(recommended);
-  const provider = transportProviderForLink(recommended, href, transportSourceLabel(recommended));
+  const provider = transportProviderForLink(recommended, href, transportSourceLabel(recommended, locale));
   const hasAffiliateUrl = transportHasAffiliateLink(recommended, href);
-  const missingNote = transportMissingNote(recommended, href);
+  const missingNote = transportMissingNote(recommended, href, locale);
 
   return (
     <section className="roamly-print-section">
-      <h3 className="text-lg font-black text-ink">Recommended transport</h3>
+      <h3 className="text-lg font-black text-ink">{translateExactText(locale, "Recommended transport")}</h3>
       <article className="bui-enter mt-3 rounded-bui-card border border-chair bg-white px-4 py-4 shadow-bui-card">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap gap-2">
               <BuiBadge tone="primary">
-                {transportModeLabel(recommended.mode)}
+                {transportModeLabel(recommended.mode, locale)}
               </BuiBadge>
-              {transportBadges(recommended).slice(0, 3).map((badge) => (
+              {transportBadges(recommended, locale).slice(0, 3).map((badge) => (
                 <BuiBadge key={badge} tone="primary">
                   {badge}
                 </BuiBadge>
@@ -1652,7 +1668,7 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppre
               category: "transport",
               suppressFlightFraming: suppressFlightFraming || recommended.mode === "drive" || recommended.mode === "mixed"
             }).title}</h4>
-            <p className="bui-display-number mt-1 text-sm font-black text-ink">{transportEstimate(recommended)}</p>
+            <p className="bui-display-number mt-1 text-sm font-black text-ink">{transportEstimate(recommended, locale)}</p>
             {recommended.duration_label ? <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{recommended.duration_label}</p> : null}
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-700">{suppressFlightFraming ? presentGroundTransportText(recommended.why_recommended) : recommended.why_recommended}</p>
             {recommended.warning ? <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{recommended.warning}</p> : null}
@@ -1660,7 +1676,7 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppre
           {href ? (
             <BookingRecommendationButton
               href={href}
-              label={transportActionLabel(recommended.mode)}
+              label={transportActionLabel(recommended.mode, locale)}
               tripId={tripId}
               category={recommended.mode === "flight" || recommended.mode === "mixed" ? "flight" : "transport"}
               title={recommended.title}
@@ -1680,21 +1696,21 @@ function RecommendedTransportCard({ itinerary, tripId, confirmedBookings, suppre
   );
 }
 
-function BookingPlan({ itinerary, trip, tripId, confirmedBookings, suppressFlightFraming = false }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string; confirmedBookings: Array<Record<string, unknown>>; suppressFlightFraming?: boolean }) {
+function BookingPlan({ itinerary, trip, tripId, confirmedBookings, locale, suppressFlightFraming = false }: { itinerary: RoamlyItinerary; trip: RoamlyTripRecord; tripId: string; confirmedBookings: Array<Record<string, unknown>>; locale: RoamlyLocale; suppressFlightFraming?: boolean }) {
   const suggestions = bookingSuggestionsWithRecommendations(itinerary, trip);
   // The fourth argument remains the one-card flight cap: curatedBookingSuggestions(suggestions, trip, ["flight"], 1)
   const flightItems = curatedBookingSuggestions(suggestions, trip, ["flight"], 1, confirmedBookings);
   const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3, confirmedBookings);
   const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3, confirmedBookings);
   const transportItems = curatedBookingSuggestions(suggestions, trip, ["transport", "car_rental"], 2, confirmedBookings);
-  const groups = buildRelevantBookingGroups({ itinerary, trip, flightItems, hotelItems, activityItems, transportItems, confirmedBookings });
+  const groups = buildRelevantBookingGroups({ itinerary, trip, flightItems, hotelItems, activityItems, transportItems, confirmedBookings, locale });
 
   return (
     <div className="grid gap-5">
       <p className="roamly-no-print rounded-[1rem] border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
-        Recommended transport, stays, flights, and important activities. Live prices appear only when a connected provider returned them. {affiliateDisclosure}
+        {translateExactText(locale, "Recommended transport, stays, flights, and important activities. Live prices appear only when a connected provider returned them.")} {translateExactText(locale, affiliateDisclosure)}
       </p>
-      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} confirmedBookings={confirmedBookings} suppressFlightFraming={suppressFlightFraming} />}
+      {["flight", "mixed"].includes(bookingGroupMode(itinerary)) ? null : <RecommendedTransportCard itinerary={itinerary} tripId={tripId} confirmedBookings={confirmedBookings} locale={locale} suppressFlightFraming={suppressFlightFraming} />}
       {groups.map((group) => {
         return (
           <section key={group.title} className="roamly-print-section">
@@ -1707,13 +1723,14 @@ function BookingPlan({ itinerary, trip, tripId, confirmedBookings, suppressFligh
                     suggestion={suggestion}
                     trip={trip}
                     tripId={tripId}
+                    locale={locale}
                     suppressFlightFraming={suppressFlightFraming}
                   />
                 ))}
               </div>
             ) : group.fallback ? (
               <div className="mt-3">
-                <BookingSearchFallbackCard category={group.fallback} trip={trip} tripId={tripId} />
+                <BookingSearchFallbackCard category={group.fallback} trip={trip} tripId={tripId} locale={locale} />
               </div>
             ) : null}
           </section>
@@ -1723,34 +1740,36 @@ function BookingPlan({ itinerary, trip, tripId, confirmedBookings, suppressFligh
   );
 }
 
-function essentialActionLabel(item: RoamlyPreTripEssential) {
+function essentialActionLabel(item: RoamlyPreTripEssential, locale: RoamlyLocale = "en") {
   if (item.action_label) return item.action_label;
   const text = `${item.title} ${item.search_query}`.toLowerCase();
-  if (item.item_type === "connectivity" || /\b(e-?sim|mobile data|roaming plan)\b/.test(text)) return "Compare travel eSIM";
-  if (/\bcarry[- ]?on\b|luggage/.test(text)) return "Find carry-on luggage";
-  if (/packing cube/.test(text)) return "Find packing cubes";
-  if (/adapter/.test(text)) return "Find travel adapter";
-  return "Shop on Amazon";
+  if (item.item_type === "connectivity" || /\b(e-?sim|mobile data|roaming plan)\b/.test(text)) return translateExactText(locale, "Compare travel eSIM");
+  if (/\bcarry[- ]?on\b|luggage/.test(text)) return translateExactText(locale, "Find carry-on luggage");
+  if (/packing cube/.test(text)) return translateExactText(locale, "Find packing cubes");
+  if (/adapter/.test(text)) return translateExactText(locale, "Find travel adapter");
+  return translateExactText(locale, "Shop on Amazon");
 }
 
-function priorityLabel(priority: RoamlyPreTripEssential["priority"]) {
-  if (priority === "high") return "High priority";
-  if (priority === "low") return "Low priority";
-  return "Medium priority";
+function priorityLabel(priority: RoamlyPreTripEssential["priority"], locale: RoamlyLocale = "en") {
+  if (priority === "high") return translateExactText(locale, "High priority");
+  if (priority === "low") return translateExactText(locale, "Low priority");
+  return translateExactText(locale, "Medium priority");
 }
 
 function PreTripEssentialCard({
   item,
-  tripId
+  tripId,
+  locale
 }: {
   item: RoamlyPreTripEssential;
   tripId: string;
+  locale: RoamlyLocale;
 }) {
   const href = safeBookingUrl(item.action_url) || safeBookingUrl(item.amazon_url);
-  const label = essentialActionLabel(item);
+  const label = essentialActionLabel(item, locale);
   const isConnectivity = item.item_type === "connectivity" || item.category === "Connectivity";
-  const provider = item.provider || (isConnectivity ? "Connectivity options" : "Amazon Associates");
-  const verificationNote = item.verification_note || (isConnectivity ? esimVerificationCopy : "");
+  const provider = item.provider || (isConnectivity ? translateExactText(locale, "Connectivity options") : "Amazon Associates");
+  const verificationNote = item.verification_note || (isConnectivity ? translateExactText(locale, esimVerificationCopy) : "");
   const urlType: BookingUrlType = item.action_url_type || (href && href.includes("tag=") ? "affiliate" : "normal_search");
   const hasAffiliateUrl = Boolean(item.has_affiliate_url || (href && href.includes("tag=")));
 
@@ -1765,20 +1784,20 @@ function PreTripEssentialCard({
                 {item.category}
               </BuiBadge>
               <BuiBadge tone="warm">
-                {priorityLabel(item.priority)}
+                {priorityLabel(item.priority, locale)}
               </BuiBadge>
             </div>
             <h3 className="mt-2 text-lg font-black leading-6 text-ink">{item.title}</h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{item.reason}</p>
             {verificationNote ? <p className="mt-2 text-xs font-black leading-5 text-amber-800">{verificationNote}</p> : null}
-            <p className="mt-2 text-xs font-bold leading-5 text-slate-500">Search: {item.search_query}</p>
+            <p className="mt-2 text-xs font-bold leading-5 text-slate-500">{translateExactText(locale, "Search:")} {item.search_query}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="roamly-no-print text-xs font-bold leading-5 text-slate-500">
             {isConnectivity
-              ? "Connectivity options are not guaranteed. Verify coverage, compatibility, price, and terms before buying."
-              : "Amazon prices are not shown in Roamly. Verify price and availability on Amazon."}
+              ? translateExactText(locale, "Connectivity options are not guaranteed. Verify coverage, compatibility, price, and terms before buying.")
+              : translateExactText(locale, "Amazon prices are not shown in Roamly. Verify price and availability on Amazon.")}
           </p>
           <BookingRecommendationButton
             href={href}
@@ -1792,7 +1811,7 @@ function PreTripEssentialCard({
             urlType={urlType}
           />
         </div>
-        {href ? <p className="roamly-print-only hidden text-xs font-black text-cblue">{provider} search: {label}</p> : null}
+        {href ? <p className="roamly-print-only hidden text-xs font-black text-cblue">{provider} {translateExactText(locale, "search:")} {label}</p> : null}
       </div>
     </article>
   );
@@ -1800,10 +1819,12 @@ function PreTripEssentialCard({
 
 function PreTripEssentialsSection({
   essentials,
-  tripId
+  tripId,
+  locale
 }: {
   essentials: RoamlyPreTripEssential[];
   tripId: string;
+  locale: RoamlyLocale;
 }) {
   if (!essentials.length) return null;
   const hasConnectivity = essentials.some((item) => item.item_type === "connectivity" || item.category === "Connectivity");
@@ -1811,17 +1832,17 @@ function PreTripEssentialsSection({
   return (
     <section id="pre-trip-essentials" className="mt-8 scroll-mt-32">
       <SectionHeading
-        eyebrow="Pre-trip essentials"
-        title="Essentials checklist"
-        summary="Travel item recommendations are based on the destination, dates, activities, season, trip length, and travel style."
+        eyebrow={translateExactText(locale, "Pre-trip essentials")}
+        title={translateExactText(locale, "Essentials checklist")}
+        summary={translateExactText(locale, "Travel item recommendations are based on the destination, dates, activities, season, trip length, and travel style.")}
       />
       <p className="mb-4 rounded-2xl border border-sun/30 bg-sun/10 px-4 py-3 text-sm font-bold leading-6 text-slate-700">
-        {amazonAffiliateDisclosure}
-        {hasConnectivity ? " Connectivity recommendations are for mobile data planning only, not flights, hotels, tours, or tickets." : ""}
+        {translateExactText(locale, amazonAffiliateDisclosure)}
+        {hasConnectivity ? <> {" "}{translateExactText(locale, "Connectivity recommendations are for mobile data planning only, not flights, hotels, tours, or tickets.")}</> : ""}
       </p>
       <div className="grid gap-3 md:grid-cols-2">
         {essentials.map((item, index) => (
-          <PreTripEssentialCard key={`${item.title}-${index}`} item={item} tripId={tripId} />
+          <PreTripEssentialCard key={`${item.title}-${index}`} item={item} tripId={tripId} locale={locale} />
         ))}
       </div>
     </section>
@@ -1834,7 +1855,8 @@ function PackageStays({
   tripId,
   currency,
   staySelectionId,
-  totals
+  totals,
+  locale
 }: {
   suggestions: RoamlyItinerary["booking_suggestions"];
   trip: RoamlyTripRecord;
@@ -1849,6 +1871,7 @@ function PackageStays({
    *  carries none — the selector then records the pick without
    *  inventing a total to re-tabulate. */
   totals: { stayEstimateCents: number; bufferEstimateCents: number; totalEstimateCents: number } | null;
+  locale: RoamlyLocale;
 }) {
   const areaPartners = areaHotelPartners(trip);
   if (!suggestions.length && !areaPartners.length) return null;
@@ -1877,8 +1900,8 @@ function PackageStays({
   });
 
   return (
-    <section aria-label="Your stay" className="bui-enter rounded-bui-panel border border-chair bg-white px-4 py-6 shadow-bui-card sm:px-6 sm:py-7">
-      <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-ink">Stay options in this package</h2>
+    <section aria-label={translateExactText(locale, "Your stay")} className="bui-enter rounded-bui-panel border border-chair bg-white px-4 py-6 shadow-bui-card sm:px-6 sm:py-7">
+      <h2 className="text-[1.45rem] font-semibold tracking-[-0.03em] text-ink">{translateExactText(locale, "Stay options in this package")}</h2>
       <div className="mt-5">
         <StaySelector
           tripId={tripId}
@@ -1895,16 +1918,16 @@ function PackageStays({
   );
 }
 
-function BookingSummaryList({ bookings }: { bookings: Array<Record<string, unknown>> }) {
+function BookingSummaryList({ bookings, locale }: { bookings: Array<Record<string, unknown>>; locale: RoamlyLocale }) {
   if (!bookings.length) {
-    return <p className="rounded-bui-card border border-dashed border-chair bg-white px-4 py-3 text-sm font-black text-slate-500">No bookings saved yet.</p>;
+    return <p className="rounded-bui-card border border-dashed border-chair bg-white px-4 py-3 text-sm font-black text-slate-500">{translateExactText(locale, "No bookings saved yet.")}</p>;
   }
 
   return (
     <div className="grid gap-2">
       {bookings.slice(0, 6).map((booking, index) => {
-        const title = getString(booking.title) || "Saved booking";
-        const details = bookingDetailText(booking);
+        const title = getString(booking.title) || translateExactText(locale, "Saved booking");
+        const details = bookingDetailText(booking, locale);
         return (
           <div key={`${title}-${index}`} className="rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card">
             <p className="text-sm font-black text-ink">{title}</p>
@@ -1916,14 +1939,26 @@ function BookingSummaryList({ bookings }: { bookings: Array<Record<string, unkno
   );
 }
 
-function travelerSummary(trip: RoamlyTripRecord) {
+function travelerSummary(trip: RoamlyTripRecord, locale: RoamlyLocale = "en") {
   const travelers = tripTravelerDetails(trip);
   const rooms = tripRooms(trip);
   return [
-    `${travelers.adults} ${travelers.adults === 1 ? "adult" : "adults"}`,
-    travelers.children ? `${travelers.children} ${travelers.children === 1 ? "child" : "children"}` : "",
-    travelers.infants ? `${travelers.infants} ${travelers.infants === 1 ? "infant" : "infants"}` : "",
-    `${rooms} ${rooms === 1 ? "room" : "rooms"}`
+    travelers.adults === 1
+      ? translateKey(locale, "ui.trip.adultOne", "1 adult")
+      : translateKey(locale, "ui.trip.adultMany", "{count} adults", { count: travelers.adults }),
+    travelers.children
+      ? travelers.children === 1
+        ? translateKey(locale, "ui.trip.childOne", "1 child")
+        : translateKey(locale, "ui.trip.childMany", "{count} children", { count: travelers.children })
+      : "",
+    travelers.infants
+      ? travelers.infants === 1
+        ? translateKey(locale, "ui.trip.infantOne", "1 infant")
+        : translateKey(locale, "ui.trip.infantMany", "{count} infants", { count: travelers.infants })
+      : "",
+    rooms === 1
+      ? translateKey(locale, "ui.trip.roomOne", "1 room")
+      : translateKey(locale, "ui.trip.roomMany", "{count} rooms", { count: rooms })
   ].filter(Boolean).join(" · ");
 }
 
@@ -1936,19 +1971,19 @@ function PrintInfoCell({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CompactPrintDay({ day, currency, confirmedBookings, suppressFlightFraming = false }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string; confirmedBookings: readonly Record<string, unknown>[]; suppressFlightFraming?: boolean }) {
-  const items = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming }).items.slice(0, 6);
+function CompactPrintDay({ day, currency, confirmedBookings, locale, suppressFlightFraming = false }: { day: RoamlyItinerary["daily_itinerary"][number]; currency: string; confirmedBookings: readonly Record<string, unknown>[]; locale: RoamlyLocale; suppressFlightFraming?: boolean }) {
+  const items = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming, locale }).items.slice(0, 6);
   const dayCity = presentTravelerArea(day.city, suppressFlightFraming);
 
   return (
     <section className="roamly-pdf-day">
       <div className="roamly-pdf-day-heading">
         <p>
-          Day {day.day_number}
+          {translateKey(locale, "ui.trip.printDay", "Day {number}", { number: day.day_number })}
           {dayCity ? ` · ${dayCity}` : ""}
-          {day.date ? ` · ${formatTripDate(day.date)}` : ""}
+          {day.date ? ` · ${formatTripDate(day.date, locale)}` : ""}
         </p>
-        <span>Est. {formatMoney(day.estimated_cost, currency)}</span>
+        <span>{translateKey(locale, "ui.trip.printEstimated", "Est. {amount}", { amount: formatMoney(day.estimated_cost, currency) })}</span>
       </div>
       {presentDayHeading({ title: day.title, destination: dayCity || day.city, suppressFlightFraming }).headings.map((heading) => (
         <h3 key={heading}>{heading}</h3>
@@ -1961,7 +1996,7 @@ function CompactPrintDay({ day, currency, confirmedBookings, suppressFlightFrami
               <div>
                 <strong>{item.title}</strong>
                 <p>{[item.location, item.durationLabel, item.travelLabel].filter(Boolean).join(" · ")}</p>
-                {item.transferNote ? <p>Transfer: {item.transferNote}</p> : null}
+                {item.transferNote ? <p>{translateExactText(locale, "Transfer:")} {item.transferNote}</p> : null}
                 {item.description ? <p>{compact(item.description, "", 120)}</p> : null}
               </div>
             </div>
@@ -1974,7 +2009,7 @@ function CompactPrintDay({ day, currency, confirmedBookings, suppressFlightFrami
           <div className="roamly-pdf-timeline-row"><p className="roamly-pdf-time">Evening</p><p>{day.evening}</p></div>
         </div>
       )}
-      {day.food.length ? <p className="roamly-pdf-food">Food: {day.food.slice(0, 3).join(" · ")}</p> : null}
+      {day.food.length ? <p className="roamly-pdf-food">{translateExactText(locale, "Food:")} {day.food.slice(0, 3).join(" · ")}</p> : null}
     </section>
   );
 }
@@ -2001,7 +2036,7 @@ function CompactPrintItinerary({
   budgetDisplay: string;
   travelStyle: string;
   dayCount: number;
-  locale: string;
+  locale: RoamlyLocale;
   suppressFlightFraming?: boolean;
 }) {
   const confirmedBookings = bookings.filter((booking) => isConfirmedBookingSnapshot(booking));
@@ -2024,25 +2059,25 @@ function CompactPrintItinerary({
       <section className="roamly-pdf-page roamly-pdf-cover">
         <div className="roamly-pdf-brand">
           <Image src="/roamly-wordmark.png" alt="Roamly" width={92} height={38} />
-          <span>Offline itinerary</span>
+          <span>{translateExactText(locale, "Offline itinerary")}</span>
         </div>
         <h1>{tripTitle}</h1>
-        <p className="roamly-pdf-summary">{compact(itinerary.destination_summary, "Trip plan", 240)}</p>
+        <p className="roamly-pdf-summary">{compact(itinerary.destination_summary, translateExactText(locale, "Trip plan"), 240)}</p>
         <div className="roamly-pdf-info-grid">
-          <PrintInfoCell label="Destination" value={destinationLabel} />
-          <PrintInfoCell label="Dates" value={formatDateRange(trip, locale)} />
-          <PrintInfoCell label="Travellers" value={travelerSummary(trip)} />
-          <PrintInfoCell label="Days" value={formatDayCount(dayCount, "Flexible")} />
-          <PrintInfoCell label="Budget" value={budgetDisplay} />
-          <PrintInfoCell label="Style" value={travelStyle} />
+          <PrintInfoCell label={translateExactText(locale, "Destination")} value={destinationLabel} />
+          <PrintInfoCell label={translateExactText(locale, "Dates")} value={formatDateRange(trip, locale)} />
+          <PrintInfoCell label={translateExactText(locale, "Travellers")} value={travelerSummary(trip, locale)} />
+          <PrintInfoCell label={translateExactText(locale, "Days")} value={formatDayCount(dayCount, locale, translateExactText(locale, "Flexible"))} />
+          <PrintInfoCell label={translateExactText(locale, "Budget")} value={budgetDisplay} />
+          <PrintInfoCell label={translateExactText(locale, "Style")} value={travelStyle} />
         </div>
         <div className="roamly-pdf-two-col">
           <section>
-            <h2>Transport</h2>
-            <p>{recommendedTransport ? `${recommendedTransport.title}. ${transportEstimate(recommendedTransport)}` : compact(itinerary.transport_overview, "Verify transport before travel.", 180)}</p>
+            <h2>{translateExactText(locale, "Transport")}</h2>
+            <p>{recommendedTransport ? `${recommendedTransport.title}. ${transportEstimate(recommendedTransport, locale)}` : compact(itinerary.transport_overview, translateExactText(locale, "Verify transport before travel."), 180)}</p>
           </section>
           <section>
-            <h2>Stay</h2>
+            <h2>{translateExactText(locale, "Stay")}</h2>
             {hotelItems.length ? (
               <ul>
                 {hotelItems.map((item) => (
@@ -2053,25 +2088,25 @@ function CompactPrintItinerary({
                 ))}
               </ul>
             ) : (
-              <p>Hotel options should be verified for the trip dates before departure.</p>
+              <p>{translateExactText(locale, "Hotel options should be verified for the trip dates before departure.")}</p>
             )}
           </section>
         </div>
         <div className="roamly-pdf-two-col">
           <section>
-            <h2>Flight/Search References</h2>
+            <h2>{translateExactText(locale, "Flight/Search References")}</h2>
             {flightItems.length ? (
               <ul>{flightItems.map((item) => <li key={`print-flight-${bookingTitle(item)}`}>{bookingTitle(item)}</li>)}</ul>
             ) : (
-              <p>Use the flight search action on the trip page to verify schedules and fares.</p>
+              <p>{translateExactText(locale, "Use the flight search action on the trip page to verify schedules and fares.")}</p>
             )}
           </section>
           <section>
-            <h2>Important Activities</h2>
+            <h2>{translateExactText(locale, "Important Activities")}</h2>
             {activityItems.length ? (
               <ul>{activityItems.map((item) => <li key={`print-activity-${bookingTitle(item)}`}>{bookingTitle(item)}</li>)}</ul>
             ) : (
-              <p>No paid activity bookings are required by default.</p>
+              <p>{translateExactText(locale, "No paid activity bookings are required by default.")}</p>
             )}
           </section>
         </div>
@@ -2079,35 +2114,35 @@ function CompactPrintItinerary({
 
       <section className="roamly-pdf-days">
         {itinerary.daily_itinerary.map((day) => (
-          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} confirmedBookings={confirmedBookings} suppressFlightFraming={suppressFlightFraming} />
+          <CompactPrintDay key={`print-day-${day.day_number}`} day={day} currency={currency} confirmedBookings={confirmedBookings} locale={locale} suppressFlightFraming={suppressFlightFraming} />
         ))}
       </section>
 
       <section className="roamly-pdf-page roamly-pdf-final">
-        <h2>Bookings And Essentials</h2>
+        <h2>{translateExactText(locale, "Bookings And Essentials")}</h2>
         <div className="roamly-pdf-two-col">
           <section>
-            <h3>Bookings</h3>
+            <h3>{translateExactText(locale, "Bookings")}</h3>
             {bookings.length ? (
               <ul>
                 {bookings.slice(0, 8).map((booking, index) => (
                   <li key={`print-booking-${index}`}>
-                    <strong>{getString(booking.title) || "Saved booking"}</strong>
+                    <strong>{getString(booking.title) || translateExactText(locale, "Saved booking")}</strong>
                     <span>{bookingDetailText(booking, locale)}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p>No bookings saved in Roamly yet.</p>
+              <p>{translateExactText(locale, "No bookings saved in Roamly yet.")}</p>
             )}
           </section>
           <section>
-            <h3>Essentials</h3>
+            <h3>{translateExactText(locale, "Essentials")}</h3>
             <ul>{essentials.map((item) => <li key={`print-essential-${item}`}>{item}</li>)}</ul>
           </section>
         </div>
         <section>
-          <h3>Important notes</h3>
+          <h3>{translateExactText(locale, "Important notes")}</h3>
           <ul>{notes.map((item) => <li key={`print-note-${item}`}>{item}</li>)}</ul>
         </section>
       </section>
@@ -2172,7 +2207,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const current = await getCurrentUser();
 
   if (!current.configured) {
-    return <SetupCard title="Connect Supabase to open trips." summary="Roamly trips need the roamly_ tables and Supabase auth." />;
+    return (
+      <SetupCard
+        locale={locale}
+        title={translateExactText(locale, "Connect Supabase to open trips.")}
+        summary={translateExactText(locale, "Roamly trips need the roamly_ tables and Supabase auth.")}
+      />
+    );
   }
 
   if (!current.user) {
@@ -2208,7 +2249,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
   const supabase = await createSupabaseServerClient();
   if (!supabase) {
-    return <SetupCard title="Supabase is unavailable." summary="Check Roamly environment variables." />;
+    return <SetupCard locale={locale} title={translateExactText(locale, "Supabase is unavailable.")} summary={translateExactText(locale, "Check Roamly environment variables.")} />;
   }
 
   if (one(search.checkout) === "cancelled") {
@@ -2241,8 +2282,9 @@ async function TripPage({ params, searchParams }: TripPageProps) {
     if (isMissingTableError(bundleResult.error)) {
       return (
         <SetupCard
-          title="Trip tables are not ready."
-          summary="Run the Roamly schema, tracking, itinerary locking, and budget/booking/companion migrations, then generate the trip again."
+          locale={locale}
+          title={translateExactText(locale, "Trip tables are not ready.")}
+          summary={translateExactText(locale, "Run the Roamly schema, tracking, itinerary locking, and budget/booking/companion migrations, then generate the trip again.")}
         />
       );
     }
@@ -2391,11 +2433,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const headerBudgetBalance = full ? describeBudgetBalanceFromAmounts(tripBudgetAmount, itineraryTotalEstimate, currency) : null;
   const budgetDisplay = tripBudgetAmount
     ? `${formatBudgetMoney(tripBudgetAmount, currency)}${headerBudgetBalance ? ` · ${headerBudgetBalance.text}` : ""}`
-    : full?.estimated_budget_breakdown.total_estimate || "Flexible";
+    : full?.estimated_budget_breakdown.total_estimate || translateExactText(locale, "Flexible");
   const travelStyle = getTravelStyle(trip);
   const travelerDetails = tripTravelerDetails(trip);
   const travelerCount = travelerDetails.adults + travelerDetails.children + travelerDetails.infants;
-  const travelerLabel = `${travelerCount} ${travelerCount === 1 ? "traveler" : "travelers"}`;
+  const travelerLabel = travelerCount === 1
+    ? translateKey(locale, "ui.trip.travelerOne", "1 traveler")
+    : translateKey(locale, "ui.trip.travelerMany", "{count} travelers", { count: travelerCount });
   const noteDisplay = travelerNoteDisplay(readTripNoteText(trip));
   const emailConfigured = isEmailConfigured().configured;
   const maskedEmail = maskEmailAddress(current.user.email);
@@ -2410,7 +2454,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const postTripFeedbackResult = await postTripFeedbackPromise;
   const hasPostTripFeedback = postTripFeedbackResult.error ? null : Boolean(postTripFeedbackResult.data?.length);
   const focusDay = full?.daily_itinerary.find((day) => day.date === new Date().toISOString().slice(0, 10)) || full?.daily_itinerary[0] || null;
-  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming }).items : [];
+  const focusDayItems = focusDay ? buildDisplayTimelineItems(focusDay, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming, locale }).items : [];
   const focusNextItem = focusDayItems.find((item) => item.authority !== "flexible") || focusDayItems[0] || null;
   const unknownLineItemCount = full?.daily_itinerary.reduce((count, day) => {
     return count + (day.live_timeline || []).filter((item) => String(item.cost_status || "").toUpperCase() === "UNKNOWN").length;
@@ -2439,7 +2483,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         const hotelItems = curatedBookingSuggestions(suggestions, trip, ["hotel"], 3, confirmedBookingSnapshot);
         const activityItems = curatedBookingSuggestions(suggestions, trip, ["attraction", "tour", "activity"], 3, confirmedBookingSnapshot);
         const transportItems = curatedBookingSuggestions(suggestions, trip, ["transport", "car_rental"], 2, confirmedBookingSnapshot);
-        return buildRelevantBookingGroups({ itinerary: full, trip, flightItems, hotelItems, activityItems, transportItems, confirmedBookings: confirmedBookingSnapshot });
+        return buildRelevantBookingGroups({ itinerary: full, trip, flightItems, hotelItems, activityItems, transportItems, confirmedBookings: confirmedBookingSnapshot, locale });
       })()
     : [];
   const packageHotelItems = readinessBookingGroups.find((group) => group.title === "Hotels")?.items || [];
@@ -2515,7 +2559,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const focusedBookingLabel = focusedBooking === "flight" ? "flight" : focusedBooking === "hotel" ? "stay" : focusedBooking === "activity" ? "activity" : null;
   const focusedBudget = actionFocus === "budget";
   const timedNextAction = readiness.primaryAction.id === "plan" || readiness.primaryAction.id === "conflict";
-  const commandNextTitle = completedTrip ? null : attentionText || readiness.upcomingActions[0] || (timedNextAction && focusNextItem && !looksLikeProviderSearchTitle(focusNextItem.title) ? focusNextItem.title : "") || "Your trip is ready to review.";
+  const commandNextTitle = completedTrip ? null : attentionText || readiness.upcomingActions[0] || (timedNextAction && focusNextItem && !looksLikeProviderSearchTitle(focusNextItem.title) ? focusNextItem.title : "") || translateExactText(locale, "Your trip is ready to review.");
   const commandNextMeta = completedTrip || !timedNextAction ? "" : focusNextItem && !looksLikeProviderSearchTitle(focusNextItem.title) ? focusNextItem.time : "";
   const packingItems = full ? packingChecklistItems(checklist, full).slice(0, 8) : [];
   const localTipItems = full?.local_tips.slice(0, 6) || [];
@@ -2534,15 +2578,15 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const hasTravelNotes = [packingItems, localTipItems, safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0);
   const hasRequirements = countMaterialTravelRequirements(travelRequirements) > 0;
   const briefingTabs = [
-    ["roamly-tab-overview", "Snapshot"],
-    ...(hasRequirements ? [["roamly-tab-requirements", "Entry requirements"]] : []),
-    ...(hasEssentials ? [["roamly-tab-essentials", "Before you go"]] : []),
-    ...(hasTravelNotes ? [["roamly-tab-travel-notes", "Practical"]] : [])
+    ["roamly-tab-overview", translateExactText(locale, "Snapshot")],
+    ...(hasRequirements ? [["roamly-tab-requirements", translateExactText(locale, "Entry requirements")]] : []),
+    ...(hasEssentials ? [["roamly-tab-essentials", translateExactText(locale, "Before you go")]] : []),
+    ...(hasTravelNotes ? [["roamly-tab-travel-notes", translateExactText(locale, "Practical")]] : [])
   ];
   const panelTabs = [
-    ["roamly-tab-day-by-day", "Itinerary"],
-    ["roamly-tab-budget", "Budget"],
-    ["roamly-tab-bookings", "Bookings"],
+    ["roamly-tab-day-by-day", translateExactText(locale, "Itinerary")],
+    ["roamly-tab-budget", translateExactText(locale, "Budget")],
+    ["roamly-tab-bookings", translateExactText(locale, "Bookings")],
     ...briefingTabs
   ];
   // G1: the Bookings panel had a radio input but no visible tab label, so a
@@ -2551,7 +2595,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   // same label pattern and styling as the existing tabs.
   const briefingNavTabs = [
     ...briefingTabs,
-    ["roamly-tab-bookings", "Bookings"]
+    ["roamly-tab-bookings", translateExactText(locale, "Bookings")]
   ];
   const travelerStatus = mapTravelerTripStatus({
     completed: completedTrip,
@@ -2582,10 +2626,12 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   const headerBudgetText = budgetVerdictDisplay
     ? `${budgetVerdictDisplay.headline} · ${budgetVerdictDisplay.totalLabel || budgetVerdictDisplay.coverageLabel}`
     : budgetPresentation?.status === "BUDGET_UNCERTAIN"
-      ? `${budgetPresentation.targetLabel === "Budget target not set" ? "Budget not set" : `Your budget ${budgetPresentation.targetLabel}`}. Some item prices are not available, and those are not $0.`
+      ? budgetPresentation.targetLabel === "Budget target not set"
+        ? translateKey(locale, "ui.trip.budgetUncertainNoTarget", "Budget not set. Some item prices are not available, and those are not $0.")
+        : translateKey(locale, "ui.trip.budgetUncertainWithTarget", "Your budget {label}. Some item prices are not available, and those are not $0.", { label: budgetPresentation.targetLabel })
       : budgetPresentation?.status === "OVER_BUDGET"
-        ? `${budgetPresentation.remainingLabel || "Over budget"} · priced and estimated amounts`
-        : headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : "Still uncertain");
+        ? translateKey(locale, "ui.trip.overBudgetDetail", "{label} · priced and estimated amounts", { label: budgetPresentation.remainingLabel || translateExactText(locale, "Over budget") })
+        : headerBudgetBalance?.text || (tripBudgetAmount ? formatBudgetMoney(tripBudgetAmount, currency) : translateExactText(locale, "Still uncertain"));
 
   if (checkoutNeedsAttention) {
     // Refresh diet (2026-11-09): same rule as the checkout_cancelled
@@ -2742,9 +2788,10 @@ async function TripPage({ params, searchParams }: TripPageProps) {
         morning: day.morning,
         afternoon: day.afternoon,
         evening: day.evening,
-        rows: buildDisplayTimelineItems(day, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true }).items
+        rows: buildDisplayTimelineItems(day, confirmedBookingSnapshot as Array<Record<string, unknown>>, { suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true, locale }).items
       },
-      locale
+      locale,
+      (dayNumber: number) => translateKey(locale, "ui.trip.printDay", "Day {number}", { number: dayNumber })
     )
   );
   // Venue-row thumbnails (originals pass): one parallel pipeline round
@@ -2780,19 +2827,19 @@ async function TripPage({ params, searchParams }: TripPageProps) {
             deliberately NOT detail-only. */}
         {checkoutNeedsAttention ? (
           <NoticeBanner tone="coral">
-            Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.
+            {translateExactText(locale, "Stripe returned successfully, but Roamly could not confirm the payment yet. Refresh this page in a moment; if it stays locked, contact support with your checkout receipt.")}
           </NoticeBanner>
         ) : null}
         {checkoutProcessing ? (
           <NoticeBanner>
-            Stripe returned successfully. Roamly is waiting for the signed webhook to update this trip; refresh in a moment if it still looks locked.
+            {translateExactText(locale, "Stripe returned successfully. Roamly is waiting for the signed webhook to update this trip; refresh in a moment if it still looks locked.")}
           </NoticeBanner>
         ) : null}
         {checkoutStartFailed ? (
-          <NoticeBanner tone="coral">Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.</NoticeBanner>
+          <NoticeBanner tone="coral">{translateExactText(locale, "Stripe checkout could not be opened. Your trip draft was saved, so you can try unlocking it again from this page.")}</NoticeBanner>
         ) : null}
         {checkoutCancelled ? (
-          <NoticeBanner>Payment cancelled — you were not charged. Your draft is saved.</NoticeBanner>
+          <NoticeBanner>{translateExactText(locale, "Payment cancelled — you were not charged. Your draft is saved.")}</NoticeBanner>
         ) : null}
         {/* Checkout success (consolidation 2026-11-06, spec
             CHECKOUT-SUCCESS-FIX-SPEC): success was the only SILENT
@@ -2833,7 +2880,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
             />
           ) : null}
           <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">
-            {formatShortDateRange(trip, locale)} · {formatDayCount(dayCount)}
+            {formatShortDateRange(trip, locale)} · {formatDayCount(dayCount, locale)}
           </p>
           <h1 className="mt-1.5 text-[34px] font-bold leading-[1.08] tracking-[-0.022em] text-chead sm:text-4xl">{(typeof trip.title === "string" && trip.title.trim()) || destinationLabel}</h1>
           {/* D13 (consolidation 2026-11-06): the rename control —
@@ -2862,7 +2909,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           <p className="mt-1.5 text-[13.5px] font-normal leading-6 text-cgray">{formatDateRange(trip, locale)} · {travelerLabel}</p>
           {(full?.destination_summary || preview?.destination_summary) ? (
             <details className="mt-2 max-w-2xl">
-              <summary className="bui-touch flex min-h-8 cursor-pointer items-center text-sm font-medium text-cgray">Trip context</summary>
+              <summary className="bui-touch flex min-h-8 cursor-pointer items-center text-sm font-medium text-cgray">{translateExactText(locale, "Trip context")}</summary>
               <p className="mt-1 text-sm leading-6 text-cink">{compact(full?.destination_summary || preview?.destination_summary, "", 150)}</p>
             </details>
           ) : null}
@@ -2878,7 +2925,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
 
               
                     {completedTrip ? <PostTripLibraryAskCard tripId={id} /> : null}
-          {itineraryLocked ? <NoticeBanner>This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.</NoticeBanner> : null}
+          {itineraryLocked ? <NoticeBanner>{translateExactText(locale, "This saved itinerary will not be regenerated in place. Use the trip controls to request supported changes.")}</NoticeBanner> : null}
               {showGenerationPanel && generationProgress ? (
                 <StagedGenerationProgress
                   tripId={id}
@@ -2898,6 +2945,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
               {!canShowFull ? (
                 <PrimaryTripAction
                   tripId={id}
+                  locale={locale}
                   itineraryLocked={itineraryLocked}
                   generationInProgress={showPaymentWall ? false : generationInProgress}
                   trackingUnlocked={trackingUnlocked}
@@ -2955,7 +3003,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
           <section id="day-by-day" className="calm-enter mt-4 scroll-mt-32 rounded-bui-panel border border-chair bg-white px-4 py-8 text-center shadow-bui-card sm:px-8">
             <p className="text-[12px] font-semibold uppercase tracking-[0.09em] text-cgray">{completedTrip ? "Trip completed" : showPaymentWall ? "Draft" : "Itinerary"}</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-chead">
-              {completedTrip ? "This trip has no saved day-by-day plan" : showPaymentWall ? "Unlock this trip" : "Your itinerary isn't ready yet"}
+              {completedTrip ? translateExactText(locale, "This trip has no saved day-by-day plan") : showPaymentWall ? translateExactText(locale, "Unlock this trip") : translateExactText(locale, "Your itinerary isn't ready yet")}
             </h2>
             {showPaymentWall ? (
               <p id="unlock" className="mx-auto mt-2 max-w-md text-sm font-normal leading-6 text-cink">
@@ -2964,8 +3012,8 @@ async function TripPage({ params, searchParams }: TripPageProps) {
             ) : (
               <p className="mx-auto mt-2 max-w-md text-sm font-normal leading-6 text-cink">
                 {completedTrip
-                  ? "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here."
-                  : "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here."}
+                  ? translateExactText(locale, "This was a field-test trip and no day-by-day itinerary was generated for it. Your other trips with generated plans show the full day-by-day view here.")
+                  : translateExactText(locale, "Once your itinerary is generated, the full day-by-day plan, budget breakdown, and bookings will appear here.")}
               </p>
             )}
           </section>
@@ -3035,7 +3083,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 <input key={tabId} className="roamly-tab-input" type="radio" name="roamly-completed-tab" id={tabId} defaultChecked={tabId === defaultPanelTab} />
               ))}
 
-              <nav aria-label="Trip sections" title="Trip sections" className="roamly-tab-nav roamly-no-print top-[4.25rem] z-20 -mx-4 overflow-x-auto px-4 py-1 sm:sticky sm:top-[5.15rem] sm:mx-0">
+              <nav aria-label={translateExactText(locale, "Trip sections")} title={translateExactText(locale, "Trip sections")} className="roamly-tab-nav roamly-no-print top-[4.25rem] z-20 -mx-4 overflow-x-auto px-4 py-1 sm:sticky sm:top-[5.15rem] sm:mx-0">
                 <div className="flex min-w-max gap-2">
                   {briefingNavTabs.map(([tabId, label]) => (
                     <label
@@ -3056,11 +3104,20 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     this section — they still render in their detail
                     destinations (day-by-day panel, bookings panel,
                     travel-notes panel; see the report). */}
-                <section className="roamly-home-panel mt-5 scroll-mt-28" aria-label="Trip home">
+                <section className="roamly-home-panel mt-5 scroll-mt-28" aria-label={translateExactText(locale, "Trip home")}>
                   <ItineraryHomePanel
                     tripId={id}
                     destinationLabel={destinationLabel}
-                    dateRangeLabel={formatHomeDateRange(trip.start_date, trip.end_date, locale)}
+                    dateRangeLabel={formatHomeDateRange(
+                      trip.start_date,
+                      trip.end_date,
+                      locale,
+                      (n) =>
+                        n === 1
+                          ? translateKey(locale, "ui.trip.dayCountOne", "1 day")
+                          : translateKey(locale, "ui.trip.dayCountMany", "{count} days", { count: n }),
+                      translateExactText(locale, "Dates flexible")
+                    )}
                     days={itineraryHomeDays}
                     photo={destinationPhoto}
                     venuePhotos={venuePhotos}
@@ -3097,9 +3154,9 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                       href={`/trip/${id}/live`}
                       className="roamly-press bui-press bui-lift mt-7 flex min-h-12 items-center justify-between gap-3 rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card"
                     >
-                      <span className="text-[17px] font-normal text-chead">Live Companion</span>
+                      <span className="text-[17px] font-normal text-chead">{translateExactText(locale, "Live Companion")}</span>
                       <span className="flex items-center gap-1 text-[15px] text-cgray">
-                        {tripLifecycle === "active" ? "Live" : setupState?.locationGranted && setupState?.locationEnabled ? "Ready" : `Starts ${companionStartShort}`}
+                        {tripLifecycle === "active" ? translateExactText(locale, "Live") : setupState?.locationGranted && setupState?.locationEnabled ? translateExactText(locale, "Ready") : translateKey(locale, "ui.trip.companionStarts", "Starts {date}", { date: companionStartShort })}
                         <span aria-hidden="true" className="text-lg leading-none text-cchev">{"\u203a"}</span>
                       </span>
                     </a>
@@ -3130,12 +3187,13 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                             }
                           : null
                       }
+                      locale={locale}
                     />
                   </div>
 
                   {!draftCommand && commandNextTitle ? (
                     <div className="bui-enter roamly-now-next mt-7 rounded-bui-card border border-chair bg-white px-4 py-4 shadow-bui-card">
-                      <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">What matters now</p>
+                      <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "What matters now")}</p>
                       <p className="mt-1 text-[1.15rem] font-semibold leading-6 tracking-[-0.02em] text-chead">{commandNextTitle}</p>
                       {commandNextMeta ? <p className="mt-1 text-sm text-cgray">{commandNextMeta}</p> : null}
                       <a href={readiness.primaryAction.href} className="bui-press bui-touch mt-4 inline-flex min-h-11 items-center rounded-xl bg-cblue px-4 text-sm font-semibold text-white">{readiness.primaryAction.label}</a>
@@ -3145,7 +3203,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                   <div className="bui-enter mt-7 rounded-bui-card border border-chair bg-white px-4 py-4 shadow-bui-card">
                     <p className="text-[13px] font-semibold uppercase tracking-[0.09em] text-cgray">Budget</p>
                     <p className="mt-1.5 text-sm leading-6 text-cgray">{headerBudgetText}</p>
-                    {canShowFull ? <a href="#budget" className="bui-touch mt-2 inline-flex min-h-11 items-center text-sm font-medium text-cblue">Review the budget</a> : null}
+                    {canShowFull ? <a href="#budget" className="bui-touch mt-2 inline-flex min-h-11 items-center text-sm font-medium text-cblue">{translateExactText(locale, "Review the budget")}</a> : null}
                     {confirmedBookingSnapshot.length ? (
                       <p className="mt-1 flex flex-wrap gap-x-4 text-sm">
                         <a href="#bookings" className="font-medium text-chead">{confirmedBookingSnapshot.length} {confirmedBookingSnapshot.length === 1 ? "booking" : "bookings"} confirmed</a>
@@ -3155,25 +3213,25 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                 </section>
 
                 <section id="overview" className="roamly-tab-panel roamly-panel-overview mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Snapshot" title="Trip at a glance" summary="The key context for this trip, with the next decision kept above." />
+                  <SectionHeading eyebrow={translateExactText(locale, "Snapshot")} title={translateExactText(locale, "Trip at a glance")} summary={translateExactText(locale, "The key context for this trip, with the next decision kept above.")} />
                   <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
                     <div className="bui-enter rounded-bui-card border border-chair bg-white px-4 py-4 shadow-bui-card">
-                      <p className="text-[0.8125rem] font-medium text-slate-500">Trip status</p>
+                      <p className="text-[0.8125rem] font-medium text-slate-500">{translateExactText(locale, "Trip status")}</p>
                       <p className="mt-1 text-[1.05rem] font-semibold leading-6 tracking-tight text-ink">
-                        {attentionText || (confirmedBookingSnapshot.length ? "Your key travel details are coming together." : "Your trip is ready to shape around the day you want.")}
+                        {attentionText || (confirmedBookingSnapshot.length ? translateExactText(locale, "Your key travel details are coming together.") : translateExactText(locale, "Your trip is ready to shape around the day you want."))}
                       </p>
                     </div>
                     <div className="grid content-center gap-3 text-sm">
-                      <p><span className="font-medium text-ink">Best for:</span> <span className="text-slate-600">{full.best_for.slice(0, 3).join(" · ") || travelStyle}</span></p>
-                      <p><span className="font-medium text-ink">Budget:</span> <span className="text-slate-600">{compact(full.budget_fit_summary, "Still uncertain", 130)}</span></p>
-                      <p><span className="font-medium text-ink">Transport:</span> <span className="text-slate-600">{compact(full.transport_overview, "Travel time is included in the plan.", 130)}</span></p>
+                      <p><span className="font-medium text-ink">{translateExactText(locale, "Best for:")}</span> <span className="text-slate-600">{full.best_for.slice(0, 3).join(" · ") || travelStyle}</span></p>
+                      <p><span className="font-medium text-ink">{translateExactText(locale, "Budget:")}</span> <span className="text-slate-600">{compact(full.budget_fit_summary, translateExactText(locale, "Still uncertain"), 130)}</span></p>
+                      <p><span className="font-medium text-ink">{translateExactText(locale, "Transport:")}</span> <span className="text-slate-600">{compact(full.transport_overview, translateExactText(locale, "Travel time is included in the plan."), 130)}</span></p>
                     </div>
                   </div>
                 </section>
 
                 <section id="budget" className="roamly-tab-panel roamly-panel-budget mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Budget" title="Budget" summary={readiness.primaryAction.id === "budget" ? readiness.urgentItems[0] || "Review the uncertainty in your trip costs." : "See what is committed, expected, and still uncertain."} />
-                  {focusedBudget ? <p className="mb-4 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">This is the budget context behind your current trip action.</p> : null}
+                  <SectionHeading eyebrow={translateExactText(locale, "Budget")} title={translateExactText(locale, "Budget")} summary={readiness.primaryAction.id === "budget" ? readiness.urgentItems[0] || translateExactText(locale, "Review the uncertainty in your trip costs.") : translateExactText(locale, "See what is committed, expected, and still uncertain.")} />
+                  {focusedBudget ? <p className="mb-4 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">{translateExactText(locale, "This is the budget context behind your current trip action.")}</p> : null}
                   {budgetVerdictDisplay ? (
                     <BudgetVerdictCard display={budgetVerdictDisplay} />
                   ) : (
@@ -3183,33 +3241,34 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                       currency={currency}
                       priceDiscovery={persistedPriceDiscovery}
                       confirmedBookingCount={confirmedBookingSnapshot.length}
+                      locale={locale}
                     />
                   )}
                 </section>
 
                 <section id="bookings" className="roamly-tab-panel roamly-panel-bookings mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Bookings" title="Recommended bookings" summary={readiness.primaryAction.id === "bookings" ? readiness.urgentItems[0] || "Review the bookings that still need you." : "Only the recommended transport, stay, flights, and important activities."} />
+                  <SectionHeading eyebrow={translateExactText(locale, "Bookings")} title={translateExactText(locale, "Recommended bookings")} summary={readiness.primaryAction.id === "bookings" ? readiness.urgentItems[0] || translateExactText(locale, "Review the bookings that still need you.") : translateExactText(locale, "Only the recommended transport, stay, flights, and important activities.")} />
                   {noteDisplay.text ? (
                     <div className="bui-enter mb-4 rounded-bui-card border border-chair bg-white px-4 py-4 shadow-bui-card">
-                      <p className="text-[0.75rem] font-medium text-slate-500">Your notes shape these choices</p>
+                      <p className="text-[0.75rem] font-medium text-slate-500">{translateExactText(locale, "Your notes shape these choices")}</p>
                       <p className="mt-2 text-sm leading-6 text-slate-700">{noteDisplay.hotel}</p>
                       <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.flight}</p>
                       <p className="mt-1 text-sm leading-6 text-cink">{noteDisplay.activity}</p>
                     </div>
                   ) : null}
-                  {focusedBookingLabel ? <p className="mb-4 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">Start with your {focusedBookingLabel} details below.</p> : null}
+                  {focusedBookingLabel ? <p className="mb-4 border-l-2 border-cblue bg-cblue/5 px-3 py-2 text-sm font-bold text-slate-700">{translateKey(locale, "ui.trip.startWithBooking", "Start with your {label} details below.", { label: focusedBookingLabel })}</p> : null}
                   <div className="mb-4">
                     <MarketPriceRefreshButton tripId={id} />
-                    {one(search.hotel_action) === "price_changed" ? <p className="mt-2 text-sm font-bold text-slate-700">Hotel price changed. Review the updated hotel price before continuing.</p> : null}
-                    {one(search.hotel_action) === "unavailable" ? <p className="mt-2 text-sm font-bold text-coral">The selected hotel is no longer available for these dates.</p> : null}
-                    {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">We could not verify the selected hotel&apos;s current price or availability. Refresh and try again.</p> : null}
+                    {one(search.hotel_action) === "price_changed" ? <p className="mt-2 text-sm font-bold text-slate-700">{translateExactText(locale, "Hotel price changed. Review the updated hotel price before continuing.")}</p> : null}
+                    {one(search.hotel_action) === "unavailable" ? <p className="mt-2 text-sm font-bold text-coral">{translateExactText(locale, "The selected hotel is no longer available for these dates.")}</p> : null}
+                    {one(search.hotel_action) === "verification_failed" ? <p className="mt-2 text-sm font-bold text-slate-700">{translateExactText(locale, "We could not verify the selected hotel's current price or availability. Refresh and try again.")}</p> : null}
                   </div>
                   <HotelProductOptions presentation={hotelProductPresentation} tripId={id} pendingChoice={pendingHotelProductChoice} />
-                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={currentImportedBookings as Array<Record<string, unknown>>} suppressFlightFraming={suppressFlightFraming} />
+                  <BookingPlan itinerary={full} trip={trip} tripId={id} confirmedBookings={currentImportedBookings as Array<Record<string, unknown>>} locale={locale} suppressFlightFraming={suppressFlightFraming} />
                   <details className="roamly-no-print mt-5 rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card">
-                    <summary className="bui-touch flex cursor-pointer items-center text-sm font-black text-cblue">Bookings and imports</summary>
+                    <summary className="bui-touch flex cursor-pointer items-center text-sm font-black text-cblue">{translateExactText(locale, "Bookings and imports")}</summary>
                     <div className="mt-4 grid gap-4">
-                      <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} />
+                      <BookingSummaryList bookings={importedBookings as Array<Record<string, unknown>>} locale={locale} />
                       <TripBookingsManager tripId={id} initialBookings={importedBookings} />
                     </div>
                   </details>
@@ -3224,31 +3283,31 @@ async function TripPage({ params, searchParams }: TripPageProps) {
                     .roamly-detail-only. Print keeps them. */}
                 {trackingUnlocked ? <div className="roamly-gap-cards"><TripGapCards tripId={id} /></div> : null}
                 {hasRequirements ? <section id="requirements" className="roamly-tab-panel roamly-panel-requirements mt-8 scroll-mt-32">
-                  <SectionHeading eyebrow="Before you go" title="Entry requirements" summary={travelerRequirementState.evaluations.length > 1 ? "Requirements can differ for each traveler. Roamly evaluates each person only from their explicit passport country." : "A conservative review based on your destination and your declared passport country."} />
+                  <SectionHeading eyebrow={translateExactText(locale, "Before you go")} title={translateExactText(locale, "Entry requirements")} summary={travelerRequirementState.evaluations.length > 1 ? translateExactText(locale, "Requirements can differ for each traveler. Roamly evaluates each person only from their explicit passport country.") : translateExactText(locale, "A conservative review based on your destination and your declared passport country.")} />
                   <TripTravelerRequirements tripId={id} evaluations={travelerRequirementState.evaluations} />
                 </section> : null}
 
                 {hasEssentials ? (
                   <section id="essentials" className="roamly-tab-panel roamly-panel-essentials scroll-mt-32 scroll-mb-[calc(10rem+env(safe-area-inset-bottom))] pb-24 lg:pb-0">
-                    <PreTripEssentialsSection essentials={full.pre_trip_essentials} tripId={id} />
+                    <PreTripEssentialsSection essentials={full.pre_trip_essentials} tripId={id} locale={locale} />
                   </section>
                 ) : null}
 
                 {hasTravelNotes ? (
                   <section id="travel-notes" className="roamly-tab-panel roamly-panel-travel-notes mt-8 scroll-mt-32">
-                    <SectionHeading eyebrow="Practical" title="Travel notes" summary="Useful reference for before and during the trip." />
+                    <SectionHeading eyebrow={translateExactText(locale, "Practical")} title={translateExactText(locale, "Travel notes")} summary={translateExactText(locale, "Useful reference for before and during the trip.")} />
                     <div className="grid gap-4 md:grid-cols-2">
-                      <ChecklistGroup title="Packing" items={packingItems} />
-                      <ChecklistGroup title="Local tips" items={localTipItems} />
+                      <ChecklistGroup title={translateExactText(locale, "Packing")} items={packingItems} />
+                      <ChecklistGroup title={translateExactText(locale, "Local tips")} items={localTipItems} />
                     </div>
                     {[safetyItems, documentItems, emergencyItems, lowCostItems].some((items) => items.length > 0) ? (
                       <details className="mt-4 rounded-bui-card border border-chair bg-white px-4 py-3 shadow-bui-card">
-                        <summary className="bui-touch flex min-h-11 cursor-pointer items-center text-sm font-black text-cblue">More practical notes</summary>
+                        <summary className="bui-touch flex min-h-11 cursor-pointer items-center text-sm font-black text-cblue">{translateExactText(locale, "More practical notes")}</summary>
                         <div className="mt-4 grid gap-4 md:grid-cols-2">
-                          <ChecklistGroup title="Safety" items={safetyItems} />
-                          <ChecklistGroup title="Documents" items={documentItems} />
-                          <ChecklistGroup title="Emergency" items={emergencyItems} />
-                          <ChecklistGroup title="Low-cost reminders" items={lowCostItems} />
+                          <ChecklistGroup title={translateExactText(locale, "Safety")} items={safetyItems} />
+                          <ChecklistGroup title={translateExactText(locale, "Documents")} items={documentItems} />
+                          <ChecklistGroup title={translateExactText(locale, "Emergency")} items={emergencyItems} />
+                          <ChecklistGroup title={translateExactText(locale, "Low-cost reminders")} items={lowCostItems} />
                         </div>
                       </details>
                     ) : null}
@@ -3259,7 +3318,7 @@ async function TripPage({ params, searchParams }: TripPageProps) {
             </div>
 
             <footer className="roamly-detail-only mt-10 border-t border-chair py-6 text-sm font-medium text-cgray">
-              Generated by Roamly
+              {translateExactText(locale, "Generated by Roamly")}
             </footer>
           </>
         ) : null}
@@ -3284,9 +3343,10 @@ async function TripPage({ params, searchParams }: TripPageProps) {
   );
 }
 
-export default function TripHomePage(props: TripPageProps) {
+export default async function TripHomePage(props: TripPageProps) {
+  const locale = await getServerLocale();
   return (
-    <Suspense fallback={<TripHomeLoading />}>
+    <Suspense fallback={<TripHomeLoading locale={locale} />}>
       <TripPage {...props} />
     </Suspense>
   );

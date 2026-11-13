@@ -55,6 +55,7 @@ import {
   CompanionStripView,
   DirectionsChooserView
 } from "./companionPanelViews";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 interface CompanionPanelProps {
   tripId: string;
@@ -97,6 +98,7 @@ export function CompanionPanel({
   passView,
   travelMinutes
 }: CompanionPanelProps) {
+  const { translateText } = useI18n();
   const [isMobile, setIsMobile] = useState(false);
   const [entries, setEntries] = useState<CompanionLedgerEntryDTO[]>(initialInput.ledgerEntries);
   const [nowMin, setNowMin] = useState(initialInput.nowMin);
@@ -342,17 +344,17 @@ export function CompanionPanel({
     : null;
 
   return (
-    <section aria-label="Live companion" className="relative mx-auto w-[358px] max-w-full">
+    <section aria-label={translateText("Live companion")} className="relative mx-auto w-[358px] max-w-full">
       {!online || pendingCount > 0 ? (
         <p className="mb-2 rounded-xl bg-[#fff7e8] px-3 py-2 text-[11.5px] font-semibold leading-[1.35] text-[#8a5a00]">
           {!online
-            ? "You're offline — your day still works. Anything you tap is saved with its real time and syncs when you're back."
+            ? translateText("You're offline — your day still works. Anything you tap is saved with its real time and syncs when you're back.")
             : `${pendingCount} action${pendingCount === 1 ? "" : "s"} waiting to sync — saved with ${pendingCount === 1 ? "its" : "their"} real time${pendingCount === 1 ? "" : "s"}.`}
         </p>
       ) : null}
       {surfaces.strip ? <CompanionStripView strip={surfaces.strip} onAction={performAction} /> : null}
       <div className="mt-3 flex items-baseline justify-between px-[2px]">
-        <span className="text-[13px] font-extrabold text-ink">Your day</span>
+        <span className="text-[13px] font-extrabold text-ink">{translateText("Your day")}</span>
         <span className="text-[11px] font-medium text-[#5d726c]">
           {initialInput.destination} · {panel.dateLabel}
         </span>
@@ -372,15 +374,14 @@ export function CompanionPanel({
         </div>
       ) : null}
       <p className="mt-3 px-[2px] text-[11px] leading-[1.35] text-[#5d726c]">
-        Finished stops go stale, then leave this panel. Nothing is ever deleted from your trip
-        record.
+        {translateText("Finished stops go stale, then leave this panel. Nothing is ever deleted from your trip record.")}
       </p>
       {passView ? (
         <a
           href={`/trip/${tripId}/pass`}
           className="mt-2 block px-[2px] text-[12px] font-bold text-cblue"
         >
-          Open your day pass <ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
+          {translateText("Open your day pass")}{" "}<ChevronRight aria-hidden="true" size={14} strokeWidth={2.5} className="inline-block align-[-2px]" />
         </a>
       ) : null}
       {chooserItemId && chooserNotification?.directions ? (

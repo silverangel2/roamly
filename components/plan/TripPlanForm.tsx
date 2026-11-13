@@ -30,7 +30,7 @@ import {
 } from "@/components/roamly/EntryGate";
 import { ALERTS_BLOCK_MESSAGE, INSTALL_BLOCK_MESSAGE } from "@/lib/roamly/gateMachine";
 import { useI18n } from "@/components/i18n/I18nProvider";
-import { formatRoamlyNumber } from "@/lib/i18n";
+import { formatRoamlyDate, formatRoamlyNumber, translateExactText, translateKey, type RoamlyLocale } from "@/lib/i18n";
 import {
   fetchWithSupabaseAuth,
   resolveBrowserAuthState,
@@ -45,10 +45,11 @@ import {
   planEntitlementCopy,
   PLAN_PREFERENCE_DEFAULTS,
   positiveDayCount,
-  preferenceStyleSummary,
+  preferenceStyleSummaryLocalized,
+  roomCountPhrase,
   syncPlanDates,
-  travelerCountPhrase,
-  tripLengthCopy
+  travelerCountPhraseLocalized,
+  tripLengthCopyLocalized
 } from "@/lib/roamly/planTripUx";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { GUEST_ITINERARY_PATH } from "@/lib/roamly/guestItineraryView";
@@ -367,29 +368,32 @@ function readDraftPlace(value: unknown): NormalizedPlace | null {
   };
 }
 
-const CARRIED_MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function formatCarriedIsoDate(isoDate: string) {
-  const [year, month, day] = isoDate.split("-").map(Number);
-  if (!year || !month || !day || month < 1 || month > 12 || day < 1 || day > 31) return "";
-  return `${CARRIED_MONTH_LABELS[month - 1]} ${day}`;
-}
-
 // Fix round D4: the quiet Step 1 line naming what a hero deep link carried
 // in, so the traveller can see their homepage answers survived. Built only
 // from values the hero branches actually applied; "" when nothing beyond
 // the destination was carried (the destination shows in its own field).
 // The hero sends dates and travellers only — origin is asked once, on
 // Step 1 itself, and is optional there (Fix 2 correction).
-function heroCarriedSummary(startDate: string, endDate: string, travelers: number | null) {
+// i18n (2026-11-12): dates render in the picked locale and the prefix /
+// traveller noun come from ui.plan keys — the old version hardcoded
+// English month abbreviations and "traveller(s)".
+function heroCarriedSummary(startDate: string, endDate: string, travelers: number | null, locale: RoamlyLocale) {
   const parts: string[] = [];
   if (startDate && endDate) {
-    const start = formatCarriedIsoDate(startDate);
-    const end = formatCarriedIsoDate(endDate);
+    const start = formatRoamlyDate(startDate, locale, { month: "short", day: "numeric" });
+    const end = formatRoamlyDate(endDate, locale, { month: "short", day: "numeric" });
     if (start && end) parts.push(`${start} – ${end}`);
   }
-  if (travelers) parts.push(`${travelers} ${travelers === 1 ? "traveller" : "travellers"}`);
-  return parts.length ? `From your search: ${parts.join(" · ")}` : "";
+  if (travelers) {
+    parts.push(
+      travelers === 1
+        ? translateKey(locale, "ui.plan.travellerOne", "1 traveller")
+        : translateKey(locale, "ui.plan.travellerMany", "{count} travellers", { count: travelers })
+    );
+  }
+  return parts.length
+    ? translateKey(locale, "ui.plan.fromYourSearch", "From your search: {details}", { details: parts.join(" · ") })
+    : "";
 }
 
 function readDraftStops(record: Record<string, unknown>) {
@@ -540,15 +544,16 @@ function formatTransportPriceFace(
 
 /** One quiet provenance attribution for the line under the options —
  *  short form only; the full provenance string stays in the data. */
-function transportProvenanceShort(option: TransportOption) {
+function transportProvenanceShort(option: TransportOption, locale: RoamlyLocale = "en") {
   if (option.mode === "drive" || (option.mode === "mixed" && option.cost_breakdown?.gas != null)) {
-    return "Gas uses Canada's official fuel ratings";
+    return translateExactText(locale, "Gas uses Canada's official fuel ratings");
   }
   const face = TRANSPORT_MODE_FACE[option.mode];
+  const noun = translateExactText(locale, face.noun);
   if (option.price_confidence === "live_partner" || option.price_confidence === "cached_recent") {
-    return `${face.noun} price from ${option.source}`;
+    return translateKey(locale, "ui.plan.transportPriceFrom", "{noun} price from {source}.", { noun, source: option.source });
   }
-  return `${face.noun} price is a Roamly estimate`;
+  return translateKey(locale, "ui.plan.transportPriceEstimate", "{noun} price is a Roamly estimate", { noun });
 }
 
 function confidenceFor(discovery: PriceDiscoveryResult, category: BudgetCategoryConfidence["category"]) {
@@ -1033,7 +1038,7 @@ function TripPlanFormSession({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { locale, translateText } = useI18n();
+  const { locale, t, translateText } = useI18n();
   const shouldShowResumeNotice = searchParams.get("resumePlan") === "1";
   const shouldContinueGenerate = searchParams.get("continueGenerate") === "1";
   const bookingFallbackSource = searchParams.get("source") === "booking_fallback";
@@ -1229,7 +1234,7 @@ function TripPlanFormSession({
   const budgetField = useBuiField((value) => {
     const amount = toNumberOrNull(value);
     if (amount == null || amount <= 0) return "Add an estimated budget.";
-    if (amount < 100) return `Please enter a realistic trip budget (at least 100 ${budgetCurrency}).`;
+    if (amount < 100) return t("ui.plan.budgetMinimum", "Please enter a realistic trip budget (at least 100 {currency}).", { currency: budgetCurrency });
     return "";
   });
 
@@ -1716,7 +1721,7 @@ function TripPlanFormSession({
               if (heroRange.ok && heroRange.days) setDaysCount(String(heroRange.days));
             }
             if (queryTravelersCount) setAdults(String(queryTravelersCount));
-            setCarriedSummary(heroCarriedSummary(fallbackStartDate, fallbackEndDate, queryTravelersCount));
+            setCarriedSummary(heroCarriedSummary(fallbackStartDate, fallbackEndDate, queryTravelersCount, locale));
             setRestoreNotice(false);
           } else {
             restorePlanDraft(record);
@@ -1770,7 +1775,7 @@ function TripPlanFormSession({
           if (heroRange.ok && heroRange.days) setDaysCount(String(heroRange.days));
         }
         if (queryTravelersCount) setAdults(String(queryTravelersCount));
-        setCarriedSummary(heroCarriedSummary(fallbackStartDate, fallbackEndDate, queryTravelersCount));
+        setCarriedSummary(heroCarriedSummary(fallbackStartDate, fallbackEndDate, queryTravelersCount, locale));
       }
     }
 
@@ -1810,7 +1815,7 @@ function TripPlanFormSession({
     if (stepToValidate === 3) {
       const amount = toNumberOrNull(budgetAmount);
       if (amount == null || amount <= 0) return "Add an estimated budget.";
-      if (amount < 100) return `Please enter a realistic trip budget (at least 100 ${budgetCurrency}).`;
+      if (amount < 100) return t("ui.plan.budgetMinimum", "Please enter a realistic trip budget (at least 100 {currency}).", { currency: budgetCurrency });
     }
     // A12: step 3 has no validation. Interests are optional — an empty
     // selection proceeds on the stated default ("No preference — Roamly
@@ -2204,10 +2209,16 @@ function TripPlanFormSession({
         ? `${originPlace ? `${originPlace.label || originPlace.value} → ` : ""}${destinationPlace.label || destinationPlace.value}`
         : "";
   const whenSummary =
-    startDate && endDate && resolvedDaysCount ? `${startDate} to ${endDate} · ${tripLengthCopy(resolvedDaysCount)}` : "";
-  const whoSummary = `${travelerCountPhrase(adultCount, childCount, infantCount)} · ${roomCount} room${roomCount === 1 ? "" : "s"}`;
+    startDate && endDate && resolvedDaysCount
+      ? t("ui.plan.dateRangeWithLength", "{start} to {end} · {length}", {
+          start: formatRoamlyDate(startDate, locale, { month: "short", day: "numeric" }),
+          end: formatRoamlyDate(endDate, locale, { month: "short", day: "numeric" }),
+          length: tripLengthCopyLocalized(resolvedDaysCount, locale)
+        })
+      : "";
+  const whoSummary = `${travelerCountPhraseLocalized(adultCount, childCount, infantCount, locale)} · ${roomCountPhrase(roomCount, locale)}`;
   const budgetSummary = budgetAmount ? `${budgetCurrency} ${budgetAmount}` : "";
-  const prefsSummary = interests.length ? interests.join(", ") : "";
+  const prefsSummary = interests.length ? interests.map((interest) => translateText(interest)).join(", ") : "";
   const stepSummaries: Array<{ title: string; summary: string; complete: boolean }> = [
     { title: "Where", summary: whereSummary, complete: Boolean(whereSummary) && validateStep(0) === "" },
     { title: "When", summary: whenSummary, complete: Boolean(whenSummary) && validateStep(1) === "" },
@@ -2275,26 +2286,49 @@ function TripPlanFormSession({
   // build — destination + day count — and updates live from state.
   const buildButtonLabel = buildDestinationLabel
     ? resolvedDaysCount
-      ? `Build my ${buildDestinationLabel} trip · ${resolvedDaysCount} day${resolvedDaysCount === 1 ? "" : "s"}`
-      : `Build my ${buildDestinationLabel} trip`
+      ? resolvedDaysCount === 1
+        ? t("ui.plan.buildTripDaysOne", "Build my {destination} trip · {days} day", { destination: buildDestinationLabel, days: resolvedDaysCount })
+        : t("ui.plan.buildTripDaysMany", "Build my {destination} trip · {days} days", { destination: buildDestinationLabel, days: resolvedDaysCount })
+      : t("ui.plan.buildTrip", "Build my {destination} trip", { destination: buildDestinationLabel })
     : entitlement.cta;
   const nextStepLabel =
     step < steps.length - 1
       ? step === 0 && buildDestinationLabel
-        ? `Continue · ${buildDestinationLabel}`
-        : `Continue to ${steps[step + 1].title}`
+        ? t("ui.plan.continueDestination", "Continue · {destination}", { destination: buildDestinationLabel })
+        : t("ui.plan.continueTo", "Continue to {step}", { step: translateText(steps[step + 1].title) })
       : buildButtonLabel;
 
   const summaryRows = [
-    ["Route", routePreview || "Route pending"],
-    ["Transport", payload.transportationPreference === PLAN_PREFERENCE_DEFAULTS.transportation ? `${payload.transportationPreference} (default)` : payload.transportationPreference || "Transport pending"],
-    ["Dates", tripDateRange.ok && tripDateRange.days ? `${tripLengthCopy(tripDateRange.days)} (${startDate} to ${endDate})` : "Dates not set"],
-    ["Travelers", travelerCountPhrase(adultCount, childCount, infantCount)],
-    ["Rooms", `${roomCount} room${roomCount === 1 ? "" : "s"}${bedPreference !== "No preference" ? `, ${bedPreference}` : ""}`],
-    ["Budget", payload.budgetAmount ? `${payload.budgetCurrency} ${payload.budgetAmount}` : "Budget pending"],
-    ["Style", preferenceStyleSummary({ travelStyle, pace, walkingTolerance })],
-    ["Interests", payload.interests.join(", ") || "No preference — Roamly balances it"],
-    ["Notes", specialNotes.trim() || "None"]
+    ["Route", routePreview || translateText("Route pending")],
+    [
+      "Transport",
+      payload.transportationPreference
+        ? payload.transportationPreference === PLAN_PREFERENCE_DEFAULTS.transportation
+          ? t("ui.plan.transportDefault", "{option} (default)", {
+              option: translateText(payload.transportationPreference)
+            })
+          : translateText(payload.transportationPreference)
+        : translateText("Transport pending")
+    ],
+    [
+      "Dates",
+      tripDateRange.ok && tripDateRange.days
+        ? t("ui.plan.datesSummary", "{length} ({start} to {end})", {
+            length: tripLengthCopyLocalized(tripDateRange.days, locale),
+            start: formatRoamlyDate(startDate, locale, { month: "short", day: "numeric" }),
+            end: formatRoamlyDate(endDate, locale, { month: "short", day: "numeric" })
+          })
+        : translateText("Dates not set")
+    ],
+    ["Travelers", travelerCountPhraseLocalized(adultCount, childCount, infantCount, locale)],
+    [
+      "Rooms",
+      `${roomCountPhrase(roomCount, locale)}${bedPreference !== "No preference" ? `, ${translateText(bedPreference)}` : ""}`
+    ],
+    ["Budget", payload.budgetAmount ? `${payload.budgetCurrency} ${payload.budgetAmount}` : translateText("Budget pending")],
+    ["Style", preferenceStyleSummaryLocalized({ travelStyle, pace, walkingTolerance }, locale)],
+    ["Interests", payload.interests.map((interest) => translateText(interest)).join(", ") || translateText("No preference — Roamly balances it")],
+    ["Notes", specialNotes.trim() || translateText("None")]
   ];
   const notePreview = travelerNoteDisplay(specialNotes);
   const priceBudgetBalance = priceDiscovery
@@ -2302,11 +2336,11 @@ function TripPlanFormSession({
     : null;
   const priceDiscoveryRows = priceDiscovery
     ? [
-        ["User budget", payload.budgetAmount ? `${priceDiscovery.budgetCurrency} ${formatRoamlyNumber(payload.budgetAmount, locale)}` : "Not set"],
+        ["User budget", payload.budgetAmount ? `${priceDiscovery.budgetCurrency} ${formatRoamlyNumber(payload.budgetAmount, locale)}` : translateText("Not set")],
         [
           "Selected transport",
           `${formatMoney(priceDiscovery.selectedTransportEstimateCents ?? priceDiscovery.flightEstimateCents, priceDiscovery.budgetCurrency)}${
-            priceDiscovery.recommendedTransportOption ? ` · ${priceDiscovery.recommendedTransportOption.mode}` : ""
+            priceDiscovery.recommendedTransportOption ? ` · ${translateText(TRANSPORT_MODE_FACE[priceDiscovery.recommendedTransportOption.mode].noun)}` : ""
           }`
         ],
         [
@@ -2345,9 +2379,11 @@ function TripPlanFormSession({
       priceDiscovery?.transportSelection?.title === option.title
   );
   const transportProvenanceLine = transportSelectedOption
-    ? transportProvenanceShort(transportSelectedOption)
-    : [...new Set(transportPickable.map(transportProvenanceShort))].slice(0, 3).join(" · ");
-  const transportQuestion = `How will you get to ${buildDestinationLabel || transportFaceOptions[0]?.destination || "your destination"}?`;
+    ? transportProvenanceShort(transportSelectedOption, locale)
+    : [...new Set(transportPickable.map((option) => transportProvenanceShort(option, locale)))].slice(0, 3).join(" · ");
+  const transportQuestion = t("ui.plan.transportQuestion", "How will you get to {destination}?", {
+    destination: buildDestinationLabel || transportFaceOptions[0]?.destination || translateText("your destination")
+  });
   // React Bits EnterContent (BoardUI port): the transport block springs
   // in when it first appears and re-enters when the face itself changes —
   // the options branched, or a pick landed and the block gained its
@@ -2363,9 +2399,11 @@ function TripPlanFormSession({
   const dateErrorActive = Boolean(startDateField.error || endDateField.error || daysField.error);
   const lengthHint =
     tripDateRange.ok && tripDateRange.days
-      ? tripLengthCopy(tripDateRange.days)
+      ? tripLengthCopyLocalized(tripDateRange.days, locale)
       : resolvedDaysCount
-        ? `Add a start date to place these ${tripLengthCopy(resolvedDaysCount)}.`
+        ? t("ui.plan.addStartDateForLength", "Add a start date to place these {length}.", {
+            length: tripLengthCopyLocalized(resolvedDaysCount, locale)
+          })
         : "Pick a start and end date — Roamly works out the days and nights.";
 
   return (
@@ -2394,7 +2432,7 @@ function TripPlanFormSession({
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-cblue">
-            {translateText("Step")} {step + 1} {translateText("of")} {steps.length}
+            {t("ui.plan.stepOf", "Step {current} of {total}", { current: step + 1, total: steps.length })}
             <span className="text-cgray"> · {translateText(steps[step].detail)}</span>
           </p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-chead sm:text-3xl">{translateText(steps[step].title)}</h2>
@@ -2487,7 +2525,7 @@ function TripPlanFormSession({
                         <BuiCard interactive className="px-4 py-3">
                           <span className="block text-sm font-black text-chead">{recent.destinationLabel}</span>
                           <span className="mt-0.5 block text-xs font-semibold text-cgray">
-                            {[recent.originLabel ? `${translateText("From")} ${recent.originLabel}` : "", recent.startDate && recent.endDate ? `${recent.startDate} to ${recent.endDate}` : "", recent.adults ? `${recent.adults} adult${recent.adults === "1" ? "" : "s"}` : ""]
+                            {[recent.originLabel ? `${translateText("From")} ${recent.originLabel}` : "", recent.startDate && recent.endDate ? `${formatRoamlyDate(recent.startDate, locale, { month: "short", day: "numeric" })} – ${formatRoamlyDate(recent.endDate, locale, { month: "short", day: "numeric" })}` : "", recent.adults ? (Number(recent.adults) === 1 ? t("ui.plan.adultOne", "1 adult") : t("ui.plan.adultMany", "{count} adults", { count: Number(recent.adults) || 0 })) : ""]
                               .filter(Boolean)
                               .join(" · ")}
                           </span>
@@ -2749,7 +2787,7 @@ function TripPlanFormSession({
             <div>
               <FieldLabel>{translateText("Interests")}</FieldLabel>
               <p className="mt-1 text-xs font-semibold leading-5 text-cgray">
-                {interests.length ? interests.join(", ") : translateText("No preference — Roamly balances it")}
+                {interests.length ? interests.map((interest) => translateText(interest)).join(", ") : translateText("No preference — Roamly balances it")}
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {planningInterests.map((interest) => (

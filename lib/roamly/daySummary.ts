@@ -70,6 +70,8 @@
 //   bookings, or its budget fields. Tests assert input identity
 //   (deep-equal before/after) for exactly this reason.
 
+import { translateKey, type RoamlyLocale } from "@/lib/i18n";
+
 export type DaySummaryItemInput = {
   /** Displayed row time ("8:00 AM", "Planned · 8:00 AM–9:45 AM",
    *  "Flexible", "Check-in", …). Only a clock start is used. */
@@ -225,8 +227,21 @@ const NUMBER_WORDS = [
   "eight", "nine", "ten", "eleven", "twelve"
 ];
 
-function countWord(count: number): string {
-  return count >= 0 && count < NUMBER_WORDS.length ? NUMBER_WORDS[count] : String(count);
+// Spelled-out small numbers for the locales that spell them in prose
+// (fr/es); ja/ko/zh use numerals. English keeps its existing words so
+// the default-locale output is byte-identical to before.
+const NUMBER_WORDS_BY_LOCALE: Partial<Record<RoamlyLocale, string[]>> = {
+  fr: ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze"],
+  es: ["cero", "uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho", "nueve", "diez", "once", "doce"]
+};
+
+function countWord(count: number, locale: RoamlyLocale = "en"): string {
+  // en/fr/es spell small numbers in prose; ja/ko/zh use numerals (the
+  // design) — a locale with no word list must NOT fall back to the
+  // English words, or a Japanese sentence would read "eight stops".
+  const words = locale === "en" ? NUMBER_WORDS : NUMBER_WORDS_BY_LOCALE[locale];
+  if (!words) return String(count);
+  return count >= 0 && count < words.length ? words[count] : String(count);
 }
 
 /** Destination name from a travel/arrival row's title only:
@@ -265,7 +280,8 @@ function hasHotelStay(rows: ClassifiedRow[]): boolean {
  *  rest-block time in the headline, no "planned stops" label, and
  *  every clause backed by a row (or omitted). */
 export function deriveDaySummary(
-  items: readonly DaySummaryItemInput[]
+  items: readonly DaySummaryItemInput[],
+  locale: RoamlyLocale = "en"
 ): string {
   const rows = classifyRows(items);
   if (!rows.length) return "";
@@ -280,35 +296,37 @@ export function deriveDaySummary(
   const timedStops = stops.filter((row) => row.clock);
   const destination = destinationFromRows(rows);
   const hotel = hasHotelStay(rows);
-  const stopWord = stops.length === 1 ? "stop" : "stops";
+  const stopWord = translateKey(locale, stops.length === 1 ? "ui.daySummary.stopOne" : "ui.daySummary.stopMany", stops.length === 1 ? "stop" : "stops");
+  const t = (key: string, fallback: string, values: Record<string, string | number> = {}) =>
+    translateKey(locale, `ui.daySummary.${key}`, fallback, values);
 
   // Rest day: no stops at all, only rest blocks (+ travel/return).
   if (!stops.length && rests.length) {
     const wrap = back?.clock;
     return compact160(
-      wrap ? `A rest day, wrapping up around ${wrap}.` : "A rest day."
+      wrap ? t("restDayWrap", "A rest day, wrapping up around {time}.", { time: wrap }) : t("restDay", "A rest day.")
     );
   }
 
   // Arrival-only day: travel/arrival/return, no stops, no rest.
   if (!stops.length) {
     if (!travel && !arrival && !back) return "";
-    let lead = destination ? `Arrive in ${destination}` : "Arrival";
-    if (hotel) lead += " and settle into your hotel";
+    let lead = destination ? t("arriveIn", "Arrive in {destination}", { destination }) : t("arrival", "Arrival");
+    if (hotel) lead += t("settleSuffix", " and settle into your hotel");
     return compact160(`${lead}.`);
   }
 
   // Lead clause: destination + hotel + count, each only if sourced.
   let lead: string;
-  const explore = `explore ${countWord(stops.length)} ${stopWord}`;
+  const explore = t("explore", "explore {countWord} {stopWord}", { countWord: countWord(stops.length, locale), stopWord });
   if (destination && hotel) {
-    lead = `Arrive in ${destination}, settle into your hotel, and ${explore}`;
+    lead = t("arriveSettleLead", "Arrive in {destination}, settle into your hotel, and {explore}", { destination, explore });
   } else if (destination) {
-    lead = `Arrive in ${destination} and ${explore}`;
+    lead = t("arriveLead", "Arrive in {destination} and {explore}", { destination, explore });
   } else if (hotel) {
-    lead = `Settle into your hotel and ${explore}`;
+    lead = t("settleLead", "Settle into your hotel and {explore}", { explore });
   } else {
-    lead = `Explore ${countWord(stops.length)} ${stopWord}`;
+    lead = explore;
     lead = lead.charAt(0).toUpperCase() + lead.slice(1);
   }
 
@@ -319,18 +337,18 @@ export function deriveDaySummary(
       names.length === 0
         ? ""
         : names.length <= 3
-          ? ` — ${names.slice(0, -1).join(", ")}${names.length > 1 ? " and " : ""}${names[names.length - 1]}`
-          : `, starting with ${names[0]}`;
-    return compact160(`${lead}${namePart}, with no fixed times set.`);
+          ? ` — ${names.slice(0, -1).join(", ")}${names.length > 1 ? t("namesAnd", " and ") : ""}${names[names.length - 1]}`
+          : t("startingWith", ", starting with {name}", { name: names[0] });
+    return compact160(`${lead}${namePart}${t("noTimesSuffix", ", with no fixed times set.")}`);
   }
 
   // Normal day: first-activity clock + wrap-up clock, each if sourced.
   const firstClock = timedStops[0].clock as string;
   const wrapClock = back?.clock || null;
   const secondParts: string[] = [];
-  secondParts.push(`Your first activity begins at ${firstClock}`);
+  secondParts.push(t("firstActivity", "Your first activity begins at {time}", { time: firstClock }));
   const second = wrapClock
-    ? `${secondParts.join("")}, with your day wrapping up around ${wrapClock}.`
+    ? `${secondParts.join("")}${t("wrapSuffix", ", with your day wrapping up around {time}.", { time: wrapClock })}`
     : `${secondParts.join("")}.`;
   return compact160(`${lead}. ${second}`);
 }

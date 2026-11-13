@@ -15,6 +15,7 @@ import { stripTitleEcho, isUnverifiableStopTitle, isNonPlaceMapLabel } from "@/l
 import { BuiAccordion } from "@/components/boardui/Accordion";
 import { BuiChip } from "@/components/boardui/Badge";
 import { countDayStops, daySummaryStartClock, deriveDaySummary, dayUncertaintyNotes, isGenericStopText } from "@/lib/roamly/daySummary";
+import { translateExactText, type RoamlyLocale } from "@/lib/i18n";
 import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
 import {
   isGenericStayTitle,
@@ -576,8 +577,11 @@ export function buildDisplayTimelineItems(
     /** Owner-10 item 4, home view only: keep stored plan order
      *  (see applyConfirmedBookings). */
     keepStoredOrder?: boolean;
+    /** Locale for traveler-facing labels built here ("Planned · ", warnings). Defaults to "en". */
+    locale?: RoamlyLocale;
   } = {}
 ) {
+  const locale = options.locale ?? "en";
   const suppressFlightFraming = options.suppressFlightFraming === true;
   const maxRows = options.maxRows === null ? null : (options.maxRows ?? 6);
   const keepTravelRows = options.keepTravelRows === true;
@@ -622,7 +626,7 @@ export function buildDisplayTimelineItems(
     const end = timelineText(record, "endTime", "end_time");
     const timeLabel = cleanTravelerTimeLabel(timelineText(record, "time_label", "time") || (start ? formatClock(start) : ""));
     const timingStatus = timelineText(record, "timing_status").toUpperCase();
-    const time = start && end ? `${timingStatus === "PLANNED" ? "Planned · " : ""}${formatClock(start)}–${formatClock(end)}` : timeLabel;
+    const time = start && end ? `${timingStatus === "PLANNED" ? translateExactText(locale, "Planned · ") : ""}${formatClock(start)}–${formatClock(end)}` : timeLabel;
     const sortMinutes = parseClockMinutes(start || timeLabel);
     const duration = timelineNumber(record, "durationMinutes", "duration_minutes");
     const travelMinutes = timelineNumber(record, "travelTimeMinutes", "travel_time_minutes");
@@ -630,7 +634,7 @@ export function buildDisplayTimelineItems(
     const isLunch = /\blunch\b/i.test(`${title} ${description} ${category}`);
     const warning =
       isLunch && sortMinutes != null && sortMinutes > 14 * 60
-        ? "Late lunch timing. Treat this as an intentional rest or adjust earlier."
+        ? translateExactText(locale, "Late lunch timing. Treat this as an intentional rest or adjust earlier.")
         : "";
     const role = timelineText(record, "plan_role", "role").toLowerCase();
     const routingStatus = timelineText(record, "routing_status").toUpperCase();
@@ -865,7 +869,8 @@ export function TimelineItemCard({
   index = 0,
   dayCity = "",
   priceLabel = "",
-  isLast = false
+  isLast = false,
+  locale = "en"
 }: {
   item: DisplayTimelineItem;
   tripId: string;
@@ -877,6 +882,8 @@ export function TimelineItemCard({
   /** The stop's known price, pre-formatted in the trip currency;
    *  "" when the cost is unknown (silence on the row). */
   priceLabel?: string;
+  /** Locale for traveler-facing labels ("Booked"). Defaults to "en". */
+  locale?: RoamlyLocale;
   /** The timeline's last row: the connector line ends at its dot. */
   isLast?: boolean;
 }) {
@@ -928,7 +935,7 @@ export function TimelineItemCard({
             </h4>
             {isConfirmed || subLine ? (
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                {isConfirmed ? <BuiChip tone="navy">Booked</BuiChip> : null}
+                {isConfirmed ? <BuiChip tone="navy">{translateExactText(locale, "Booked")}</BuiChip> : null}
                 {subLine ? <p className="text-[13.5px] font-normal leading-[1.4] text-cgray">{subLine}</p> : null}
               </div>
             ) : null}
@@ -970,12 +977,12 @@ export function DayTimelineCard({
   tripId: string;
   day: RoamlyItinerary["daily_itinerary"][number];
   currency: string;
-  locale: string;
+  locale: RoamlyLocale;
   confirmedBookings: readonly Record<string, unknown>[];
   suppressFlightFraming?: boolean;
   staySearch?: StaySearchContext | null;
 }) {
-  const { items: timelineItems } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming });
+  const { items: timelineItems } = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming, locale });
   // ONE STOP-COUNT RULE (2026-10-28): the card's rendered
   // timeline keeps its 6-row cap, but its summary is derived
   // from the day's FULL itinerary — the SAME builder options the
@@ -986,7 +993,7 @@ export function DayTimelineCard({
   // destination clause the panel prints. The full list is used
   // ONLY for the summary; the rendered rows below are still
   // `timelineItems` (capped).
-  const fullTimelineItems = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true }).items;
+  const fullTimelineItems = buildDisplayTimelineItems(day, confirmedBookings, { suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true, locale }).items;
   const places = [
     ...timelineItems.map((item) => item.mapQuery),
     ...day.map_queries
@@ -1010,10 +1017,10 @@ export function DayTimelineCard({
     unverified: item.unverified,
     planTitle: item.planTitle
   }));
-  const derivedDaySummary = deriveDaySummary(summaryItems);
+  const derivedDaySummary = deriveDaySummary(summaryItems, locale);
   const daySummary = compact(
     derivedDaySummary || presentTravelerArea(rawDaySummary, suppressFlightFraming),
-    timelineItems.length ? "Your selected day, in order." : "No fixed plan yet. Keep this day flexible until more evidence is available.",
+    timelineItems.length ? translateExactText(locale, "Your selected day, in order.") : translateExactText(locale, "No fixed plan yet. Keep this day flexible until more evidence is available."),
     160
   );
   const dayCity = presentTravelerArea(day.city, suppressFlightFraming);
@@ -1128,11 +1135,12 @@ export function DayTimelineCard({
                   dayCity={dayCity}
                   priceLabel={item.estimatedCost != null && item.estimatedCost > 0 ? formatMoney(item.estimatedCost, currency) : ""}
                   isLast={index === timelineItems.length - 1}
+                  locale={locale}
                 />
               ];
             })
           ) : (
-            <div className="px-4 py-4 text-sm font-normal leading-6 text-cink">This day is intentionally open. Add a confirmed plan or keep space for the moment.</div>
+            <div className="px-4 py-4 text-sm font-normal leading-6 text-cink">{translateExactText(locale, "This day is intentionally open. Add a confirmed plan or keep space for the moment.")}</div>
           )}
         </div>
 
@@ -1140,18 +1148,18 @@ export function DayTimelineCard({
           <BuiAccordion
             className="border-t border-chair px-4 py-1.5"
             buttonClassName="text-[13px] font-semibold text-chead"
-            title="Planning notes"
+            title={translateExactText(locale, "Planning notes")}
           >
             <div className="grid gap-3 pb-2">
               {day.alternatives?.length ? (
                 <div>
-                  <p className="text-xs font-semibold text-cgray2">Alternatives</p>
+                  <p className="text-xs font-semibold text-cgray2">{translateExactText(locale, "Alternatives")}</p>
                   <p className="mt-1 text-sm font-normal leading-6 text-cink">{day.alternatives.slice(0, 3).join(" · ")}</p>
                 </div>
               ) : null}
               {uncertaintyNotes.length ? (
                 <div>
-                  <p className="text-xs font-semibold text-cgray2">Still to confirm</p>
+                  <p className="text-xs font-semibold text-cgray2">{translateExactText(locale, "Still to confirm")}</p>
                   <p className="mt-1 text-sm font-normal leading-6 text-cink">{uncertaintyNotes.slice(0, 3).join(" · ")}</p>
                 </div>
               ) : null}
@@ -1163,7 +1171,7 @@ export function DayTimelineCard({
           <BuiAccordion
             className="border-t border-chair px-4 py-1.5"
             buttonClassName="text-[13px] font-semibold text-chead"
-            title="Food ideas"
+            title={translateExactText(locale, "Food ideas")}
           >
             <p className="pb-2 text-sm font-normal leading-6 text-cink">{day.food.slice(0, 3).join(" · ")}</p>
           </BuiAccordion>
@@ -1173,7 +1181,7 @@ export function DayTimelineCard({
           <BuiAccordion
             className="border-t border-chair px-4 py-1.5"
             buttonClassName="text-[13px] font-semibold text-chead"
-            title="Map details"
+            title={translateExactText(locale, "Map details")}
           >
             <div className="grid gap-3 pb-2 md:grid-cols-2">
               {places.map((query) => (
@@ -1186,7 +1194,7 @@ export function DayTimelineCard({
           </BuiAccordion>
         ) : null}
         {hasPlannedRows ? (
-          <p className="border-t border-chair px-4 py-2.5 text-[12px] leading-5 text-cgray2">Times and prices marked planned are estimates — check before you go.</p>
+          <p className="border-t border-chair px-4 py-2.5 text-[12px] leading-5 text-cgray2">{translateExactText(locale, "Times and prices marked planned are estimates — check before you go.")}</p>
         ) : null}
       </div>
     </section>

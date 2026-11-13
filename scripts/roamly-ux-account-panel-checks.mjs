@@ -53,11 +53,11 @@ const shim = read("components/account/AccountSetupHashRedirect.tsx");
 console.log(`TZ=${process.env.TZ || "(unset)"} root=${root}`);
 
 // ---- A. Panel structure matches the mock, element by element ----
-check("header is Account (not Settings)", "STATIC", page.includes(">Account</h1>") && !page.includes(">Settings</h1>"));
+check("header is Account (not Settings)", "STATIC", /{translateExactText\(locale, "Account"\)}<\/h1>/.test(page) && !page.includes(">Settings</h1>"));
 check("profile row renders initials avatar from live identity", "STATIC",
   page.includes("accountInitials(displayName, displayEmail)") && page.includes("rounded-full bg-chead"));
 check("plan card renders Free Plan title + Upgrade to /pricing", "STATIC",
-  page.includes("accountPlanCard(") && page.includes('href="/pricing"') && /Upgrade\s*<\/a>/.test(page));
+  page.includes("accountPlanCard(") && page.includes('href="/pricing"') && /{translateExactText\(locale, "Upgrade"\)}\s*<\/a>/.test(page));
 check("plan subtitle carries the one-free-itinerary-per-account policy", "STATIC",
   helper.includes("1 free itinerary per account"));
 check("My trips row links to the real trips list (/dashboard) with a live count", "STATIC",
@@ -73,7 +73,7 @@ check("Travelers row links to its ?view= detail destination", "STATIC",
 // honest subtitles at the SAME strength (href + exact subtitle), plus
 // absence of the old promises. No assertion was loosened.
 check("Payment & Billing row links to existing /pricing with the honest A22 subtitle", "STATIC",
-  page.includes("Payment &amp; Billing") && page.includes('href="/pricing"') && page.includes("View plan and one-time prices") && !page.includes("Manage your plan and payment method"));
+  page.includes('translateExactText(locale, "Payment & Billing")') && page.includes('href="/pricing"') && page.includes("View plan and one-time prices") && !page.includes("Manage your plan and payment method"));
 check("Preferences row links to its ?view= detail destination with the honest A22 subtitle (no units promise)", "STATIC",
   page.includes("Preferences") && page.includes('href="/account?view=preferences"') && page.includes("Language and notifications") && !page.includes("Language, units, notifications"));
 check("Manage account row links to its ?view= detail destination with the picture subtitle", "STATIC",
@@ -83,16 +83,16 @@ check("Manage account row links to its ?view= detail destination with the pictur
 // Preferences only; the shortcut carries the CircleUserRound account
 // glyph instead. Same href-count strength, plus the new glyph.
 check("profile card + account icon link to the manage-account detail view", "STATIC",
-  page.includes('aria-label="Manage account"') && page.includes("CircleUserRound") && (page.match(/href="\/account\?view=manage-account"/g) || []).length >= 3);
+  page.includes('aria-label={translateExactText(locale, "Manage account")}') && page.includes("CircleUserRound") && (page.match(/href="\/account\?view=manage-account"/g) || []).length >= 3);
 check("Install Roamly row links to the existing setup install step (A24)", "STATIC",
   page.includes("Install Roamly") && page.includes('href="/account?view=setup#setup-step-2"') && page.includes("Add Roamly to your Home Screen"));
 check("Help Center row links to real /help", "STATIC",
   page.includes("Help Center") && page.includes('href="/help"') && helpPage.length > 0);
 check("Contact Support row links to real /contact", "STATIC",
   page.includes("Contact Support") && page.includes('href="/contact"') && contactPage.length > 0);
-check("Help & Support section header present", "STATIC", page.includes("Help &amp; Support"));
+check("Help & Support section header present", "STATIC", page.includes('translateExactText(locale, "Help & Support")'));
 check("Sign out is a POST form to the EXISTING /auth/logout route", "STATIC",
-  page.includes('<form action="/auth/logout" method="post"') && /Sign out\s*<\/button>/.test(page));
+  page.includes('<form action="/auth/logout" method="post"') && /{translateExactText\(locale, "Sign out"\)}\s*<\/button>/.test(page));
 check("existing logout route signs out via Supabase (no new auth flow)", "STATIC",
   logoutRoute.includes("supabase.auth.signOut()"));
 check("page invents no auth: no signIn/signUp call in the account page", "STATIC",

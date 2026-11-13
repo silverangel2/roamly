@@ -579,7 +579,7 @@ export function LiveTripClient({
   venuePhotos,
   initialLiveStatus = null
 }: LiveTripClientProps) {
-  const { t, locale } = useI18n();
+  const { t, locale, translateText } = useI18n();
   const router = useRouter();
   const locallySkippedActivityIdsRef = useRef<Set<string>>(readPersistedSkippedActivityIds(tripId));
   const [items, setItems] = useState(() => mergeLiveActivityStatuses(activities, locallySkippedActivityIdsRef.current));
@@ -1716,21 +1716,21 @@ export function LiveTripClient({
     null;
   const demoRows = demoState
     ? [
-        ["Demo", "Active"],
-        ["GPS", location ? "Connected" : watching ? "Waiting" : "Waiting"],
-        ["Push subscription", demoState.pushSubscription === "active" ? "Active" : demoState.pushSubscription === "missing" ? "Missing" : "Checking"],
-        ["Current accuracy", location?.accuracy != null ? formatMeters(location.accuracy) : "Waiting"],
-        ["Next demo stop", demoNextStop?.title || "Complete"],
-        ["Distance to next", formatMeters(demoNextStop?.distanceMeters)],
-        ["Geofence radius", demoNextStop ? formatMeters(demoNextStop.radiusMeters) : "Waiting"],
-        ["Inside geofence", demoNextStop?.insideGeofence ? "Yes" : "No"],
-        ["Last GPS update", demoState.lastGpsAt ? new Date(demoState.lastGpsAt).toLocaleTimeString() : "Waiting"],
-        ["Last Companion event", demoState.lastEvent?.title || "Waiting"],
+        [translateText("Demo"), translateText("Active")],
+        [translateText("GPS"), location ? translateText("Connected") : watching ? translateText("Waiting") : translateText("Waiting")],
+        [translateText("Push subscription"), demoState.pushSubscription === "active" ? translateText("Active") : demoState.pushSubscription === "missing" ? translateText("Missing") : translateText("Checking")],
+        [translateText("Current accuracy"), location?.accuracy != null ? formatMeters(location.accuracy) : translateText("Waiting")],
+        [translateText("Next demo stop"), demoNextStop?.title || translateText("Complete")],
+        [translateText("Distance to next"), formatMeters(demoNextStop?.distanceMeters)],
+        [translateText("Geofence radius"), demoNextStop ? formatMeters(demoNextStop.radiusMeters) : translateText("Waiting")],
+        [translateText("Inside geofence"), demoNextStop?.insideGeofence ? translateText("Yes") : translateText("No")],
+        [translateText("Last GPS update"), demoState.lastGpsAt ? new Date(demoState.lastGpsAt).toLocaleTimeString() : translateText("Waiting")],
+        [translateText("Last Companion event"), demoState.lastEvent?.title || translateText("Waiting")],
         [
-          "Last push result",
+          translateText("Last push result"),
           demoState.lastPushResult
             ? `${demoState.lastPushResult.status} (${demoState.lastPushResult.sent} sent, ${demoState.lastPushResult.failed} failed)`
-            : "Waiting"
+            : translateText("Waiting")
         ]
       ]
     : [];
@@ -2053,11 +2053,11 @@ export function LiveTripClient({
           title row, photo hero with the trip-state badge computed from
           the same clock as the Today tab, then the four tabs. */}
       <div className="mb-3 flex items-center justify-between gap-3">
-        <a href={`/trip/${tripId}`} className="inline-flex min-h-11 items-center px-1 text-chead" aria-label="Back to trip">
+        <a href={`/trip/${tripId}`} className="inline-flex min-h-11 items-center px-1 text-chead" aria-label={translateText("Back to trip")}>
           <ChevronLeft size={28} strokeWidth={2.5} aria-hidden="true" />
         </a>
-        <h1 className="text-[20px] font-bold tracking-[-0.018em] text-chead">Live Companion</h1>
-        <a href="/account" className="inline-flex min-h-11 items-center px-1 text-[15px] font-semibold text-cblue" aria-label="Settings">
+        <h1 className="text-[20px] font-bold tracking-[-0.018em] text-chead">{translateText("Live Companion")}</h1>
+        <a href="/account" className="inline-flex min-h-11 items-center px-1 text-[15px] font-semibold text-cblue" aria-label={translateText("Settings")}>
           <Settings size={20} strokeWidth={2} aria-hidden="true" />
         </a>
       </div>
@@ -2071,7 +2071,7 @@ export function LiveTripClient({
       {timezoneUnknown ? (
         <p className="mt-2 px-1 text-[13px] font-medium text-cgray">{UNKNOWN_TZ_LABEL}</p>
       ) : null}
-      <div role="tablist" aria-label="Live Companion sections" className="mt-4 flex gap-5 border-b border-chair px-1">
+      <div role="tablist" aria-label={translateText("Live Companion sections")} className="mt-4 flex gap-5 border-b border-chair px-1">
         {([
           ["today", "Today"],
           ["itinerary", "Full Itinerary"],
@@ -2088,7 +2088,7 @@ export function LiveTripClient({
               liveTab === key ? "border-cblue text-cblue" : "border-transparent text-cgray"
             }`}
           >
-            {label}
+            {translateText(label)}
           </button>
         ))}
       </div>
@@ -2103,11 +2103,11 @@ export function LiveTripClient({
           dismissInstallBanner above). Conditional only: it never
           renders in standalone and never after dismissal. */}
       {!isStandalone && !installBannerDismissed ? (
-        <BuiCard aria-label="Install Roamly" className="relative mt-3 p-4">
+        <BuiCard aria-label={translateText("Install Roamly")} className="relative mt-3 p-4">
           <button
             type="button"
             onClick={dismissInstallBanner}
-            aria-label="Dismiss install banner"
+            aria-label={translateText("Dismiss install banner")}
             className="absolute right-2 top-2 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-cgray transition hover:bg-cbg hover:text-chead focus:outline-none focus:ring-4 focus:ring-cblue/15"
           >
             <X size={18} strokeWidth={2.5} aria-hidden="true" />
@@ -2181,7 +2181,7 @@ export function LiveTripClient({
           extracted from this same timeline state — see the C7 block. */}
       {preTrip ? (
         <>
-          <BuiNotice tone="info" className="mt-3" title="Trip hasn&apos;t started yet">
+          <BuiNotice tone="info" className="mt-3" title={translateText("Trip hasn't started yet")}>
             These are your planned activities for Day {eyebrowDay?.idx || 1}
             {tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.
             You&apos;ll get trip messages on your travel days once the trip begins.
@@ -2200,7 +2200,7 @@ export function LiveTripClient({
             {dayTimelineRows.length ? (
               dayTimelineRows.map((row, rowIndex) => {
                 const icon = timelineIcon({ kind: row.kind, title: row.title, category: row.category, mode: row.mode });
-                const displayTitle = row.unverified ? "Unverified stop" : row.title;
+                const displayTitle = row.unverified ? translateText("Unverified stop") : row.title;
                 const displayDetail = row.unverified && row.planTitle
                   ? `Plan title: ${row.planTitle}${row.detail ? ` · ${row.detail}` : ""}`
                   : row.detail;
@@ -2227,7 +2227,7 @@ export function LiveTripClient({
                     <span className="min-w-0 flex-1">
                       <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{displayTitle}</span>
                       {row.kind === "travel" && row.planned ? (
-                        <BuiChip tone="neutral" className="mt-1">Planned</BuiChip>
+                        <BuiChip tone="neutral" className="mt-1">{translateText("Planned")}</BuiChip>
                       ) : null}
                       {displayDetail ? (
                         <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">{displayDetail}</span>
@@ -2239,7 +2239,7 @@ export function LiveTripClient({
               })
             ) : (
               <BuiCard className="px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray">
-                Day plan details are not available yet.
+                {translateText("Day plan details are not available yet.")}
               </BuiCard>
             )}
           </section>
@@ -2250,19 +2250,19 @@ export function LiveTripClient({
                   variant="secondary"
                   onClick={() => setShowDirectionsPanel((value) => !value)}
                   aria-expanded={showDirectionsPanel}
-                  aria-label="Getting to your next stop"
+                  aria-label={translateText("Getting to your next stop")}
                   className="w-full"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
                     <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" />
-                  </span>Directions</BuiButton>
+                  </span>{translateText("Directions")}</BuiButton>
               ) : null}
               {mapsHref ? (
                 <BuiButtonLink href={mapsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
                     <MapPin size={15} strokeWidth={2.2} color="#2E7D32" />
                   </span>
-                  Open in Maps
+                  {translateText("Open in Maps")}
                 </BuiButtonLink>
               ) : null}
             </div>
@@ -2270,9 +2270,9 @@ export function LiveTripClient({
         </>
       ) : tripCompleted ? (
         <BuiCard className="mt-3 px-4 py-3">
-          <p className="text-[17px] font-semibold text-chead">Trip complete</p>
+          <p className="text-[17px] font-semibold text-chead">{translateText("Trip complete")}</p>
           <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
-            Live Companion is closed for this trip. The saved plan stays here to review.
+            {translateText("Live Companion is closed for this trip. The saved plan stays here to review.")}
           </p>
         </BuiCard>
       ) : (
@@ -2285,9 +2285,9 @@ export function LiveTripClient({
           <BuiNotice
             tone="info"
             className="mt-3"
-            title={`Live updates for Day ${eyebrowDay?.idx || 1}${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : ""}.`}
+            title={t("ui.trip.liveUpdatesForDay", "Live updates for Day {day}{date}.", { day: eyebrowDay?.idx || 1, date: tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1) ? ` (${tripDayDateLabel(activeTripStartDate, eyebrowDay?.idx || 1)})` : "" })}
           >
-            Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a booking with confirmation evidence on file. Check in as you go.
+            {translateText("Times below are estimates unless labeled otherwise: a time reads Live-updated only with a fresh location fix or check-in, and Confirmed only for a booking with confirmation evidence on file. Check in as you go.")}
           </BuiNotice>
           {/* C7 — standalone NOW card at the top of Live Today.
               Display/extraction only (see nowCard* values above):
@@ -2296,16 +2296,16 @@ export function LiveTripClient({
               runAction handler with the same guards as the Stop
               actions block below, and the next item is model.next. */}
           {currentActivity || nextActivity ? (
-            <BuiCard aria-label="Now and next" className="mt-3 p-4" style={{ borderWidth: 2, borderColor: "rgba(8,123,255,0.3)" }}>
+            <BuiCard aria-label={translateText("Now and next")} className="mt-3 p-4" style={{ borderWidth: 2, borderColor: "rgba(8,123,255,0.3)" }}>
               {currentActivity ? (
                 <>
                   <span className="flex flex-wrap items-center gap-2">
-                    <BuiBadge tone="primary" bold>Now</BuiBadge>
+                    <BuiBadge tone="primary" bold>{translateText("Now")}</BuiBadge>
                     {nowCardWindow ? <span className="text-[15px] font-semibold text-chead">{nowCardWindow}</span> : null}
                     {nowCardWindow ? <TimeProvenanceLabel kind={liveDayProvenanceFor(currentActivity)} /> : null}
                   </span>
                   <span className="mt-1 block break-words text-[19px] font-bold leading-[1.3] text-chead">
-                    {nowCardUnverified ? "Unverified stop" : nowCardTitle}
+                    {nowCardUnverified ? translateText("Unverified stop") : nowCardTitle}
                   </span>
                   {nowCardUnverified && nowCardTitle ? (
                     <span className="mt-0.5 block break-words text-[14px] font-normal text-cgray">Plan title: {nowCardTitle}</span>
@@ -2337,18 +2337,18 @@ export function LiveTripClient({
                         disabled={Boolean(busy) || ["completed", "skipped"].includes(String(currentActivity.status))}
                         className="w-full"
                       >
-                        Skip this activity
+                        {translateText("Skip this activity")}
                       </BuiButton>
                     </div>
                   </div>
                 </>
               ) : (
-                <p className="text-[15px] font-normal leading-[1.45] text-cink">Nothing is on right now.</p>
+                <p className="text-[15px] font-normal leading-[1.45] text-cink">{translateText("Nothing is on right now.")}</p>
               )}
               {nextActivity ? (
                 <div className={currentActivity ? "mt-4 border-t border-chair pt-3" : "mt-3"}>
                   <span className="flex flex-wrap items-center gap-2">
-                    <BuiBadge tone="neutral">Up next</BuiBadge>
+                    <BuiBadge tone="neutral">{translateText("Up next")}</BuiBadge>
                     {upNextCardTime ? <span className="text-[15px] font-semibold text-chead">{upNextCardTime}</span> : null}
                   </span>
                   <span className="mt-1 block break-words text-[17px] font-semibold leading-[1.3] text-chead">{upNextCardTitle}</span>
@@ -2365,14 +2365,14 @@ export function LiveTripClient({
           {!trackingEnabled ? (
             <BuiCard className="mt-3 flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <p className="min-w-0 text-sm font-normal leading-6 text-cink">
-                Location is off — Live Companion can&apos;t follow along.
+                {translateText("Location is off — Live Companion can't follow along.")}
               </p>
               <BuiButton
                 size="small"
                 onClick={() => enableLocation()}
                 className="shrink-0"
               >
-                Turn on location
+                {translateText("Turn on location")}
               </BuiButton>
             </BuiCard>
           ) : permission === "denied" ? (
@@ -2381,7 +2381,7 @@ export function LiveTripClient({
                step-by-step recovery sits behind the tap, not as a
                wall of text on the Live screen. */
             <BuiCard className="mt-3 px-4 py-3">
-              <BuiAccordion title="Location is off — fix it" buttonClassName="text-[15px] font-semibold text-chead">
+              <BuiAccordion title={translateText("Location is off — fix it")} buttonClassName="text-[15px] font-semibold text-chead">
                 <LocationPermissionRecovery
                   permission="denied"
                   onRetry={enableLocation}
@@ -2391,7 +2391,7 @@ export function LiveTripClient({
             </BuiCard>
           ) : permission !== "granted" ? (
             <BuiCard className="mt-3 px-4 py-3">
-              <BuiAccordion title="Location is off — fix it" buttonClassName="text-[15px] font-semibold text-chead">
+              <BuiAccordion title={translateText("Location is off — fix it")} buttonClassName="text-[15px] font-semibold text-chead">
                 <LocationPermissionRecovery
                   permission="prompt"
                   onRetry={enableLocation}
@@ -2406,9 +2406,9 @@ export function LiveTripClient({
               Itinerary tab; nothing was deleted, only restructured. */}
           {featuredActivity ? (
             <BuiCard className="mt-5 p-4">
-              <span className="text-[13px] font-semibold uppercase tracking-wide text-cgray">Next relevant activity</span>
+              <span className="text-[13px] font-semibold uppercase tracking-wide text-cgray">{translateText("Next relevant activity")}</span>
               <span className="mt-1 block break-words text-[19px] font-bold leading-[1.3] text-chead">
-                {featuredUnverified ? "Unverified stop" : featuredRawTitle}
+                {featuredUnverified ? translateText("Unverified stop") : featuredRawTitle}
               </span>
               <span className="mt-1 flex flex-wrap items-center gap-2">
                 {featuredTimeLabel ? <span className="text-[15px] font-semibold text-chead">{featuredTimeLabel}</span> : null}
@@ -2420,7 +2420,7 @@ export function LiveTripClient({
                   <TimeProvenanceLabel kind={liveDayProvenanceFor(featuredActivity)} />
                 ) : null}
                 {featuredPill ? (
-                  <BuiChip tone="neutral">{featuredPill}</BuiChip>
+                  <BuiChip tone="neutral">{translateText(featuredPill)}</BuiChip>
                 ) : null}
               </span>
               {featuredUnverified && featuredRawTitle ? (
@@ -2455,12 +2455,12 @@ export function LiveTripClient({
                       ) : null}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{unverified ? "Unverified stop" : rawTitle}</span>
+                      <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{unverified ? translateText("Unverified stop") : rawTitle}</span>
                       {unverified && rawTitle ? (
                         <span className="mt-0.5 block break-words text-[13px] font-normal text-cgray">Plan title: {rawTitle}</span>
                       ) : null}
                       {isUpNext ? (
-                        <BuiChip tone="neutral" className="mt-1">Up next</BuiChip>
+                        <BuiChip tone="neutral" className="mt-1">{translateText("Up next")}</BuiChip>
                       ) : null}
                     </span>
                   </div>
@@ -2468,10 +2468,10 @@ export function LiveTripClient({
               })
             ) : todayActivities.length ? null : dayTimelineRows.length ? (
               <div>
-                <p className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-cgray">Today&apos;s plan · from your itinerary</p>
+                <p className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-cgray">{translateText("Today's plan · from your itinerary")}</p>
                 {dayTimelineRows.map((row, rowIndex) => {
                   const icon = timelineIcon({ kind: row.kind, title: row.title, category: row.category, mode: row.mode });
-                  const displayTitle = row.unverified ? "Unverified stop" : row.title;
+                  const displayTitle = row.unverified ? translateText("Unverified stop") : row.title;
                   const displayDetail = row.unverified && row.planTitle
                     ? `Plan title: ${row.planTitle}${row.detail ? ` · ${row.detail}` : ""}`
                     : row.detail;
@@ -2489,7 +2489,7 @@ export function LiveTripClient({
                       <span className="min-w-0 flex-1">
                         <span className="block break-words text-[17px] font-semibold leading-[1.3] text-chead">{displayTitle}</span>
                         {row.kind === "travel" && row.planned ? (
-                          <BuiChip tone="neutral" className="mt-1">Planned</BuiChip>
+                          <BuiChip tone="neutral" className="mt-1">{translateText("Planned")}</BuiChip>
                         ) : null}
                         {displayDetail ? (
                           <span className="mt-0.5 block break-words text-[15px] font-normal leading-[1.4] text-cgray">{displayDetail}</span>
@@ -2501,7 +2501,7 @@ export function LiveTripClient({
               </div>
             ) : (
               <BuiCard className="px-4 py-3 text-[15px] font-normal leading-[1.45] text-cgray">
-                Today&apos;s plan is not available yet.
+                {translateText("Today's plan is not available yet.")}
               </BuiCard>
             )}
           </section>
@@ -2510,7 +2510,7 @@ export function LiveTripClient({
               /* Owner-10 item 6: Check in / Complete / Skip stay
                  reachable, behind the featured card — one tap on
                  "Stop actions" — instead of a standing action block. */
-              <BuiAccordion title="Stop actions" buttonClassName="px-3 text-[15px] font-semibold text-chead">
+              <BuiAccordion title={translateText("Stop actions")} buttonClassName="px-3 text-[15px] font-semibold text-chead">
                 <div className="grid gap-2 px-3 pb-2">
                   <BuiButton
                     onClick={() => void runAction(currentActivity.id, "check-in", location)}
@@ -2551,19 +2551,19 @@ export function LiveTripClient({
                   variant="secondary"
                   onClick={() => setShowDirectionsPanel((value) => !value)}
                   aria-expanded={showDirectionsPanel}
-                  aria-label="Getting to your next stop"
+                  aria-label={translateText("Getting to your next stop")}
                   className="w-full"
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-[7px] bg-cblue" aria-hidden="true">
                     <ArrowUpRight size={15} strokeWidth={2.1} color="#fff" />
-                  </span>Directions</BuiButton>
+                  </span>{translateText("Directions")}</BuiButton>
               ) : null}
               {mapsHref ? (
                 <BuiButtonLink href={mapsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#E8F5E9]" aria-hidden="true">
                     <MapPin size={15} strokeWidth={2.2} color="#2E7D32" />
                   </span>
-                  Open in Maps
+                  {translateText("Open in Maps")}
                 </BuiButtonLink>
               ) : null}
             </div>
@@ -2618,8 +2618,8 @@ export function LiveTripClient({
         <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{fieldTestMode ? t("ui.status.ready") : t("ui.status.liveCompanion")}</p>
         {!mobileRuntime ? (
           <div className="mt-3 rounded-xl bg-cbg p-4">
-            <h3 className="text-[17px] font-semibold text-chead">Continue on your phone</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Live Companion runs on your phone. Scan the code with your phone&apos;s camera to open this trip there.</p>
+            <h3 className="text-[17px] font-semibold text-chead">{translateText("Continue on your phone")}</h3>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">{translateText("Live Companion runs on your phone. Scan the code with your phone's camera to open this trip there.")}</p>
             {liveTripUrl ? (
               <div className="mt-4 flex flex-col items-center">
                 <div className="rounded-xl bg-white p-3 shadow-calm">
@@ -2638,7 +2638,7 @@ export function LiveTripClient({
                       onClick={() => void shareTripLink()}
                       className="w-full"
                     >
-                      Send to my phone
+                      {translateText("Send to my phone")}
                     </BuiButton>
                   ) : null}
                 </div>
@@ -2647,72 +2647,71 @@ export function LiveTripClient({
           </div>
         ) : !isStandalone ? (
           <div className="mt-3 rounded-xl bg-cbg p-4">
-            <h3 className="text-[17px] font-semibold text-chead">Roamly reaches you through the app</h3>
+            <h3 className="text-[17px] font-semibold text-chead">{translateText("Roamly reaches you through the app")}</h3>
             <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">
-              Without the app, Roamly can&apos;t reach you in the moment — this trip still follows its
-              schedule here. Adding the app is step 2 of setup, done once, in Settings.
+              {translateText("Without the app, Roamly can't reach you in the moment — this trip still follows its schedule here. Adding the app is step 2 of setup, done once, in Settings.")}
             </p>
             <BuiButtonLink
               href="/account#setup-step-2"
               className="mt-3 w-full"
             >
-              Finish setup in Settings
+              {translateText("Finish setup in Settings")}
             </BuiButtonLink>
           </div>
         ) : fieldTestMode && notificationPermission === "default" ? (
           <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
-            <h3 className="text-xl font-semibold text-amber-900">Notifications need your permission</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Allow notifications so this phone can receive the field-test alert.</p>
+            <h3 className="text-xl font-semibold text-amber-900">{translateText("Notifications need your permission")}</h3>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">{translateText("Allow notifications so this phone can receive the field-test alert.")}</p>
             <BuiButton variant="secondary" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 w-full">
-              {busy === "notifications" ? "Enabling…" : "Enable notifications"}
+              {busy === "notifications" ? translateText("Enabling…") : translateText("Enable notifications")}
             </BuiButton>
           </div>
         ) : fieldTestMode && notificationPermission === "denied" ? (
           <div className="mt-3 rounded-xl bg-coral/20 p-4">
-            <h3 className="text-xl font-semibold text-coral">Notifications are blocked</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">In iPhone Settings, allow notifications for Roamly, then return to the field test. Roamly will not ask again here.</p>
+            <h3 className="text-xl font-semibold text-coral">{translateText("Notifications are blocked")}</h3>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">{translateText("In iPhone Settings, allow notifications for Roamly, then return to the field test. Roamly will not ask again here.")}</p>
           </div>
         ) : fieldTestMode && notificationPermission === "granted" && !pushReady ? (
           <div className="mt-3 rounded-xl bg-amber-200/15 p-4">
-            <h3 className="text-xl font-semibold text-amber-900">Register this phone</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Permission is granted, but the phone is not registered with Roamly yet.</p>
+            <h3 className="text-xl font-semibold text-amber-900">{translateText("Register this phone")}</h3>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">{translateText("Permission is granted, but the phone is not registered with Roamly yet.")}</p>
             <BuiButton variant="secondary" onClick={() => void enableFieldTestNotifications()} disabled={busy === "notifications"} className="mt-4 w-full">
-              {busy === "notifications" ? "Registering…" : "Retry registration"}
+              {busy === "notifications" ? translateText("Registering…") : translateText("Retry registration")}
             </BuiButton>
           </div>
         ) : fieldTestMode && pushReady && !setupComplete ? (
           <div className="mt-3 rounded-xl bg-cblue/20 p-4">
-            <h3 className="text-xl font-semibold text-chead">Notifications ready</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">This phone is registered. Continue with location setup for the field test.</p>
+            <h3 className="text-xl font-semibold text-chead">{translateText("Notifications ready")}</h3>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">{translateText("This phone is registered. Continue with location setup for the field test.")}</p>
             {!watching ? (
               <BuiButton variant="secondary" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 w-full">
-                {busy === "setup" ? "Setting up…" : permission !== "granted" ? "Allow location" : "Open Live Companion"}
+                {busy === "setup" ? translateText("Setting up…") : permission !== "granted" ? translateText("Allow location") : translateText("Open Live Companion")}
               </BuiButton>
             ) : null}
           </div>
         ) : fieldTestMode && setupComplete ? (
           <div className="mt-3 rounded-xl bg-cblue/20 p-4">
-            <h3 className="text-xl font-semibold text-chead">{fieldTestMode ? "Notifications ready" : "Live Companion is on"}</h3>
-            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">Roamly will help you stay on track during your trip.</p>
+            <h3 className="text-xl font-semibold text-chead">{fieldTestMode ? translateText("Notifications ready") : translateText("Live Companion is on")}</h3>
+            <p className="mt-1 text-sm font-normal leading-[1.45] text-cink">{translateText("Roamly will help you stay on track during your trip.")}</p>
           </div>
         ) : tripCompleted ? (
-          <p className="mt-3 text-sm font-normal leading-[1.45] text-cink">This trip is complete. Live Companion stays off.</p>
+          <p className="mt-3 text-sm font-normal leading-[1.45] text-cink">{translateText("This trip is complete. Live Companion stays off.")}</p>
         ) : fieldTestMode && !watching ? (
           <>
             <div className="mt-3 grid gap-2 text-sm font-semibold text-cink">
-              <p>{fieldTestMode ? "Step 2 — Notifications" : "Step 1 — Notifications"} <span className="float-right font-normal text-cgray">{pushReady ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
-              <p>{fieldTestMode ? "Step 3 — Location" : "Step 2 — Location"} <span className="float-right font-normal text-cgray">{trackingEnabled || permission === "granted" ? (fieldTestMode ? "✓" : "Ready") : fieldTestMode ? "Needs attention" : "Next"}</span></p>
-              <p>{fieldTestMode ? "Step 4 — Ready" : "Step 3 — Ready"}</p>
+              <p>{fieldTestMode ? translateText("Step 2 — Notifications") : translateText("Step 1 — Notifications")} <span className="float-right font-normal text-cgray">{pushReady ? (fieldTestMode ? "✓" : translateText("Ready")) : fieldTestMode ? translateText("Needs attention") : translateText("Next")}</span></p>
+              <p>{fieldTestMode ? translateText("Step 3 — Location") : translateText("Step 2 — Location")} <span className="float-right font-normal text-cgray">{trackingEnabled || permission === "granted" ? (fieldTestMode ? "✓" : translateText("Ready")) : fieldTestMode ? translateText("Needs attention") : translateText("Next")}</span></p>
+              <p>{fieldTestMode ? translateText("Step 4 — Ready") : translateText("Step 3 — Ready")}</p>
             </div>
             <BuiButton variant="secondary" onClick={() => void setupLiveCompanion()} disabled={Boolean(busy) || paused || companionEnabled === false} className="mt-4 w-full">
-              {busy === "setup" ? "Setting up…" : fieldTestMode ? permission !== "granted" ? "Allow location" : "Open Live Companion" : "Continue setup"}
+              {busy === "setup" ? translateText("Setting up…") : fieldTestMode ? permission !== "granted" ? translateText("Allow location") : translateText("Open Live Companion") : translateText("Continue setup")}
             </BuiButton>
           </>
         ) : setupGap ? (
           <p className="mt-3 text-sm font-normal leading-[1.45] text-cink">
             {setupGap.copy}{" "}
             <a href={setupGap.href} className="font-semibold text-cblue">
-              Finish setup in Settings
+              {translateText("Finish setup in Settings")}
             </a>
           </p>
         ) : null}
@@ -2728,8 +2727,8 @@ export function LiveTripClient({
         <section className="mt-5 rounded-2xl border border-amber-200/30 bg-amber-200/10 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100/80">Live Demo</p>
-              <p className="mt-1 text-sm font-black text-white">{demoState ? "Active" : "Ready"}</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100/80">{translateText("Live Demo")}</p>
+              <p className="mt-1 text-sm font-black text-white">{demoState ? translateText("Active") : translateText("Ready")}</p>
             </div>
             <button
               type="button"
@@ -2740,7 +2739,7 @@ export function LiveTripClient({
                 demoState ? "border border-cloud bg-white text-ink" : "bg-amber-300 text-ink"
               )}
             >
-              {demoBusy ? "Starting" : demoState ? "STOP LIVE DEMO" : "START LIVE DEMO"}
+              {demoBusy ? translateText("Starting") : demoState ? translateText("STOP LIVE DEMO") : translateText("START LIVE DEMO")}
             </button>
           </div>
 
@@ -2762,7 +2761,7 @@ export function LiveTripClient({
 
       {fieldTestMode ? (
         <p className="mt-[13px] text-center text-[13px] font-normal text-cgray">
-          Roamly is following along — it speaks up only when it matters.
+          {translateText("Roamly is following along — it speaks up only when it matters.")}
         </p>
       ) : null}
 
@@ -2803,7 +2802,7 @@ export function LiveTripClient({
               </BuiButton>
             </div>
             <div className="mt-3 rounded-xl bg-cbg px-3 py-1">
-              <BuiAccordion title="More" buttonClassName="text-xs font-medium uppercase tracking-[0.06em] text-cgray">
+              <BuiAccordion title={translateText("More")} buttonClassName="text-xs font-medium uppercase tracking-[0.06em] text-cgray">
                 <div className="grid gap-2 pb-2 sm:grid-cols-2">
                   <BuiButton
                     size="small"
@@ -2835,7 +2834,7 @@ export function LiveTripClient({
           "Planned", fail-closed, same as every other surface. */}
       {liveTab === "itinerary" ? (
         <section className="mt-4">
-          <p className="mx-4 mb-[7px] text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Full Itinerary</p>
+          <p className="mx-4 mb-[7px] text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateText("Full Itinerary")}</p>
           {itineraryDays.length ? (
             <div className="grid gap-4">
               {itineraryDays.map((day) => (
@@ -2859,11 +2858,11 @@ export function LiveTripClient({
             </div>
           ) : (
             <BuiCard className="p-4 text-[15px] font-normal leading-[1.45] text-cgray">
-              The full itinerary for this trip is not available here yet.
+              {translateText("The full itinerary for this trip is not available here yet.")}
             </BuiCard>
           )}
           <BuiButtonLink href={`/trip/${tripId}`} className="mt-4">
-            See the full itinerary
+            {translateText("See the full itinerary")}
           </BuiButtonLink>
         </section>
       ) : null}
@@ -2874,14 +2873,14 @@ export function LiveTripClient({
           the stops on a map. */}
       {liveTab === "map" ? (
         <BuiCard className="mt-4 p-4">
-          <p className="text-[17px] font-semibold text-chead">Map</p>
+          <p className="text-[17px] font-semibold text-chead">{translateText("Map")}</p>
           {mapStopsForDay.length ? (
             <div className="mt-3">
               <TripDayMap stops={mapStopsForDay} />
             </div>
           ) : (
             <p className="mt-1 text-[15px] font-normal leading-[1.45] text-cink">
-              No stops with locations to show on a map for this trip yet.
+              {translateText("No stops with locations to show on a map for this trip yet.")}
             </p>
           )}
           {mapDirectionsHref || mapMapsHref ? (
@@ -2897,14 +2896,14 @@ export function LiveTripClient({
                 ) : null}
                 {mapMapsHref ? (
                   <BuiButtonLink href={mapMapsHref} target="_blank" rel="noreferrer" variant="secondary" className="w-full">
-                    Open in Maps
+                    {translateText("Open in Maps")}
                   </BuiButtonLink>
                 ) : null}
               </div>
             </>
           ) : (
             <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">
-              Maps links are not available for this trip yet.
+              {translateText("Maps links are not available for this trip yet.")}
             </p>
           )}
         </BuiCard>
@@ -2924,7 +2923,7 @@ export function LiveTripClient({
             </div>
           ) : (
             <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cgray">
-              No essentials for this trip yet.
+              {translateText("No essentials for this trip yet.")}
             </p>
           )}
         </BuiCard>
@@ -2932,7 +2931,7 @@ export function LiveTripClient({
 
       {canSimulateLocation ? (
         <BuiCard className="p-4">
-          <BuiAccordion title="Tester location tools" buttonClassName="text-sm font-semibold text-chead">
+          <BuiAccordion title={translateText("Tester location tools")} buttonClassName="text-sm font-semibold text-chead">
           <div className="mt-2 grid gap-3">
             <select
               value={selectedPlaceId}

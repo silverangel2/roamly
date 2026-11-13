@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, X } from "lucide-react";
 import { BuiCard } from "@/components/boardui/Card";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { HouseAdImage } from "@/components/roamly/HouseAdImage";
 import {
   houseAdCandidates,
@@ -124,6 +125,11 @@ export function HouseAdCard({
   onDismiss: () => void;
   focusable?: boolean;
 }) {
+  // Home i18n (2026-11-12): ad copy renders translated so the server
+  // HTML already matches the picked language — the client-side text
+  // boundary used to rewrite these nodes before Suspense hydration
+  // finished, throwing a hydration-mismatch error.
+  const { translateText } = useI18n();
   return (
     <BuiCard
       role="complementary"
@@ -149,16 +155,16 @@ export function HouseAdCard({
             {creative.sponsorLabel}
           </span>
           <span className="line-clamp-2 text-base font-bold leading-snug text-chead sm:line-clamp-none sm:text-xl">
-            {creative.headline}
+            {translateText(creative.headline)}
           </span>
-          <span className="line-clamp-1 text-[13px] leading-snug text-cgray sm:line-clamp-none sm:text-sm sm:leading-relaxed">{creative.body}</span>
+          <span className="line-clamp-1 text-[13px] leading-snug text-cgray sm:line-clamp-none sm:text-sm sm:leading-relaxed">{translateText(creative.body)}</span>
           <span className="mt-1.5 inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full bg-cblue px-3 py-1.5 text-[13px] font-bold text-white transition group-hover:bg-[#0A6FE0] sm:mt-2 sm:px-4 sm:py-2 sm:text-sm">
-            {creative.ctaLabel}
+            {translateText(creative.ctaLabel)}
             <ArrowRight aria-hidden="true" size={14} strokeWidth={2.5} />
           </span>
           {creative.imageCredit ? (
             <span className="block text-[10px] leading-snug text-cgray2">
-              Photo: {creative.imageCredit}
+              {translateText("Photo:")} {creative.imageCredit}
             </span>
           ) : null}
         </span>
@@ -167,7 +173,7 @@ export function HouseAdCard({
         aria-hidden="true"
         className="pointer-events-none absolute left-2 top-2 whitespace-nowrap rounded-full bg-cnavy/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white backdrop-blur-sm sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[11px]"
       >
-        Sponsored
+        {translateText("Sponsored")}
       </span>
       <button
         type="button"

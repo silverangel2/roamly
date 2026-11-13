@@ -22,7 +22,7 @@ export function GenerateLockedItineraryButton({
   apiAuthToken = ""
 }: GenerateLockedItineraryButtonProps) {
   const router = useRouter();
-  const { locale } = useI18n();
+  const { locale, translateText } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -50,7 +50,7 @@ export function GenerateLockedItineraryButton({
         setConfirming(false);
         const user = await getSupabaseBrowserSessionUser();
         if (user) {
-          setError("Your login session could not be confirmed. Refresh this page and try again.");
+          setError(translateText("Your login session could not be confirmed. Refresh this page and try again."));
           return;
         }
         window.location.href = `/login?next=${encodeURIComponent(`/trip/${tripId}`)}`;
@@ -74,7 +74,7 @@ export function GenerateLockedItineraryButton({
       if (!response.ok) {
         if (data?.error === AI_NOT_CONFIGURED_MESSAGE || data?.message === AI_NOT_CONFIGURED_MESSAGE) {
           setConfirming(false);
-          setError(AI_NOT_CONFIGURED_MESSAGE);
+          setError(translateText(AI_NOT_CONFIGURED_MESSAGE));
           return;
         }
         throw new Error(GENERATION_ERROR_MESSAGE);
@@ -88,7 +88,7 @@ export function GenerateLockedItineraryButton({
     } catch (err) {
       console.warn("[Roamly trip] itinerary generation warning", err);
       setConfirming(false);
-      setError(err instanceof Error && err.message === AI_NOT_CONFIGURED_MESSAGE ? err.message : GENERATION_ERROR_MESSAGE);
+      setError(err instanceof Error && err.message === AI_NOT_CONFIGURED_MESSAGE ? translateText(err.message) : translateText(GENERATION_ERROR_MESSAGE));
     } finally {
       generationInFlight.current = false;
       setBusy(false);
@@ -103,7 +103,7 @@ export function GenerateLockedItineraryButton({
         disabled={busy}
         className="w-full rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-4 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-sky-400 disabled:translate-y-0 disabled:opacity-60"
       >
-        {busy ? "Generating itinerary..." : label}
+        {busy ? translateText("Generating itinerary...") : translateText(label)}
       </button>
       {subtext ? <p className="text-xs font-bold leading-5 text-slate-500">{subtext}</p> : null}
       {error ? <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">{error}</p> : null}
@@ -111,11 +111,10 @@ export function GenerateLockedItineraryButton({
       {confirming ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-ink/55 px-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="generate-itinerary-title">
           <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[1.5rem] border border-cloud bg-white p-5 shadow-soft">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Final step</p>
-            <h2 id="generate-itinerary-title" className="mt-2 text-2xl font-black text-ink">Generate and lock this itinerary?</h2>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateText("Final step")}</p>
+            <h2 id="generate-itinerary-title" className="mt-2 text-2xl font-black text-ink">{translateText("Generate and lock this itinerary?")}</h2>
             <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-              Once generated, this saved itinerary will not be regenerated in place. You can request supported changes
-              from the trip page. Please confirm your destination, dates, travelers, budget, and preferences.
+              {translateText("Once generated, this saved itinerary will not be regenerated in place. You can request supported changes from the trip page. Please confirm your destination, dates, travelers, budget, and preferences.")}
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <button
@@ -124,7 +123,7 @@ export function GenerateLockedItineraryButton({
                 disabled={busy}
                 className="rounded-2xl bg-white px-5 py-3 text-sm font-black text-ink ring-1 ring-cloud transition hover:ring-cblue/30 disabled:opacity-60"
               >
-                Go back and edit
+                {translateText("Go back and edit")}
               </button>
               <button
                 type="button"
@@ -132,7 +131,7 @@ export function GenerateLockedItineraryButton({
                 disabled={busy}
                 className="rounded-2xl bg-gradient-to-r from-cyan-500 to-sky-500 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60"
               >
-                Generate itinerary
+                {translateText("Generate itinerary")}
               </button>
             </div>
           </div>

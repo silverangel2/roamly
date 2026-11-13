@@ -45,6 +45,7 @@ import {
 } from "@/lib/roamly/stayOptions";
 import { HotelPartnerChoices } from "@/components/trip/HotelPartnerChoices";
 import type { HotelPartnerChoice } from "@/lib/roamly/affiliateResolver";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 export type StaySelectorTotals = {
   stayEstimateCents: number;
@@ -99,6 +100,7 @@ export function StaySelector({
   destinationLabel
 }: StaySelectorProps) {
   const router = useRouter();
+  const { translateText } = useI18n();
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectionId ?? null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -153,7 +155,7 @@ export function StaySelector({
   if (!options.length) {
     return (
       <div>
-        <p className="text-sm leading-6 text-cgray">No stay options saved for this trip yet.</p>
+        <p className="text-sm leading-6 text-cgray">{translateText("No stay options saved for this trip yet.")}</p>
         {areaPartners.length ? (
           <HotelPartnerChoices partners={areaPartners} tripId={tripId} title={`Stay in ${destinationLabel}`} />
         ) : null}
@@ -163,7 +165,7 @@ export function StaySelector({
 
   return (
     <div>
-      <div className="grid gap-3" role="radiogroup" aria-label="Where you'll stay">
+      <div className="grid gap-3" role="radiogroup" aria-label={translateText("Where you'll stay")}>
         {selectable.map((option, index) => {
           const isSelected = selected?.id === option.id;
           const totalText = rangeLabel(option.totalMin, option.totalMax, option.currency);
@@ -210,10 +212,10 @@ export function StaySelector({
                   ) : null}
                   {isSelected ? (
                     <span className="block text-xs font-bold leading-5 text-cblue">
-                      Added to your itinerary and budget.
+                      {translateText("Added to your itinerary and budget.")}
                     </span>
                   ) : option.suggested ? (
-                    <span className="block text-xs font-bold leading-5 text-cblue">Suggested for this trip</span>
+                    <span className="block text-xs font-bold leading-5 text-cblue">{translateText("Suggested for this trip")}</span>
                   ) : null}
                 </span>
                 {totalText ? (
@@ -245,16 +247,16 @@ export function StaySelector({
 
       {liveTotals ? (
         <p className="mt-4 text-sm font-semibold leading-6 text-chead" aria-live="polite">
-          {selected ? "Stay " : "Stay estimate "}
+          {selected ? translateText("Stay") : translateText("Stay estimate")}{" "}
           {moneyFromCents(liveTotals.stayEstimateCents, currency)}
-          <span className="text-cgray"> · Trip total </span>
+          <span className="text-cgray"> · {translateText("Trip total")} </span>
           {moneyFromCents(liveTotals.totalEstimateCents, currency)}
         </p>
       ) : null}
 
       {saveFailed ? (
         <p role="alert" className="mt-2 text-xs font-semibold leading-5 text-cred">
-          We couldn&apos;t save that pick — your saved trip didn&apos;t change. Try again.
+          {translateText("We couldn't save that pick — your saved trip didn't change. Try again.")}
         </p>
       ) : null}
 
@@ -269,7 +271,7 @@ export function StaySelector({
 
       {selectable.length ? (
         <p className="mt-3 text-[0.7rem] font-semibold leading-5 text-cgray">
-          Stay prices from Stay22 partner search — refresh before booking.
+          {translateText("Stay prices from Stay22 partner search — refresh before booking.")}
         </p>
       ) : null}
     </div>
