@@ -36,6 +36,16 @@
 //     schedule_*_retry) return a single row object or null, as
 //     PostgREST presents them to supabase-js; setof functions
 //     (claim_jobs, get_or_create) return arrays.
+//   - Active-trip uniqueness (20260715
+//     roamly_trip_generation_jobs_active_trip_idx — UNIQUE (trip_id)
+//     WHERE status IN ('queued','running','waiting')): the claim
+//     RPCs' UPDATE runs under this index in production, so activating
+//     a job while another row for the same trip is already active
+//     aborts the whole claim with 23505. The emulations enforce it
+//     (claimWouldViolateActiveTripIndex, below) — it was previously
+//     unmodelled, which is exactly how Stage 7's composed proof
+//     passed while the production wake failed on every same-trip
+//     failed+waiting pair (retry-claim defect, 2026-11-12).
 
 import { FakeDb, FakeQuery } from "./roamly-egress-diet-fake.mjs";
 
@@ -116,7 +126,20 @@ function claimEligible(db, job, maxRetries, nowMs) {
   if (!trip || tripIsTerminalRow(trip)) return false; // 20261001 join + terminal guard
   const nextMs = timeMs(job.next_attempt_at) ?? nowMs;
   if ((job.status === "queued" || job.status === "waiting") && nextMs <= nowMs) return true;
-  if (job.status === "failed" && job.retry_count < maxRetries && nextMs <= nowMs) return true;
+  if (job.status === "failed" && job.retry_count < maxRetries && nextMs <= nowMs) {
+    // 20261112 migration (20261112_roamly_claim_skip_superseded_failed):
+    // a failed job is claimable only while NO live job exists for its
+    // trip — mirrors the NOT EXISTS guard on the failed branch of both
+    // claim RPCs. A superseded failed row is skipped, never re-claimed.
+    const superseded = (db.tables.roamly_trip_generation_jobs || []).some(
+      (s) =>
+        s.trip_id === job.trip_id &&
+        s.id !== job.id &&
+        s.completed_at == null &&
+        ["queued", "running", "waiting"].includes(s.status)
+    );
+    if (!superseded) return true;
+  }
   if (job.status === "running" && (timeMs(job.lease_expires_at) ?? -Infinity) <= nowMs) return true;
   return false;
 }
@@ -147,6 +170,34 @@ function compareKeys(a, b) {
     if (a[i] > b[i]) return 1;
   }
   return 0;
+}
+
+// Production unique partial index (20260715):
+// UNIQUE (trip_id) WHERE status IN ('queued','running','waiting').
+// The claim RPCs' UPDATE activates rows in one statement; if the
+// post-claim active count for any trip exceeds 1, Postgres aborts
+// the whole statement with 23505 and NOTHING is claimed. Returns the
+// offending trip_id, or null when the activation is legal.
+const ACTIVE_JOB_STATUSES = ["queued", "running", "waiting"];
+const ACTIVE_TRIP_INDEX_NAME = "roamly_trip_generation_jobs_active_trip_idx";
+function claimWouldViolateActiveTripIndex(db, toActivate) {
+  const jobs = db.tables.roamly_trip_generation_jobs || [];
+  for (const tripId of new Set(toActivate.map((j) => j.trip_id))) {
+    const activeBefore = jobs.filter((o) => o.trip_id === tripId && ACTIVE_JOB_STATUSES.includes(o.status)).length;
+    const newlyActive = toActivate.filter(
+      (j) => j.trip_id === tripId && !ACTIVE_JOB_STATUSES.includes(j.status)
+    ).length;
+    if (activeBefore + newlyActive > 1) return tripId;
+  }
+  return null;
+}
+function assertActiveTripIndex(db, toActivate) {
+  const tripId = claimWouldViolateActiveTripIndex(db, toActivate);
+  if (tripId) {
+    throw new Error(
+      `duplicate key value violates unique constraint "${ACTIVE_TRIP_INDEX_NAME}"`
+    );
+  }
 }
 
 const RPCS = {
@@ -205,17 +256,25 @@ const RPCS = {
     return [{ ...clone(row), resumed: false }];
   },
 
-  // 20261001000100 (terminal-guards) version.
+  // 20261001000100 (terminal-guards) version + 20261112
+  // claim-skip-superseded-failed guard on the failed branch.
   roamly_claim_generation_jobs(db, args) {
     const nowMs = Date.now();
     const eligible = (db.tables.roamly_trip_generation_jobs || [])
       .filter((j) => claimEligible(db, j, args.p_max_retries ?? 3, nowMs))
       .sort((a, b) => compareKeys(claimSortKey(a), claimSortKey(b)))
       .slice(0, Math.max(1, args.p_batch_size ?? 5));
+    // The UPDATE runs under the active-trip unique index: one
+    // statement, all-or-nothing. The 20261112 failed-branch guard
+    // keeps a superseded failed row out of the eligible set, so a
+    // same-trip failed+waiting pair no longer aborts the claim; the
+    // index enforcement below stays as the backstop.
+    assertActiveTripIndex(db, eligible);
     return eligible.map((j) => clone(applyClaim(j, args.p_worker_id, args.p_lease_seconds ?? 240)));
   },
 
-  // 20261001000100 (terminal-guards) version.
+  // 20261001000100 (terminal-guards) version + 20261112
+  // claim-skip-superseded-failed guard on the failed branch.
   roamly_claim_generation_job_by_trip(db, args) {
     const nowMs = Date.now();
     const eligible = (db.tables.roamly_trip_generation_jobs || [])
@@ -227,6 +286,11 @@ const RPCS = {
         )
       );
     if (!eligible.length) return null;
+    // Same index, same backstop: with the 20261112 failed-branch
+    // guard the superseded failed row (priority 200) is no longer
+    // eligible, so the sort picks its waiting retry (priority 1)
+    // and the by-trip claim on a paired trip succeeds.
+    assertActiveTripIndex(db, [eligible[0]]);
     return clone(applyClaim(eligible[0], args.p_worker_id, args.p_lease_seconds ?? 240));
   },
 
