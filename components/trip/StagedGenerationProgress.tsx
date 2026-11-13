@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type DayProgress = {
   dayNumber: number;
@@ -435,6 +436,7 @@ export function StagedGenerationProgress({
   travelerLabel?: string;
   apiAuthToken?: string;
 }) {
+  const { translateText } = useI18n();
   const router = useRouter();
   const [progress, setProgress] = useState(() => initialProgressForTrip(initialProgress, tripId));
   const [queueProgress, setQueued] = useState<Queued | null>(null);
@@ -819,32 +821,32 @@ export function StagedGenerationProgress({
             <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">
               {viewState.tone === "failed"
-                ? "Itinerary generation failed"
+                ? translateText("Itinerary generation failed")
                 : viewState.tone === "ready"
-                  ? "Itinerary ready"
-                  : "Building your itinerary"}
+                  ? translateText("Itinerary ready")
+                  : translateText("Building your itinerary")}
             </p>
 
             <h2 id="generation-progress-title" className="mt-2 text-2xl font-black leading-tight text-ink sm:text-3xl">
-              {viewState.title}
+              {translateText(viewState.title)}
             </h2>
 
             <p role="status" aria-live="polite" className="mt-2 text-sm font-bold text-slate-500">
-              <span className="sr-only">{viewState.title}. </span>{viewState.body}
+              <span className="sr-only">{translateText(viewState.title)}. </span>{translateText(viewState.body)}
             </p>
 
             <div className="mt-4 grid grid-cols-1 gap-2 border-y border-cloud/80 py-3 text-sm sm:grid-cols-3">
               <div className="min-w-0">
-                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">Destination</p>
-                <p className="mt-1 truncate font-bold text-ink" title={destinationLabel}>{destinationLabel}</p>
+                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">{translateText("Destination")}</p>
+                <p className="mt-1 truncate font-bold text-ink" title={destinationLabel}>{translateText(destinationLabel)}</p>
               </div>
               <div className="min-w-0">
-                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">When</p>
-                <p className="mt-1 truncate font-bold text-ink" title={dateLabel}>{dateLabel}</p>
+                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">{translateText("When")}</p>
+                <p className="mt-1 truncate font-bold text-ink" title={dateLabel}>{translateText(dateLabel)}</p>
               </div>
               <div className="min-w-0">
-                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">Travelers</p>
-                <p className="mt-1 truncate font-bold text-ink" title={travelerLabel}>{travelerLabel}</p>
+                <p className="text-[0.62rem] font-black uppercase tracking-[0.12em] text-slate-400">{translateText("Travelers")}</p>
+                <p className="mt-1 truncate font-bold text-ink" title={travelerLabel}>{translateText(travelerLabel)}</p>
               </div>
             </div>
 
@@ -853,24 +855,24 @@ export function StagedGenerationProgress({
                 {backgroundWorkerConfigured
                   ? canEmail
                     ? `${SAVED_QUEUE_MESSAGE} We’ll email ${maskedEmail} when it’s ready.`
-                    : SAVED_QUEUE_MESSAGE
+                    : translateText(SAVED_QUEUE_MESSAGE)
                   : canEmail
                     ? `You can leave this page. We’ll email ${maskedEmail} when it’s ready.`
-                    : "Keep this page open while Roamly finishes."}
+                    : translateText("Keep this page open while Roamly finishes.")}
               </p>
             ) : null}
 
             {canEmail && viewState.tone === "running" ? (
               <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-cblue">
-                Email me when ready · On
+                {translateText("Email me when ready · On")}
               </p>
             ) : null}
 
             {failed && progress.finalValidationErrors?.length ? (
               <div className="mt-3 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3">
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-coral">A final trip check needs another pass</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-coral">{translateText("A final trip check needs another pass")}</p>
                 <p className="mt-2 text-sm font-bold leading-6 text-coral">
-                  Your saved progress is still available. Retry when you’re ready.
+                  {translateText("Your saved progress is still available. Retry when you’re ready.")}
                 </p>
               </div>
             ) : null}
@@ -894,22 +896,22 @@ export function StagedGenerationProgress({
               <div className="h-px flex-1 bg-sky-200" />
             </div>
             <p className="mt-3 text-center text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-              Your trip is taking shape
+              {translateText("Your trip is taking shape")}
             </p>
           </div>
         ) : null}
 
         {message ? (
           <p role="alert" className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-black text-coral">
-            {message}
+            {translateText(message)}
           </p>
         ) : null}
 
         <div className="rounded-2xl border border-cloud/80 bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">What&rsquo;s happening</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("What’s happening")}</p>
             <p className="text-xs font-black text-slate-500">
-              Elapsed {formatElapsedClock(elapsedSeconds)} · usually {formatEstimateRange(estimateRange)} for a{" "}
+              Elapsed {formatElapsedClock(elapsedSeconds)} · usually {translateText(formatEstimateRange(estimateRange))} for a{" "}
               {progress.totalDayCount}-day trip
             </p>
           </div>
@@ -940,27 +942,26 @@ export function StagedGenerationProgress({
                 </span>
                 <span className="min-w-0">
                   <span className={`block text-sm font-black ${step.state === "pending" ? "text-slate-400" : "text-ink"}`}>
-                    {step.label}
+                    {translateText(step.label)}
                   </span>
-                  <span className="block text-xs font-bold text-slate-500">{step.detail}</span>
+                  <span className="block text-xs font-bold text-slate-500">{translateText(step.detail)}</span>
                 </span>
                 <span
                   className={`ml-auto shrink-0 text-xs font-black ${
                     step.state === "done" ? "text-cblue" : step.state === "active" ? "text-sky-700" : "text-slate-400"
                   }`}
                 >
-                  {step.state === "done" ? "Done" : step.state === "active" ? "Working now" : "Up next"}
+                  {step.state === "done" ? translateText("Done") : step.state === "active" ? translateText("Working now") : translateText("Up next")}
                 </span>
               </li>
             ))}
           </ol>
           {pastEstimate && !failed ? (
             <p role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
-              This is taking longer than usual. Roamly is still working on your trip — and if a
-              step ever stalls, it is now picked up again automatically.{" "}
+              {translateText("This is taking longer than usual. Roamly is still working on your trip — and if a step ever stalls, it is now picked up again automatically.")}{" "}
               {canEmail
                 ? `You can leave this page; we’ll email ${maskedEmail} when your itinerary is ready.`
-                : "You can leave this page; your progress is saved as it goes."}
+                : translateText("You can leave this page; your progress is saved as it goes.")}
             </p>
           ) : null}
         </div>
@@ -969,14 +970,14 @@ export function StagedGenerationProgress({
           <div className="rounded-2xl border border-cloud/80 bg-[#F2F6FC] p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">Your trip outline</p>
-                <p className="mt-1 text-sm font-bold text-slate-600">Roamly is building the days in order and saving each completed day.</p>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("Your trip outline")}</p>
+                <p className="mt-1 text-sm font-bold text-slate-600">{translateText("Roamly is building the days in order and saving each completed day.")}</p>
               </div>
               <p className="text-xs font-black text-slate-500">{progress.completedDayCount} of {progress.totalDayCount} days ready</p>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               {progress.days.slice(0, 8).map((day) => {
-                const dayLabel = day.status === "complete" ? "Ready" : day.status === "failed" ? "Needs attention" : day.status === "generating" || day.status === "validating" ? "Building now" : "Queued";
+                const dayLabel = day.status === "complete" ? translateText("Ready") : day.status === "failed" ? translateText("Needs attention") : day.status === "generating" || day.status === "validating" ? translateText("Building now") : translateText("Queued");
                 const dayTone = day.status === "complete" ? "border-cblue/20 bg-cblue/10 text-cblue" : day.status === "failed" ? "border-coral/20 bg-coral/10 text-coral" : day.status === "generating" || day.status === "validating" ? "border-sky-200 bg-white text-sky-800" : "border-cloud bg-white text-slate-500";
                 return (
                   <div key={day.dayNumber} className={`flex min-w-0 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm ${dayTone}`}>
@@ -996,7 +997,7 @@ export function StagedGenerationProgress({
               href={`/trip/${tripId}`}
               className="inline-flex min-h-11 justify-center rounded-full bg-cblue px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
             >
-              View itinerary
+              {translateText("View itinerary")}
             </Link>
           ) : null}
 
@@ -1007,7 +1008,7 @@ export function StagedGenerationProgress({
               disabled={Boolean(busyRetryId)}
               className="inline-flex min-h-11 justify-center rounded-full bg-coral px-5 py-3 text-sm font-bold text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-coral/25 disabled:opacity-60"
             >
-              {busyRetryId ? "Retrying..." : "Retry"}
+              {busyRetryId ? translateText("Retrying...") : translateText("Retry")}
             </button>
           ) : null}
 
@@ -1015,7 +1016,7 @@ export function StagedGenerationProgress({
             href="/dashboard"
             className="inline-flex min-h-11 justify-center rounded-full border border-cloud bg-white px-5 py-3 text-sm font-bold text-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
           >
-            Back to trips
+            {translateText("Back to trips")}
           </Link>
         </div>
       </div>

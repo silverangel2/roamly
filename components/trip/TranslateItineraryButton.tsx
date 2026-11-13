@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/I18nProvider";
 import { BuiButton } from "@/components/boardui/Button";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
@@ -18,6 +18,24 @@ export function TranslateItineraryButton({ tripId, displayedLanguage }: Translat
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const autoTriedRef = useRef(false);
+
+  // Free-translation rule (2026-11-11): picking a language translates the
+  // whole trip — the traveller must not have to find and tap this button.
+  // The button only renders when locale !== displayedLanguage, so mounting
+  // here means a translation is owed. Fire once; the route short-circuits
+  // when a stored translation already exists, and the button stays visible
+  // as the retry path when translation fails. The trip page refreshes after
+  // success, the stored translation becomes the displayed language, and
+  // this button unmounts — so there is no repeat loop.
+  useEffect(() => {
+    if (locale === displayedLanguage) return;
+    if (autoTriedRef.current) return;
+    autoTriedRef.current = true;
+    void translate();
+    // Intentionally once on mount: locale/tripId are stable for this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (locale === displayedLanguage) return null;
 

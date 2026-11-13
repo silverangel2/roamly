@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type Evaluation = {
   id: string;
@@ -21,6 +22,7 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
   // re-download (router.refresh) to re-read this one section. A
   // fresh server render still wins whenever one happens: the prop
   // syncs in below whenever the page hands down a new list.
+  const { translateText } = useI18n();
   const [liveEvaluations, setLiveEvaluations] = useState(evaluations);
   useEffect(() => {
     setLiveEvaluations(evaluations);
@@ -63,7 +65,7 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result.ok === false) {
-        setError(result.error || "We could not save this traveler detail.");
+        setError(result.error || translateText("We could not save this traveler detail."));
         return;
       }
       setMessage(`${item.label} details saved.`);
@@ -85,7 +87,7 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || result.ok === false) {
-        setError(result.error || "We could not prepare traveler details.");
+        setError(result.error || translateText("We could not prepare traveler details."));
         return;
       }
       const next = (result as { evaluations?: Evaluation[] }).evaluations;
@@ -105,48 +107,48 @@ export function TripTravelerRequirements({ tripId, evaluations }: { tripId: stri
               <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-slate-500">{item.travelerType}</p>
             </div>
             <span className="text-xs font-black uppercase tracking-[0.12em] text-sun">
-              {item.requirements.some((requirement) => requirement.status === "UNKNOWN") ? "Needs information" : "Review required"}
+              {item.requirements.some((requirement) => requirement.status === "UNKNOWN") ? translateText("Needs information") : translateText("Review required")}
             </span>
           </div>
           {item.role === "companion" ? (
             item.persisted ? <div className="mt-3 grid gap-2">
-              <label className="text-sm font-bold text-slate-700" htmlFor={`passport-${item.id}`}>Passport issuing country</label>
+              <label className="text-sm font-bold text-slate-700" htmlFor={`passport-${item.id}`}>{translateText("Passport issuing country")}</label>
               <div className="flex gap-2">
                 <input
                   id={`passport-${item.id}`}
                   value={values[item.id] || ""}
                   onChange={(event) => setValues((current) => ({ ...current, [item.id]: event.target.value }))}
-                  placeholder="e.g. CA"
+                  placeholder={translateText("e.g. CA")}
                   maxLength={60}
                   className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 py-2 text-base font-bold text-ink"
                 />
                 <button type="button" disabled={saving === item.id} onClick={() => save(item)} className="min-h-11 rounded-xl bg-cblue px-3 py-2 text-sm font-black text-white disabled:opacity-60">
-                  {saving === item.id ? "Saving" : "Save"}
+                  {saving === item.id ? translateText("Saving") : translateText("Save")}
                 </button>
               </div>
-              <p className="text-xs font-semibold leading-5 text-slate-500">This helps Roamly review this traveler independently. It does not prove visa approval or entry clearance.</p>
+              <p className="text-xs font-semibold leading-5 text-slate-500">{translateText("This helps Roamly review this traveler independently. It does not prove visa approval or entry clearance.")}</p>
             </div> : <div className="mt-3 grid gap-2">
-              <p className="text-sm font-semibold leading-6 text-slate-600">Add this traveler’s details to review requirements independently.</p>
+              <p className="text-sm font-semibold leading-6 text-slate-600">{translateText("Add this traveler’s details to review requirements independently.")}</p>
               <button type="button" disabled={syncing} onClick={prepareCompanionSlots} className="min-h-11 w-fit rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white disabled:opacity-60">
-                {syncing ? "Preparing" : "Add traveler details"}
+                {syncing ? translateText("Preparing") : translateText("Add traveler details")}
               </button>
             </div>
           ) : (
             <div className="mt-3 grid gap-2">
-              <p className="text-sm font-semibold leading-6 text-slate-600">Requirements use the passport country saved in your account traveler memory.</p>
+              <p className="text-sm font-semibold leading-6 text-slate-600">{translateText("Requirements use the passport country saved in your account traveler memory.")}</p>
               {/* Correction phase (2026-10-28): a domestic trip has no
                   entry requirement, so it must not prompt for a passport
                   country. The button shows only when the entry
                   requirement itself is applicable (not NOT_APPLICABLE)
                   and no passport country is saved. */}
-              {!item.passportIssuingCountry && item.requirements.some((requirement) => requirement.category === "VISA_OR_AUTHORIZATION" && requirement.status !== "NOT_APPLICABLE") ? <a className="inline-flex min-h-11 w-fit items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${tripId}?focus=requirements#requirements`)}#traveler-memory`}>Add your passport country</a> : null}
+              {!item.passportIssuingCountry && item.requirements.some((requirement) => requirement.category === "VISA_OR_AUTHORIZATION" && requirement.status !== "NOT_APPLICABLE") ? <a className="inline-flex min-h-11 w-fit items-center rounded-xl bg-cblue px-4 py-2 text-sm font-black text-white" href={`/account?return=${encodeURIComponent(`/trip/${tripId}?focus=requirements#requirements`)}#traveler-memory`}>{translateText("Add your passport country")}</a> : null}
             </div>
           )}
           {item.requirements.map((requirement) => (
             <div key={requirement.title} className="mt-3 border-t border-slate-100 pt-3">
               <p className="text-sm font-black text-ink">{requirement.title}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{requirement.summary}</p>
-              {requirement.actionUrl ? <a className="mt-2 inline-block text-sm font-black text-cblue underline" href={requirement.actionUrl} target="_blank" rel="noreferrer">Official source</a> : null}
+              {requirement.actionUrl ? <a className="mt-2 inline-block text-sm font-black text-cblue underline" href={requirement.actionUrl} target="_blank" rel="noreferrer">{translateText("Official source")}</a> : null}
             </div>
           ))}
         </div>

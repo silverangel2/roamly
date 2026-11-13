@@ -1,4 +1,6 @@
 import { getItinerarySubmissionForTrip, isTripCompletedForLibrary } from "@/lib/roamly/itineraryLibrary";
+import { translateExactText } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
 import { BuiCard } from "@/components/boardui/Card";
 
@@ -11,6 +13,7 @@ import { BuiCard } from "@/components/boardui/Card";
  * page never breaks because of this card.
  */
 export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
+  const locale = await getServerLocale();
   try {
     const current = await getCurrentUser();
     if (!current.configured || !current.user) return null;
@@ -44,11 +47,11 @@ export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
     if (!needsRating && !needsSharing) return null;
 
     return (
-      <BuiCard role="region" aria-label="Share your trip experience" className="bui-enter mt-4 px-5 py-6 sm:px-7">
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Trip completed</p>
-        <h2 className="mt-2 text-xl font-black tracking-tight text-ink">How was it, really?</h2>
+      <BuiCard role="region" aria-label={translateExactText(locale, "Share your trip experience")} className="bui-enter mt-4 px-5 py-6 sm:px-7">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateExactText(locale, "Trip completed")}</p>
+        <h2 className="mt-2 text-xl font-black tracking-tight text-ink">{translateExactText(locale, "How was it, really?")}</h2>
         <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-cgray">
-          Your experience is booking-proof — it helps Roamly suggest proven options to future travelers.
+          {translateExactText(locale, "Your experience is booking-proof \u2014 it helps Roamly suggest proven options to future travelers.")}
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {needsRating ? (
@@ -56,12 +59,12 @@ export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
               href={`/trip/${tripId}/feedback`}
               className="bui-press bui-tap bui-squircle block rounded-bui-card border border-chair bg-csoft px-5 py-4 shadow-bui-card transition hover:bg-mist focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
             >
-              <p className="text-sm font-black text-ink">Rate your booked items</p>
+              <p className="text-sm font-black text-ink">{translateExactText(locale, "Rate your booked items")}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-cgray">
-                Tell Roamly what worked and what didn&apos;t — it tunes your future trips.
+                {translateExactText(locale, "Tell Roamly what worked and what didn\u2019t \u2014 it tunes your future trips.")}
               </p>
               <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-cblue px-4 text-sm font-bold text-white">
-                Leave feedback
+                {translateExactText(locale, "Leave feedback")}
               </span>
             </a>
           ) : null}
@@ -70,12 +73,12 @@ export async function PostTripLibraryAskCard({ tripId }: { tripId: string }) {
               href={`/trips/share?trip=${tripId}`}
               className="bui-press bui-tap bui-squircle block rounded-bui-card border border-chair bg-csoft px-5 py-4 shadow-bui-card transition hover:bg-mist focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/25"
             >
-              <p className="text-sm font-black text-ink">Share your proven itinerary</p>
+              <p className="text-sm font-black text-ink">{translateExactText(locale, "Share your proven itinerary")}</p>
               <p className="mt-1 text-sm font-semibold leading-6 text-cgray">
-                Publish this trip to the Itinerary Library so future travelers learn from real bookings.
+                {translateExactText(locale, "Publish this trip to the Itinerary Library so future travelers learn from real bookings.")}
               </p>
               <span className="mt-3 inline-flex min-h-11 items-center rounded-full bg-cblue px-4 text-sm font-bold text-white">
-                Share itinerary
+                {translateExactText(locale, "Share itinerary")}
               </span>
             </a>
           ) : null}

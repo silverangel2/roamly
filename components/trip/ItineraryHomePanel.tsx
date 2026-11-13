@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import { BedDouble, Bell, Building, ChevronDown, ChevronRight, Image as ImageIcon, Map, MapPin, MoveRight, Navigation, Pencil, Plane, Search, Ticket, Utensils } from "lucide-react";
 
 /*
@@ -187,6 +188,7 @@ function MapStopLinksDisclosure({
   searchOnly: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const { translateText } = useI18n();
   return (
     <div className="mt-2.5">
       <button
@@ -196,7 +198,7 @@ function MapStopLinksDisclosure({
         className="bui-press bui-tap inline-flex min-h-9 items-center gap-1.5 rounded-full bg-cblue/10 px-3.5 py-1.5 text-[13px] font-semibold text-cblue"
       >
         <Navigation aria-hidden="true" size={14} strokeWidth={2} />
-        {searchOnly ? "Search in Maps" : "Open in Maps"}
+        {searchOnly ? translateText("Search in Maps") : translateText("Open in Maps")}
         <ChevronDown
           aria-hidden="true"
           size={14}
@@ -236,6 +238,7 @@ export function ItineraryHomePanel({
   documents
 }: ItineraryHomePanelProps) {
   const [tab, setTab] = useState<HomeTab>("itinerary");
+  const { translateText, t } = useI18n();
   /* Map/List pill: List is the default, always (seam spec). */
   const [dayView, setDayView] = useState<"list" | "map">("list");
   const [selectedDayNumber, setSelectedDayNumber] = useState<number | null>(
@@ -324,36 +327,36 @@ export function ItineraryHomePanel({
       href={editHref}
       className="bui-press bui-tap inline-flex min-h-11 items-center gap-1 rounded-full bg-white/95 px-3 py-1.5 text-[13px] font-semibold text-chead shadow-calm"
     >
-      <Pencil aria-hidden="true" size={13} strokeWidth={2} /> Edit trip
+      <Pencil aria-hidden="true" size={13} strokeWidth={2} /> {translateText("Edit trip")}
     </a>
   ) : (
     <span
       aria-disabled="true"
-      title="Editing is closed for this trip"
+      title={translateText("Editing is closed for this trip")}
       className="inline-flex min-h-9 cursor-not-allowed items-center gap-1 rounded-full bg-white/70 px-3 py-1.5 text-[13px] font-semibold text-cgray"
     >
-      <Pencil aria-hidden="true" size={13} strokeWidth={2} /> Edit trip
+      <Pencil aria-hidden="true" size={13} strokeWidth={2} /> {translateText("Edit trip")}
     </span>
   );
 
   return (
     <BuiCard
       role="region"
-      aria-label={`Itinerary home for ${destinationLabel}`}
+      aria-label={t("ui.trip.itineraryHomeFor", "Itinerary home for {destination}", { destination: destinationLabel })}
       className="overflow-hidden"
     >
       {/* Roamly header: wordmark, search, bell (mock top row). Search has
           no dedicated route in this codebase, so it leads to the trip's
           real Explore page; the bell leads to Notifications. */}
       <header className="flex items-center justify-between gap-3 px-4 pb-2 pt-4 sm:px-5">
-        <Link href="/" aria-label="Roamly home" className="flex items-center gap-1.5 text-chead">
+        <Link href="/" aria-label={translateText("Roamly home")} className="flex items-center gap-1.5 text-chead">
           <Plane aria-hidden size={20} className="shrink-0 text-cblue" />
           <span className="text-[22px] font-bold tracking-[-0.02em]">Roamly</span>
         </Link>
         <div className="flex items-center gap-1">
           <a
             href={`/trip/${tripId}/explore`}
-            aria-label="Search places on this trip"
+            aria-label={translateText("Search places on this trip")}
             className="bui-press bui-tap grid h-11 w-11 place-items-center rounded-full text-chead"
           >
             <Search size={20} strokeWidth={1.8} aria-hidden="true" />
@@ -457,7 +460,7 @@ export function ItineraryHomePanel({
           bar), so the two tab systems on this screen never look
           alike. */}
       <nav
-        aria-label="Trip sections"
+        aria-label={translateText("Trip sections")}
         data-segmented-control="true"
         className="mx-4 mt-3 flex gap-1 overflow-x-auto rounded-full bg-cbg p-1 ring-1 ring-chair sm:mx-5"
       >
@@ -472,7 +475,7 @@ export function ItineraryHomePanel({
               tab === item.id ? "bg-white text-chead shadow-calm" : "bg-transparent text-cgray"
             }`}
           >
-            {item.label}
+            {translateText(item.label)}
           </button>
         ))}
       </nav>
@@ -487,7 +490,7 @@ export function ItineraryHomePanel({
             <BuiNotice tone="info" title={SEARCH_RESULT_CAUTION} className="mt-3" />
           ) : null}
           {/* Day picker */}
-          <div role="group" aria-label="Pick a day" className="flex snap-x gap-2 overflow-x-auto py-3">
+          <div role="group" aria-label={translateText("Pick a day")} className="flex snap-x gap-2 overflow-x-auto py-3">
             {days.map((day) => {
               const active = day.dayNumber === selectedDay.dayNumber;
               return (
@@ -501,7 +504,7 @@ export function ItineraryHomePanel({
                   }`}
                 >
                   <span className="text-[12px] font-semibold leading-4">
-                    {day.pickerWeekday || `Day ${day.dayNumber}`}
+                    {day.pickerWeekday || t("ui.trip.printDay", "Day {number}", { number: day.dayNumber })}
                   </span>
                   <span className="text-[12px] leading-4 opacity-90">{day.pickerMonthDay}</span>
                 </button>
@@ -529,7 +532,7 @@ export function ItineraryHomePanel({
               href={`#day-${selectedDay.dayNumber}`}
               className="bui-press bui-tap min-h-11 shrink-0 px-1 py-2 text-[14px] font-semibold text-cblue"
             >
-              See day
+              {translateText("See day")}
             </a>
           </div>
 
@@ -543,13 +546,13 @@ export function ItineraryHomePanel({
                 <li key={row.key} className="relative">
                   <a
                     href={placeHrefForRow(row) ?? `#day-${selectedDay.dayNumber}`}
-                    aria-label={`${row.unverified ? "Unverified stop" : row.title}: ${
+                    aria-label={`${row.unverified ? translateText("Unverified stop") : row.title}: ${
                       placeHrefForRow(row) ? "view place details" : "see the full day plan"
                     }`}
                     className="bui-press bui-tap flex items-start gap-3 py-3"
                   >
                     <span className="w-16 shrink-0 pt-2 text-right text-[13px] font-medium leading-4 text-cgray">
-                      {row.time}
+                      {row.time === "Flexible" ? translateText("Flexible") : row.time}
                     </span>
                     <span
                       aria-hidden="true"
@@ -568,7 +571,7 @@ export function ItineraryHomePanel({
                             its plan title kept in the subtitle so the
                             row stays traceable to the plan. */}
                         <span className="break-words text-[15.5px] font-semibold leading-snug text-chead">
-                          {row.unverified ? "Unverified stop" : row.title}
+                          {row.unverified ? translateText("Unverified stop") : row.title}
                         </span>
                         {/* Repair round item 1: every clock time on
                             this timeline carries its provenance. A
@@ -616,8 +619,8 @@ export function ItineraryHomePanel({
             </ol>
           ) : (
             <div className="mt-4">
-              <BuiNotice tone="info" title="This day has no timed plan yet.">
-                Keep it flexible until more of the itinerary is confirmed.
+              <BuiNotice tone="info" title={translateText("This day has no timed plan yet.")}>
+                {translateText("Keep it flexible until more of the itinerary is confirmed.")}
               </BuiNotice>
             </div>
           )}
@@ -628,7 +631,7 @@ export function ItineraryHomePanel({
             className="bui-press bui-tap mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-cblue/10 px-4 text-[15px] font-semibold text-cblue"
           >
             <Map size={20} strokeWidth={1.8} aria-hidden="true" />
-            View day on map
+            {translateText("View day on map")}
           </button>
           </>
           ) : (
@@ -641,7 +644,7 @@ export function ItineraryHomePanel({
             {hasMappableStops ? (
               <TripDayMap stops={selectedDayMapStops} />
             ) : (
-              <BuiNotice tone="info" title="No mappable locations for this day — the day's stops open in your maps app instead." />
+              <BuiNotice tone="info" title={translateText("No mappable locations for this day — the day's stops open in your maps app instead.")} />
             )}
             {selectedDay.mapStopDetails.length ? (
               <ul className="mt-4 grid gap-3">
@@ -683,7 +686,7 @@ export function ItineraryHomePanel({
                           ) : null}
                           {stopDetail.searchOnly ? (
                             <p className="mt-1.5 text-[13px] leading-relaxed text-cbody">
-                              Not located yet — opens by name search.
+                              {translateText("Not located yet — opens by name search.")}
                             </p>
                           ) : null}
                           <MapStopLinksDisclosure links={links} searchOnly={stopDetail.searchOnly} />
@@ -695,8 +698,8 @@ export function ItineraryHomePanel({
               </ul>
             ) : (
               <div className="mt-4">
-                <BuiNotice tone="info" title="This day has no mappable stops yet.">
-                  When the plan names places, their map links appear here.
+                <BuiNotice tone="info" title={translateText("This day has no mappable stops yet.")}>
+                  {translateText("When the plan names places, their map links appear here.")}
                 </BuiNotice>
               </div>
             )}
@@ -713,7 +716,7 @@ export function ItineraryHomePanel({
           <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] z-30 flex justify-center">
             <div
               role="group"
-              aria-label="Day view"
+              aria-label={translateText("Day view")}
               className="bui-squircle pointer-events-auto flex gap-1 rounded-full border border-chair bg-white p-1 shadow-bui-lift"
             >
               {(
@@ -731,7 +734,7 @@ export function ItineraryHomePanel({
                     dayView === segment.id ? "bg-cblue text-white" : "text-cink hover:bg-csoft"
                   }`}
                 >
-                  {segment.label}
+                  {translateText(segment.label)}
                 </button>
               ))}
             </div>
@@ -741,19 +744,17 @@ export function ItineraryHomePanel({
 
       {tab === "itinerary" && !selectedDay ? (
         <div className="px-4 pb-5 pt-3 sm:px-5">
-          <BuiNotice tone="info" title="This trip has no saved day-by-day plan yet.">
-            Once your itinerary is generated, the day picker and timeline appear here.
+          <BuiNotice tone="info" title={translateText("This trip has no saved day-by-day plan yet.")}>
+            {translateText("Once your itinerary is generated, the day picker and timeline appear here.")}
           </BuiNotice>
         </div>
       ) : null}
 
       {tab === "essentials" ? (
         <div className="px-4 pb-5 sm:px-5">
-          <h3 className="pt-3 text-[17px] font-bold text-chead">Essentials</h3>
+          <h3 className="pt-3 text-[17px] font-bold text-chead">{translateText("Essentials")}</h3>
           <p className="mt-1 text-sm leading-6 text-cgray">
-            What this trip&apos;s plan recommends packing and preparing. No
-            shopping links here — the full essentials section on this trip
-            keeps those.
+            {translateText("What this trip's plan recommends packing and preparing. No shopping links here — the full essentials section on this trip keeps those.")}
           </p>
           {essentials.length || packing.length ? (
             <ul className="mt-4 grid gap-3">
@@ -776,13 +777,13 @@ export function ItineraryHomePanel({
                   className="bui-enter bui-squircle rounded-bui-card border border-chair bg-white px-3 py-3 shadow-bui-card"
                 >
                   <p className="text-sm font-semibold leading-5 text-chead">{item}</p>
-                  <p className="mt-0.5 text-[13px] leading-5 text-cgray">Packing checklist</p>
+                  <p className="mt-0.5 text-[13px] leading-5 text-cgray">{translateText("Packing checklist")}</p>
                 </li>
               ))}
             </ul>
           ) : (
             <div className="mt-4">
-              <BuiNotice tone="info" title="No essentials saved for this trip yet." />
+              <BuiNotice tone="info" title={translateText("No essentials saved for this trip yet.")} />
             </div>
           )}
         </div>
@@ -790,10 +791,9 @@ export function ItineraryHomePanel({
 
       {tab === "documents" ? (
         <div className="px-4 pb-5 sm:px-5">
-          <h3 className="pt-3 text-[17px] font-bold text-chead">Documents</h3>
+          <h3 className="pt-3 text-[17px] font-bold text-chead">{translateText("Documents")}</h3>
           <p className="mt-1 text-sm leading-6 text-cgray">
-            The document checklist for this trip, based on its route —
-            nothing else is claimed here.
+            {translateText("The document checklist for this trip, based on its route — nothing else is claimed here.")}
           </p>
           {documents.length ? (
             <ul className="mt-4 grid gap-3">
@@ -809,7 +809,7 @@ export function ItineraryHomePanel({
             </ul>
           ) : (
             <div className="mt-4">
-              <BuiNotice tone="info" title="No document checklist saved for this trip yet." />
+              <BuiNotice tone="info" title={translateText("No document checklist saved for this trip yet.")} />
             </div>
           )}
         </div>

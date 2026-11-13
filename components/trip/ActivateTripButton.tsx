@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { fetchWithSupabaseAuth, getSupabaseBrowserSessionUser } from "@/lib/roamly/authenticatedFetch";
 import { BuiUnlockIcon } from "@/components/boardui/AnimatedIcons";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type CheckoutKind = "itinerary" | "tracking" | "complete";
 
@@ -27,6 +28,7 @@ export function ActivateTripButton({
   apiAuthToken = "",
   isPhilippinesTrip = false
 }: ActivateTripButtonProps) {
+  const { translateText } = useI18n();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<CheckoutKind | "">("");
 
@@ -48,7 +50,7 @@ export function ActivateTripButton({
       if (response.status === 401) {
         const user = await getSupabaseBrowserSessionUser();
         if (user) {
-          setError("Your login session could not be confirmed. Refresh this page and try again.");
+          setError(translateText("Your login session could not be confirmed. Refresh this page and try again."));
           setBusy("");
           return;
         }
@@ -61,7 +63,7 @@ export function ActivateTripButton({
           typeof data?.message === "string" &&
           !/stripe|price id|key mode|product state|configuration/i.test(data.message)
             ? data.message
-            : "This purchase option is temporarily unavailable. You have not been charged.";
+            : translateText("This purchase option is temporarily unavailable. You have not been charged.");
 
         throw new Error(safeMessage);
       }
@@ -69,11 +71,11 @@ export function ActivateTripButton({
         window.location.href = checkoutKind === "tracking" ? `/trip/${tripId}/live` : `/trip/${tripId}`;
         return;
       }
-      if (!data?.url) throw new Error("Stripe did not return a checkout link.");
+      if (!data?.url) throw new Error(translateText("Stripe did not return a checkout link."));
 
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Stripe checkout could not be opened.");
+      setError(err instanceof Error ? err.message : translateText("Stripe checkout could not be opened."));
       setBusy("");
     }
   }
@@ -90,7 +92,7 @@ export function ActivateTripButton({
           disabled={Boolean(busy)}
           className="w-full rounded-xl border border-cblue/25 bg-cblue/10 px-4 py-3 text-sm font-bold text-cblue transition hover:bg-cblue/15 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
         >
-          {busy === testerKind ? "Continuing..." : "Continue as tester"}
+          {busy === testerKind ? translateText("Continuing...") : translateText("Continue as tester")}
         </button>
       ) : null}
       {!itineraryLocked && showItineraryUnlock ? (
@@ -101,7 +103,7 @@ export function ActivateTripButton({
             disabled={Boolean(busy)}
             className="w-full rounded-xl bg-gradient-to-r from-orange-400 to-rose-400 px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-400/20 transition hover:from-orange-300 hover:to-rose-300 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
-            {busy === "complete" ? "Opening secure checkout..." : isPhilippinesTrip ? "Complete Trip Pack — ₱149" : "Complete Trip Pack — $7.99 CAD"}
+            {busy === "complete" ? translateText("Opening secure checkout...") : isPhilippinesTrip ? translateText("Complete Trip Pack — ₱149") : translateText("Complete Trip Pack — $7.99 CAD")}
           </button>
           <button
             type="button"
@@ -114,10 +116,10 @@ export function ActivateTripButton({
                 at ζ=0.32 — it swings ~34% past its rest angle
                 before settling, the reel's overshoot. */}
             <BuiUnlockIcon open={busy === "itinerary"} className="h-5 w-5" />
-            {busy === "itinerary" ? "Opening secure checkout..." : isPhilippinesTrip ? "Unlock itinerary — ₱99" : "Unlock itinerary — $4.99 CAD"}
+            {busy === "itinerary" ? translateText("Opening secure checkout...") : isPhilippinesTrip ? translateText("Unlock itinerary — ₱99") : translateText("Unlock itinerary — $4.99 CAD")}
           </button>
           <p className="px-1 text-xs font-medium leading-4 text-slate-500">
-            One-time payment. No subscription.
+            {translateText("One-time payment. No subscription.")}
           </p>
         </>
       ) : (
@@ -129,10 +131,10 @@ export function ActivateTripButton({
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-sky-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-cyan-500/20 transition hover:from-cyan-400 hover:to-sky-400 disabled:opacity-60 sm:rounded-2xl sm:px-5 sm:py-4 sm:font-black"
           >
             <BuiUnlockIcon open={busy === "tracking"} className="h-5 w-5" />
-            {busy === "tracking" ? "Opening secure checkout..." : isPhilippinesTrip ? "Add Live Companion — ₱79" : "Add Live Companion — $3.99 CAD"}
+            {busy === "tracking" ? translateText("Opening secure checkout...") : isPhilippinesTrip ? translateText("Add Live Companion — ₱79") : translateText("Add Live Companion — $3.99 CAD")}
           </button>
           <p className="px-1 text-xs font-medium leading-4 text-slate-500">
-            Adds live reminders and trip guidance.
+            {translateText("Adds live reminders and trip guidance.")}
           </p>
         </>
       )}

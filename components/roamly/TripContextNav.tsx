@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 type TripContextNavProps = {
   tripId: string;
@@ -95,6 +96,7 @@ function goHome(tripId: string, setHash: (hash: string) => void) {
 }
 
 export function TripContextNav({ tripId, title, destination, dates, status, showContext = true, contentReady = true, focusAnchor = null }: TripContextNavProps) {
+  const { translateText } = useI18n();
   const pathname = usePathname();
   const [hash, setHash] = useState("");
   const rowRef = useRef<HTMLDivElement>(null);
@@ -148,7 +150,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
           {status ? <span className="hidden shrink-0 items-center gap-1.5 text-xs font-medium text-cgray sm:inline-flex"><span aria-hidden className="h-1.5 w-1.5 rounded-full bg-cblue" />{status}</span> : null}
         </div>
       ) : null}
-      <nav aria-label="Trip navigation" className={`${showContext ? "mt-3 " : ""}roamly-trip-tabs min-w-0`}>
+      <nav aria-label={translateText("Trip navigation")} className={`${showContext ? "mt-3 " : ""}roamly-trip-tabs min-w-0`}>
         <div ref={rowRef} className="flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain rounded-full border border-chair bg-csoft/60 p-1 shadow-bui-card">
         {visibleDestinations.map((destinationItem) => {
           const selected = isSelected(pathname, hash, tripId, destinationItem.key);
@@ -180,7 +182,7 @@ export function TripContextNav({ tripId, title, destination, dates, status, show
                   : "text-cgray hover:bg-white hover:text-chead"
               }`}
             >
-              {destinationItem.label}
+              {translateText(destinationItem.label)}
             </Link>
           );
         })}

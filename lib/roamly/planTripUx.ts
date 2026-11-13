@@ -1,4 +1,5 @@
 import { calculateTripDateRange, shiftIsoDate } from "@/lib/roamly/dateUtils";
+import { translateExactText, translateKey, type RoamlyLocale } from "@/lib/i18n";
 
 export const ITINERARY_UNLOCK_PRICE = "$4.99 CAD";
 export const ITINERARY_UNLOCK_PRICE_PHP = "₱99";
@@ -40,6 +41,21 @@ export function tripLengthCopy(days: number): string {
   return `${whole} days, ${nights} ${nights === 1 ? "night" : "nights"}`;
 }
 
+/** Locale-aware trip length (2026-11-12): the plan form's summaries
+ * used to render tripLengthCopy's English in every language. Keys live
+ * under ui.plan; the English helpers above stay untouched (tests assert
+ * their exact English output). */
+export function tripLengthCopyLocalized(days: number, locale: RoamlyLocale): string {
+  const whole = Math.round(days);
+  if (!Number.isFinite(whole) || whole < 1) return "";
+  if (whole === 1) return translateKey(locale, "ui.plan.tripLengthOne", "1 day, no overnight");
+  const nights = whole - 1;
+  if (nights === 1) {
+    return translateKey(locale, "ui.plan.tripLengthManyOneNight", "{days} days, 1 night", { days: whole });
+  }
+  return translateKey(locale, "ui.plan.tripLengthMany", "{days} days, {nights} nights", { days: whole, nights });
+}
+
 export function countNoun(count: number, singular: string, plural: string) {
   const whole = Math.max(0, Math.round(count));
   return `${whole} ${whole === 1 ? singular : plural}`;
@@ -50,6 +66,37 @@ export function travelerCountPhrase(adults: number, children: number, infants: n
   if (children > 0) parts.push(countNoun(children, "child", "children"));
   if (infants > 0) parts.push(countNoun(infants, "infant", "infants"));
   return parts.join(", ");
+}
+
+/** Locale-aware traveller / room counts (2026-11-12). Same contract as
+ * the English helpers above, with ui.plan keys carrying the plurals. */
+function countNounLocalized(
+  count: number,
+  locale: RoamlyLocale,
+  oneKey: string,
+  manyKey: string,
+  oneFallback: string,
+  manyFallback: string
+) {
+  const whole = Math.max(0, Math.round(count));
+  return whole === 1
+    ? translateKey(locale, oneKey, oneFallback)
+    : translateKey(locale, manyKey, manyFallback, { count: whole });
+}
+
+export function travelerCountPhraseLocalized(adults: number, children: number, infants: number, locale: RoamlyLocale) {
+  const parts = [countNounLocalized(adults, locale, "ui.plan.adultOne", "ui.plan.adultMany", "1 adult", "{count} adults")];
+  if (children > 0) {
+    parts.push(countNounLocalized(children, locale, "ui.plan.childOne", "ui.plan.childMany", "1 child", "{count} children"));
+  }
+  if (infants > 0) {
+    parts.push(countNounLocalized(infants, locale, "ui.plan.infantOne", "ui.plan.infantMany", "1 infant", "{count} infants"));
+  }
+  return parts.join(", ");
+}
+
+export function roomCountPhrase(count: number, locale: RoamlyLocale) {
+  return countNounLocalized(count, locale, "ui.plan.roomOne", "ui.plan.roomMany", "1 room", "{count} rooms");
 }
 
 /**
@@ -176,4 +223,44 @@ export function preferenceStyleSummary(input: {
     withDefault(input.pace, PLAN_PREFERENCE_DEFAULTS.pace, "pace"),
     withDefault(input.walkingTolerance, PLAN_PREFERENCE_DEFAULTS.walkingTolerance, "walking")
   ].join(", ");
+}
+
+/** Locale-aware style summary (2026-11-12): same three segments, but
+ * each option value is translated first and the "(default)" framing
+ * comes from ui.plan keys, so the review row reads in the picked
+ * language instead of "Balanced style (default), ...". */
+export function preferenceStyleSummaryLocalized(
+  input: {
+    travelStyle: string;
+    pace: string;
+    walkingTolerance: string;
+  },
+  locale: RoamlyLocale
+) {
+  const styleValue = translateExactText(locale, input.travelStyle);
+  const paceValue = translateExactText(locale, input.pace);
+  const walkingValue = translateExactText(locale, input.walkingTolerance);
+  const style = translateKey(
+    locale,
+    input.travelStyle === PLAN_PREFERENCE_DEFAULTS.travelStyle ? "ui.plan.styleDefault" : "ui.plan.stylePlain",
+    input.travelStyle === PLAN_PREFERENCE_DEFAULTS.travelStyle ? "{value} style (default)" : "{value} style",
+    { value: styleValue }
+  );
+  const pace = translateKey(
+    locale,
+    input.pace === PLAN_PREFERENCE_DEFAULTS.pace ? "ui.plan.paceDefault" : "ui.plan.pacePlain",
+    input.pace === PLAN_PREFERENCE_DEFAULTS.pace ? "{value} pace (default)" : "{value} pace",
+    { value: paceValue }
+  );
+  const walking = translateKey(
+    locale,
+    input.walkingTolerance === PLAN_PREFERENCE_DEFAULTS.walkingTolerance
+      ? "ui.plan.walkingDefault"
+      : "ui.plan.walkingPlain",
+    input.walkingTolerance === PLAN_PREFERENCE_DEFAULTS.walkingTolerance
+      ? "{value} walking (default)"
+      : "{value} walking",
+    { value: walkingValue }
+  );
+  return [style, pace, walking].join(", ");
 }

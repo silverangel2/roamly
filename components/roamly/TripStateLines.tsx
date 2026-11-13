@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BuiButton } from "@/components/boardui/Button";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 export function TripStateLines({
   gmailConnected,
@@ -51,6 +52,7 @@ export function TripStateLines({
   pendingImportCount?: number;
 }) {
   const router = useRouter();
+  const { translateText } = useI18n();
   const [enabled, setEnabled] = useState(locationEnabled);
   const [grantRevoked, setGrantRevoked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -117,23 +119,23 @@ export function TripStateLines({
           className={`calm-dot mt-[7px] h-2 w-2 shrink-0 rounded-full ${gmailConnected ? "bg-cgreen" : "bg-cgray2"}`}
         />
         <span>
-          Booking Recon:{" "}
+          {translateText("Booking Recon:")}{" "}
           {gmailConnected && gmailSyncFailing ? (
             <>
               connected, but Gmail sync hasn&apos;t worked since {lastSyncLabel} —{" "}
               <a className={linkClass} href="/account#setup-step-1">
-                {gmailSyncFailureReconnect ? "reconnect Gmail in Account" : "fix it in Account"}
+                {gmailSyncFailureReconnect ? translateText("reconnect Gmail in Account") : translateText("fix it in Account")}
               </a>
             </>
           ) : gmailStale ? (
             <>connected, but inbox not checked since {lastSyncLabel}</>
           ) : gmailConnected ? (
-            "activated"
+            translateText("activated")
           ) : (
             <>
-              not activated —{" "}
+              {translateText("not activated —")}{" "}
               <a className={linkClass} href="/account#setup-step-1">
-                connect Gmail
+                {translateText("connect Gmail")}
               </a>
             </>
           )}
@@ -145,7 +147,7 @@ export function TripStateLines({
           <span>
             {pendingImportCount} booking{pendingImportCount === 1 ? "" : "s"} from your inbox need your review —{" "}
             <a className={linkClass} href={`/trip/${tripId}/bookings`}>
-              Review on the Bookings page
+              {translateText("Review on the Bookings page")}
             </a>
           </span>
         </p>
@@ -159,17 +161,17 @@ export function TripStateLines({
             }`}
           />
           <span>
-            Companion:{" "}
+            {translateText("Companion:")}{" "}
             {grantMissing ? (
               <>
-                not live yet —{" "}
+                {translateText("not live yet —")}{" "}
                 <a className={linkClass} href="/account#setup-step-3">
-                  turn on location
+                  {translateText("turn on location")}
                 </a>
               </>
             ) : !enabled ? (
               <>
-                not live yet — location is off{" "}
+                {translateText("not live yet — location is off")}{" "}
                 <BuiButton
                   type="button"
                   variant="ghost"
@@ -178,13 +180,13 @@ export function TripStateLines({
                   busy={busy}
                   className="ml-1"
                 >
-                  {busy ? "Turning on…" : "Turn on"}
+                  {busy ? translateText("Turning on…") : translateText("Turn on")}
                 </BuiButton>
               </>
             ) : tripActive ? (
-              "live"
+              translateText("live")
             ) : (
-              "ready"
+              translateText("ready")
             )}
           </span>
         </p>

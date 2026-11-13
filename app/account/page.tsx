@@ -9,6 +9,8 @@ import { EmailConnectionSettings } from "@/components/account/EmailConnectionSet
 import { LocationTrackingSettings } from "@/components/account/LocationTrackingSettings";
 import { TravelerMemorySettings } from "@/components/account/TravelerMemorySettings";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
+import { getServerLocale } from "@/lib/i18n-server";
+import { translateExactText } from "@/lib/i18n";
 import { BuiBadge } from "@/components/boardui/Badge";
 import { BuiButtonLink } from "@/components/boardui/Button";
 import { BuiCard } from "@/components/boardui/Card";
@@ -103,6 +105,7 @@ function firstSearchValue(value: string | string[] | undefined) {
 }
 
 export default async function AccountPage({ searchParams }: AccountPageProps) {
+  const locale = await getServerLocale();
   const current = await getCurrentUser();
   const search = searchParams ? await searchParams : {};
   const returnTo = safeRequirementsReturn(firstSearchValue(search.return));
@@ -116,13 +119,13 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     return (
       <div className="bui-safe-bottom mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <BuiCard className="bui-enter p-5">
-          <BuiBadge tone="warm">Setup needed</BuiBadge>
-          <h1 className="mt-4 text-3xl font-black text-chead sm:text-5xl">Connect Supabase to use accounts.</h1>
+          <BuiBadge tone="warm">{translateExactText(locale, "Setup needed")}</BuiBadge>
+          <h1 className="mt-4 text-3xl font-black text-chead sm:text-5xl">{translateExactText(locale, "Connect Supabase to use accounts.")}</h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-cink">
-            Add Roamly Supabase environment variables, then signup, login, sessions, and protected routes will activate.
+            {translateExactText(locale, "Add Roamly Supabase environment variables, then signup, login, sessions, and protected routes will activate.")}
           </p>
           <div className="mt-5">
-            <BuiButtonLink href="/">Back home</BuiButtonLink>
+            <BuiButtonLink href="/">{translateExactText(locale, "Back home")}</BuiButtonLink>
           </div>
         </BuiCard>
       </div>
@@ -206,18 +209,18 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     return (
       <div className="calm-bleed bui-safe-bottom mx-auto w-full max-w-3xl px-4 pb-8 pt-5 sm:px-6">
         <a href="/account" className="bui-touch inline-flex items-center text-[15px] font-semibold text-cblue">
-          <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="-mt-0.5 inline-block" /> Back to Account
+          <ChevronLeft aria-hidden="true" size={16} strokeWidth={2.5} className="-mt-0.5 inline-block" /> {translateExactText(locale, "Back to Account")}
         </a>
 
         {detailView === "manage-account" ? (
           <BuiCard id="manage-account" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Profile basics</p>
-            <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Name and access</h1>
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "Profile basics")}</p>
+            <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Name and access")}</h1>
             <div className="mt-5">
               <AccountProfileForm initialName={profileName} email={current.user.email || ""} />
             </div>
             <p className="mt-4 text-[13.5px] font-normal leading-[1.45] text-cgray">
-              Password change and account deletion are not available here yet.
+              {translateExactText(locale, "Password change and account deletion are not available here yet.")}
             </p>
             {profileResult.error ? (
               <BuiNotice tone="error" title={`Profile table pending: ${profileResult.error}. Apply the Roamly shared-auth profile migration to enable app-specific profile records.`} className="mt-4" />
@@ -227,8 +230,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
 
         {detailView === "booking-wallet" ? (
           <BuiCard id="booking-wallet" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Email import</p>
-            <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Travel confirmations</h1>
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "Email import")}</p>
+            <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Travel confirmations")}</h1>
             <div className="mt-5">
               <EmailConnectionSettings />
             </div>
@@ -238,8 +241,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         {detailView === "travelers" ? (
           <BuiCard id="travelers" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
             <div id="traveler-memory" className="scroll-mt-24">
-              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Traveler memory</p>
-              <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Preferences Roamly can use</h1>
+              <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "Traveler memory")}</p>
+              <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Preferences Roamly can use")}</h1>
               <div className="mt-5">
                 <TravelerMemorySettings countryOptions={listCountryOptions()} returnTo={returnTo} />
               </div>
@@ -249,34 +252,34 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
 
         {detailView === "preferences" ? (
           <BuiCard id="preferences" className="bui-enter mt-5 scroll-mt-24 rounded-bui-panel p-4">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Preferences</p>
-            <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Language and notifications</h1>
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "Preferences")}</p>
+            <h1 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Language and notifications")}</h1>
             <div className="mt-5 space-y-5">
               <div>
-                <p className="mb-2 text-sm font-black text-chead">Language</p>
+                <p className="mb-2 text-sm font-black text-chead">{translateExactText(locale, "Language")}</p>
                 <LanguageSwitcher />
               </div>
               <LocationTrackingSettings />
             </div>
             <p className="mt-4 text-[13.5px] font-normal leading-[1.45] text-cgray">
-              No units setting exists yet.
+              {translateExactText(locale, "No units setting exists yet.")}
             </p>
           </BuiCard>
         ) : null}
 
         {detailView === "setup" ? (
           <div id="setup" className="mt-5 scroll-mt-24">
-            <p className="mb-2 ml-4 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">Finish setup — once</p>
-            <h1 className="sr-only">Three steps, once</h1>
+            <p className="mb-2 ml-4 text-[13px] font-semibold uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "Finish setup — once")}</p>
+            <h1 className="sr-only">{translateExactText(locale, "Three steps, once")}</h1>
             {setupState ? (
               <>
                 <SetupCascade initialState={setupState} />
                 <p className="ml-4 mt-2 text-[13.5px] font-normal leading-[1.4] text-cgray">
-                  Each step powers one thing. Done once, remembered forever.
+                  {translateExactText(locale, "Each step powers one thing. Done once, remembered forever.")}
                 </p>
               </>
             ) : (
-              <BuiNotice tone="info" title="Setup state is unavailable right now." className="ml-4" />
+              <BuiNotice tone="info" title={translateExactText(locale, "Setup state is unavailable right now.")} className="ml-4" />
             )}
           </div>
         ) : null}
@@ -293,10 +296,10 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           view with the step anchor preserved. */}
       <AccountSetupHashRedirect />
       <div className="flex items-center justify-between">
-        <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Account</h1>
+        <h1 className="text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">{translateExactText(locale, "Account")}</h1>
         <a
           href="/account?view=manage-account"
-          aria-label="Manage account"
+          aria-label={translateExactText(locale, "Manage account")}
           className="bui-press bui-touch-square flex h-10 w-10 items-center justify-center rounded-full border border-chair bg-white text-chead shadow-bui-card"
         >
           <CircleUserRound aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
@@ -310,7 +313,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           {initials}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[17px] font-bold leading-snug text-chead">{displayName || displayEmail || "Account"}</span>
+          <span className="block truncate text-[17px] font-bold leading-snug text-chead">{displayName || displayEmail || translateExactText(locale, "Account")}</span>
           {displayName && displayEmail ? (
             <span className="block truncate text-[13.5px] font-normal leading-snug text-cgray">{displayEmail}</span>
           ) : null}
@@ -326,14 +329,14 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Crown aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[17px] font-bold leading-snug text-chead">{plan.title}</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{plan.subtitle}</span>
+            <span className="block text-[17px] font-bold leading-snug text-chead">{translateExactText(locale, plan.title)}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, plan.subtitle)}</span>
           </span>
           <a
             href="/pricing"
             className="bui-press bui-touch inline-flex shrink-0 items-center rounded-full px-4 py-2 text-[14px] font-bold text-cblue ring-1 ring-cblue/40"
           >
-            Upgrade
+            {translateExactText(locale, "Upgrade")}
           </a>
         </div>
       </BuiCard>
@@ -345,8 +348,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <LayoutPanelLeft aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">My trips</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">View, edit, and manage your trips</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "My trips")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "View, edit, and manage your trips")}</span>
           </span>
           {tripCount !== null ? (
             <span className="bui-display-number text-[16px] font-semibold text-chead">{tripCount}</span>
@@ -359,11 +362,11 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Wallet aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Booking Wallet</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{wallet.label}</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Booking Wallet")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, wallet.label)}</span>
           </span>
           {wallet.connected ? (
-            <span aria-label="Connected" className="h-2.5 w-2.5 shrink-0 rounded-full bg-cgreen" />
+            <span aria-label={translateExactText(locale, "Connected")} className="h-2.5 w-2.5 shrink-0 rounded-full bg-cgreen" />
           ) : null}
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -373,8 +376,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Users aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Travelers</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{travelerSubtitle(partySize, travelerError)}</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Travelers")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{travelerSubtitle(partySize, travelerError, locale)}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -384,8 +387,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <CreditCard aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Payment &amp; Billing</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">View plan and one-time prices</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Payment & Billing")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "View plan and one-time prices")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -395,8 +398,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Settings aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Preferences</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Language and notifications</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Preferences")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Language and notifications")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -409,8 +412,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <MapPin aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Saved places</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Not available yet</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Saved places")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Not available yet")}</span>
           </span>
         </div>
 
@@ -419,8 +422,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <User aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Manage account</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Update your email, password, or delete account</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Manage account")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Update your email, password, or delete account")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -430,8 +433,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Download aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Install Roamly</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Add Roamly to your Home Screen</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Install Roamly")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Add Roamly to your Home Screen")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -445,8 +448,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Home aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Roamly homepage</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Visit the Roamly home page</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Roamly homepage")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Visit the Roamly home page")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </Link>
@@ -460,23 +463,23 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Search aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Deals</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Stays, flights and things to do, hand-picked for your trips</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Deals")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Stays, flights and things to do, hand-picked for your trips")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
       </BuiCard>
 
       {/* Help & Support — real surfaces: /help and /contact. */}
-      <p className="mb-2 ml-4 mt-7 text-[19px] font-bold tracking-[-0.018em] text-chead">Help &amp; Support</p>
+      <p className="mb-2 ml-4 mt-7 text-[19px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Help & Support")}</p>
       <BuiCard className="bui-enter divide-y divide-chair overflow-hidden rounded-bui-panel">
         <a href="/help" className="bui-press bui-touch flex items-center gap-3 px-4 py-3.5">
           <span aria-hidden="true" className="bui-touch-square flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-csoft text-cblue">
             <CircleQuestionMark aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Help Center</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">Get answers and travel tips</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Help Center")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "Get answers and travel tips")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -485,8 +488,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
             <Mail aria-hidden="true" className="h-5 w-5" strokeWidth={1.8} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-semibold leading-snug text-chead">Contact Support</span>
-            <span className="block text-[13.5px] font-normal leading-snug text-cgray">We&apos;re here to help</span>
+            <span className="block text-[16px] font-semibold leading-snug text-chead">{translateExactText(locale, "Contact Support")}</span>
+            <span className="block text-[13.5px] font-normal leading-snug text-cgray">{translateExactText(locale, "We're here to help")}</span>
           </span>
           <ChevronRight aria-hidden="true" size={22} strokeWidth={2} className="shrink-0 text-cgray2" />
         </a>
@@ -499,7 +502,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
           type="submit"
           className="bui-press bui-touch w-full rounded-bui-panel border border-cred/30 bg-cred/10 py-3.5 text-center text-[16px] font-semibold text-cred shadow-bui-card"
         >
-          Sign out
+          {translateExactText(locale, "Sign out")}
         </button>
       </form>
     </div>

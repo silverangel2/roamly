@@ -32,8 +32,16 @@
  *   trip starts beyond Open-Meteo's ~16-day horizon, so no forecast
  *   exists to show — saying so is the honest render);
  * - "error"     → one quiet "Weather couldn't load" line.
+ *
+ * Client component (2026-11-13): CountryInfoPanel ("use client")
+ * renders this card, so it cannot call getServerLocale() (next/headers
+ * is server-only — importing it broke the production build). The
+ * locale comes from the I18nProvider hook instead; same strings.
  */
 
+"use client";
+
+import { useI18n } from "@/components/i18n/I18nProvider";
 import {
   Cloud,
   CloudDrizzle,
@@ -151,12 +159,13 @@ export function TripWeatherCard({
   weather: TripWeatherState;
   className?: string;
 }) {
+  const { translateText, t } = useI18n();
   if (weather.kind === "past") return null;
 
   if (weather.kind === "error") {
     return (
       <p data-trip-weather="error" className={`text-[13px] leading-5 text-cgray ${className || ""}`}>
-        Weather couldn&rsquo;t load
+        {translateText("Weather couldn't load")}
       </p>
     );
   }
@@ -166,18 +175,17 @@ export function TripWeatherCard({
       <BuiCard
         role="region"
         data-trip-weather="too-early"
-        aria-label="Trip weather"
+        aria-label={translateText("Trip weather")}
         className={cx("p-4", className)}
       >
         <span className="flex items-center gap-2">
           <Cloud size={20} strokeWidth={2} className="shrink-0 text-cblue" aria-hidden />
           <span className="text-[14px] font-semibold leading-5 text-chead">
-            Forecast appears about two weeks before your trip
+            {translateText("Forecast appears about two weeks before your trip")}
           </span>
         </span>
         <span className="mt-2 block text-[13px] leading-5 text-cgray">
-          This trip starts further out than the forecast reaches. The weather for your days will
-          show here once they are close enough to call.
+          {translateText("This trip starts further out than the forecast reaches. The weather for your days will show here once they are close enough to call.")}
         </span>
       </BuiCard>
     );
@@ -192,7 +200,7 @@ export function TripWeatherCard({
     <BuiCard
       role="region"
       data-trip-weather="ready"
-      aria-label="Trip weather"
+      aria-label={translateText("Trip weather")}
       className={cx("p-4", className)}
     >
       <div className="flex items-start gap-3">
@@ -241,7 +249,7 @@ export function TripWeatherCard({
       </div>
 
       <p className="mt-3 text-[11px] leading-4 text-cgray2">
-        Weather: Open-Meteo &middot; checked {weather.checkedLabel}
+        {t("ui.trip.weatherProvenance", "Weather: Open-Meteo \u00b7 checked {time}", { time: weather.checkedLabel })}
       </p>
     </BuiCard>
   );

@@ -25,6 +25,13 @@ export const roamlyConfig = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   supportEmail: process.env.ROAMLY_SUPPORT_EMAIL || "support@roamlyhq.com",
   fromEmail: process.env.ROAMLY_FROM_EMAIL || process.env.ROAMLY_SUPPORT_EMAIL || "support@roamlyhq.com",
+  // Free itinerary translation (LibreTranslate, self-hosted, no paid API).
+  // Optional: when LIBRETRANSLATE_URL is unset, the translate endpoint fails
+  // honestly with TRANSLATION_NOT_CONFIGURED instead of spending money.
+  translation: {
+    url: (process.env.LIBRETRANSLATE_URL || "").trim(),
+    apiKey: (process.env.LIBRETRANSLATE_API_KEY || "").trim()
+  },
   currency: "cad",
   itineraryUnlockPriceCents: 499,
   trackingAddonPriceCents: 399,

@@ -1,4 +1,6 @@
 import { createSupabaseServerClient, getCurrentUser } from "@/lib/supabase/server";
+import { translateExactText } from "@/lib/i18n";
+import { getServerLocale } from "@/lib/i18n-server";
 import { listPlanComments } from "@/lib/roamly/planComments";
 import { TripCommentForm } from "@/components/trip/TripCommentForm";
 import { BuiCard } from "@/components/boardui/Card";
@@ -17,6 +19,7 @@ import { BuiCard } from "@/components/boardui/Card";
  *   {canShowFull && full ? <TripCommentBox tripId={id} /> : null}
  */
 export async function TripCommentBox({ tripId }: { tripId: string }) {
+  const locale = await getServerLocale();
   try {
     const current = await getCurrentUser();
     if (!current.configured || !current.user) return null;
@@ -35,13 +38,13 @@ export async function TripCommentBox({ tripId }: { tripId: string }) {
     return (
       <BuiCard
         role="region"
-        aria-label="Notes for your trip"
+        aria-label={translateExactText(locale, "Notes for your trip")}
         className="bui-enter mb-5 px-5 py-6 sm:px-7"
       >
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">Notes for your trip</p>
-        <h2 className="mt-2 text-xl font-black tracking-tight text-ink">Tell us anything</h2>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-cblue">{translateExactText(locale, "Notes for your trip")}</p>
+        <h2 className="mt-2 text-xl font-black tracking-tight text-ink">{translateExactText(locale, "Tell us anything")}</h2>
         <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-cgray">
-          Your words steer your plan — pace, food, mobility, must-haves. Only you can see these notes.
+          {translateExactText(locale, "Your words steer your plan \u2014 pace, food, mobility, must-haves. Only you can see these notes.")}
         </p>
         {result.comments.length ? (
           <ul className="mt-4 grid gap-2">
@@ -56,7 +59,7 @@ export async function TripCommentBox({ tripId }: { tripId: string }) {
           </ul>
         ) : (
           <p className="mt-4 text-sm font-medium leading-6 text-cgray">
-            No notes yet — write the first one. &ldquo;No early mornings&rdquo; works perfectly.
+            {translateExactText(locale, "No notes yet \u2014 write the first one. \u201cNo early mornings\u201d works perfectly.")}
           </p>
         )}
         <div className="mt-4">

@@ -18,6 +18,10 @@ import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
 import { describeBudgetBalanceCents, formatBudgetMoneyCents } from "@/lib/roamly/budget";
 import { describeTravelEssentialsContext } from "@/lib/roamly/amazonAffiliate";
 import { ROAMLY_GENERATION_LANGUAGE_INSTRUCTION, ROAMLY_TRAVELER_PRIORITY_CONTRACT } from "@/lib/roamly/generationLanguage";
+import {
+  LibreTranslateError,
+  translateLibreTexts
+} from "@/lib/roamly/libreTranslate";
 
 export type GeneratedItineraryResult = {
   itinerary: RoamlyItinerary;
@@ -35,7 +39,7 @@ export const ROAMLY_AI_NOT_CONFIGURED_MESSAGE = "Roamly AI generation is not con
 export const ROAMLY_AI_GENERATION_FAILED_MESSAGE =
   "Roamly could not finish itinerary generation. Please try again in a moment.";
 const OPENAI_ITINERARY_TIMEOUT_MS = 120_000;
-const OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS = 45_000;
+const LIBRETRANSLATE_ITINERARY_TIMEOUT_MS = 45_000;
 const languageNames: Record<RoamlyLocale, string> = {
   en: "English",
   fr: "French",
@@ -815,6 +819,8 @@ const translationPreserveKeys = new Set([
   "url",
   "href",
   "currency",
+  "origin_currency",
+  "destination_currency",
   "date",
   "departure_date",
   "return_date",
@@ -832,16 +838,73 @@ const translationPreserveKeys = new Set([
   "booking_category",
   "free_or_paid",
   "priority",
-  "affiliate_provider"
+  "affiliate_provider",
+  // Provider / source identifiers, never prose.
+  "provider",
+  "provider_or_search_source",
+  // Enum / status values — translating one breaks the schema.
+  "factual_status",
+  "factualStatus",
+  "plan_status",
+  "budget_status",
+  "budget_verdict",
+  "transport_mode_recommendation",
+  "mode",
+  "availability",
+  "travel_mode",
+  "item_type",
+  "action_url_type",
+  "gas_price_source",
+  // Official proper nouns: place names, areas, and the traveller's own
+  // named anchors. These are data (and often lookup keys), not prose.
+  "city",
+  "country",
+  "location",
+  "location_name",
+  "neighborhood",
+  "origin",
+  "destination",
+  "protected_anchors",
+  "must_do_items",
+  // Search strings — translating them reduces booking/navigation accuracy.
+  "map_query",
+  "map_queries",
+  "search_query",
+  // Stable identities — must never be altered.
+  "day_id",
+  "conflict_id",
+  "item_id",
+  "candidateId",
+  // Identifiers and enum-ish values.
+  "event_timezone",
+  "source",
+  "coordinateSource",
+  "coordinatePrecision"
 ]);
+
+/**
+ * A code-like token: an uppercase alphanumeric token carrying at least one
+ * digit (booking codes, flight numbers, confirmation codes). Argos
+ * mangles these inside prose (verified 2026-11-12: "VAT-2026-8841" ->
+ * "angolve-2026-8841"), so any string containing one is preserved whole.
+ */
+const CODE_TOKEN_PATTERN = /(?<![A-Za-z0-9])[A-Z][A-Z0-9\-_]{2,}\d[A-Z0-9\-_]*(?![A-Za-z0-9])/;
 
 function shouldPreserveString(key: string, value: string) {
   if (translationPreserveKeys.has(key)) return true;
-  if (/^(Amazon|Stay22|Travelpayouts|Google Maps|Apple Maps|Citymapper|Roamly|Airalo)$/i.test(value)) return true;
+  if (/^(Amazon|Stay22|Travelpayouts|Google Maps|Apple Maps|Citymapper|Roamly|Airalo|Klook)$/i.test(value)) return true;
   if (/url$/i.test(key)) return true;
   if (/^https?:\/\//i.test(value)) return true;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
+  // Times ("09:00", "9:00 AM", "9:00–12:00") and timezone identifiers.
+  if (/^\d{1,2}:\d{2}(:\d{2})?\s*([AP]M)?$/i.test(value)) return true;
+  if (/^\d{1,2}:\d{2}\s*[–—-]\s*\d{1,2}:\d{2}$/.test(value)) return true;
+  if (/^[A-Z][A-Za-z]+\/[A-Z][A-Za-z_]+$/.test(value)) return true;
   if (/^[A-Z]{3}$/.test(value)) return true;
+  // A bare reference code ("VAT-2026-8841").
+  if (/^(?=.*\d)[A-Z0-9][A-Z0-9\-_]{3,}$/.test(value)) return true;
+  // Any string carrying a code-like token is preserved whole.
+  if (CODE_TOKEN_PATTERN.test(value)) return true;
   return false;
 }
 
@@ -868,65 +931,92 @@ function mergeTranslatedJson(original: unknown, translated: unknown, key = ""): 
   return original;
 }
 
+/**
+ * Collect the translatable strings of an itinerary in walk order. A string is
+ * translatable exactly when mergeTranslatedJson would accept a replacement
+ * for it: non-empty and not protected by shouldPreserveString. Numbers,
+ * booleans, nulls, dates, currencies, URLs, codes, and official proper nouns
+ * are never collected, so they can never be altered by translation.
+ */
+function collectTranslatableStrings(value: unknown, key = "", out: string[] = []): string[] {
+  if (typeof value === "string") {
+    if (value.trim() && !shouldPreserveString(key, value)) out.push(value);
+    return out;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectTranslatableStrings(item, key, out);
+    return out;
+  }
+  if (value && typeof value === "object") {
+    for (const [childKey, child] of Object.entries(value as Record<string, unknown>)) {
+      collectTranslatableStrings(child, childKey, out);
+    }
+    return out;
+  }
+  return out;
+}
+
+/** Rebuild the itinerary JSON, replacing collected strings in walk order. */
+function applyTranslatedStrings(value: unknown, translated: string[], cursor: { index: number }, key = ""): unknown {
+  if (typeof value === "string") {
+    if (value.trim() && !shouldPreserveString(key, value)) return translated[cursor.index++] ?? value;
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => applyTranslatedStrings(item, translated, cursor, key));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([childKey, child]) => [
+        childKey,
+        applyTranslatedStrings(child, translated, cursor, childKey)
+      ])
+    );
+  }
+  return value;
+}
+
+/**
+ * Translate a locked itinerary into the traveller's language with the free
+ * LibreTranslate engine (self-hosted, no paid API). The translated itinerary
+ * is stored by the caller (see the translate route + withStoredItineraryTranslation),
+ * so the same text is never translated twice. There is deliberately no OpenAI
+ * fallback: when the translation service is not configured or unreachable,
+ * this throws an honest error instead of spending money.
+ */
 export async function translateRoamlyItinerary(params: {
   itinerary: RoamlyItinerary;
   language: RoamlyLocale;
   sourceLanguage?: RoamlyLocale;
 }) {
-  const targetLanguage = languageName(params.language);
-  const sourceLanguage = languageName(params.sourceLanguage || "en");
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const client = getClient();
+  const sourceLanguage = normalizeLocale(params.sourceLanguage || "en");
+  const targetLanguage = normalizeLocale(params.language);
+  if (targetLanguage === sourceLanguage) return params.itinerary;
 
-  if (!client) {
-    throw new RoamlyItineraryGenerationError(
-      "Roamly AI translation is not configured yet.",
-      "AI_TRANSLATION_NOT_CONFIGURED",
-      503
-    );
-  }
+  const texts = collectTranslatableStrings(params.itinerary);
+  if (texts.length === 0) return params.itinerary;
 
   try {
-    const completion = await client.chat.completions.create(
-      {
-        model,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content:
-              `${ROAMLY_GENERATION_LANGUAGE_INSTRUCTION(params.language)}\n\n${ROAMLY_TRAVELER_PRIORITY_CONTRACT} You are translating an existing itinerary. Translate only Roamly-owned descriptive prose; never translate protected structured facts or official names.`
-          },
-          {
-            role: "user",
-            content: `Translate this Roamly itinerary from ${sourceLanguage} to ${targetLanguage}.
-
-Rules:
-- Translate user-facing prose, titles, descriptions, itinerary day text, budget notes, booking labels, checklist items, essential item names, essential reasons, and Live Companion descriptions.
-- Keep JSON keys exactly the same.
-- Preserve all numbers, booleans, nulls, dates, currencies, price ranges, normal_search_url, affiliate_url, amazon_url, provider names, brand names, map URLs, and booking/affiliate links exactly.
-- Keep these provider/brand names unchanged when they appear: Klook, Stay22, Amazon, Google Maps, Citymapper, Travelpayouts, Airalo, Roamly.
-- Do not regenerate, reorder, add, remove, or replace trip stops, days, activities, prices, URLs, or booking recommendations.
-- Search queries may remain as-is if translating them could reduce booking or navigation accuracy.
-
-Itinerary JSON:
-${JSON.stringify(params.itinerary)}`
-          }
-        ]
-      },
-      {
-        maxRetries: 0,
-        timeout: OPENAI_ITINERARY_TRANSLATION_TIMEOUT_MS
-      }
-    );
-
-    const text = completion.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(text) as unknown;
-    return mergeTranslatedJson(params.itinerary, parsed) as RoamlyItinerary;
+    const translated: string[] = [];
+    const batchSize = 50;
+    for (let start = 0; start < texts.length; start += batchSize) {
+      const chunk = texts.slice(start, start + batchSize);
+      const out = await translateLibreTexts({
+        texts: chunk,
+        source: sourceLanguage,
+        target: targetLanguage,
+        timeoutMs: LIBRETRANSLATE_ITINERARY_TIMEOUT_MS
+      });
+      translated.push(...out);
+    }
+    const rebuilt = applyTranslatedStrings(params.itinerary, translated, { index: 0 });
+    return mergeTranslatedJson(params.itinerary, rebuilt) as RoamlyItinerary;
   } catch (error) {
+    if (error instanceof LibreTranslateError) {
+      throw new RoamlyItineraryGenerationError(error.message, error.code, error.status);
+    }
     if (error instanceof RoamlyItineraryGenerationError) throw error;
-    console.error("[Roamly AI] itinerary translation failed", error);
+    console.error("[Roamly] itinerary translation failed", error);
     throw new RoamlyItineraryGenerationError(
       "Roamly could not translate this itinerary. Please try again in a moment.",
       "AI_TRANSLATION_FAILED",

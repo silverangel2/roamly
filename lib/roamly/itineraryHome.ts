@@ -31,6 +31,7 @@
  */
 
 import { deriveDaySummary, isGenericStopText } from "@/lib/roamly/daySummary";
+import type { RoamlyLocale } from "@/lib/i18n";
 import { displayActivityDescription, displayRestTitle } from "@/lib/roamly/activityDescription";
 import {
   isGenericStayTitle,
@@ -309,13 +310,15 @@ function parseLocalDate(value: string | null | undefined): Date | null {
 export function formatHomeDayHeading(
   dayNumber: number,
   date: string | null | undefined,
-  locale = "en"
+  locale = "en",
+  dayLabel?: (dayNumber: number) => string
 ): string {
   const parsed = parseLocalDate(date);
-  if (!parsed) return `Day ${dayNumber}`;
+  const label = dayLabel ? dayLabel(dayNumber) : `Day ${dayNumber}`;
+  if (!parsed) return label;
   const weekday = new Intl.DateTimeFormat(locale, { weekday: "short" }).format(parsed);
   const monthDay = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(parsed);
-  return `Day ${dayNumber} · ${weekday}, ${monthDay}`;
+  return `${label} · ${weekday}, ${monthDay}`;
 }
 
 export function homeDayPickerLabel(date: string | null | undefined, locale = "en"): {
@@ -331,26 +334,33 @@ export function homeDayPickerLabel(date: string | null | undefined, locale = "en
 }
 
 /** "Oct 26 – Oct 30, 2026 · 5 days" — the mock photo-header meta line.
- *  Day count is inclusive, computed in UTC so no timezone can shift it. */
+ *  Day count is inclusive, computed in UTC so no timezone can shift it.
+ *  The day-count wording and the flexible fallback are parameters (not
+ *  imports): this module stays i18n-import-free because a checks script
+ *  loads it directly. Callers pass the translated labels; omitting them
+ *  keeps the English defaults, so existing checks stay byte-identical. */
 export function formatHomeDateRange(
   startDate: string | null | undefined,
   endDate: string | null | undefined,
-  locale = "en"
+  locale = "en",
+  dayCountLabel?: (count: number) => string,
+  flexibleLabel = "Dates flexible"
 ): string {
   const start = parseLocalDate(startDate);
-  if (!start) return "Dates flexible";
+  if (!start) return flexibleLabel;
   const monthDay = (date: Date) =>
     new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" }).format(date);
   const year = new Intl.DateTimeFormat(locale, { year: "numeric" }).format(start);
   const end = parseLocalDate(endDate);
-  if (!end || end.getTime() === start.getTime()) return `${monthDay(start)}, ${year} · 1 day`;
+  const oneDay = dayCountLabel ? dayCountLabel(1) : "1 day";
+  if (!end || end.getTime() === start.getTime()) return `${monthDay(start)}, ${year} · ${oneDay}`;
   const days =
     Math.round(
       (Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()) -
         Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())) /
         86_400_000
     ) + 1;
-  const count = days > 0 ? `${days} days` : "Dates flexible";
+  const count = days > 0 ? (dayCountLabel ? dayCountLabel(days) : `${days} days`) : flexibleLabel;
   return `${monthDay(start)} – ${monthDay(end)}, ${year} · ${count}`;
 }
 
@@ -594,7 +604,7 @@ export function sortHomeRowsChronologically(rows: HomeRow[]): HomeRow[] {
     .map((entry) => entry.row);
 }
 
-export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView {
+export function buildHomeDayView(day: HomeDayInput, locale = "en", dayLabel?: (dayNumber: number) => string): HomeDayView {
   const rows = sortHomeRowsChronologically(
     day.rows.map((item, index) => toHomeRow(item, index, day.rows.length))
   );
@@ -609,7 +619,7 @@ export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView 
   // (never from the stored sentence, never written back anywhere).
   // HomeRow already carries kind/time/title/unverified/planTitle,
   // i.e. exactly the derivation's input shape.
-  const derived = deriveDaySummary(rows);
+  const derived = deriveDaySummary(rows, locale as RoamlyLocale);
   const displaySummary = derived || subtitle;
   const picker = homeDayPickerLabel(day.date, locale);
   const seen = new Set<string>();
@@ -643,7 +653,7 @@ export function buildHomeDayView(day: HomeDayInput, locale = "en"): HomeDayView 
   return {
     dayNumber: day.day_number,
     date: getString(day.date) || null,
-    heading: formatHomeDayHeading(day.day_number, day.date, locale),
+    heading: formatHomeDayHeading(day.day_number, day.date, locale, dayLabel),
     pickerWeekday: picker.weekday,
     pickerMonthDay: picker.monthDay,
     subtitle,

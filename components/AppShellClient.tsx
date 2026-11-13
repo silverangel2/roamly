@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, CircleDot, CirclePlus, Compass, House, List, Search, Tag, User } from "lucide-react";
 import { I18nProvider, useI18n } from "@/components/i18n/I18nProvider";
+import type { RoamlyLocale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/i18n/LanguageSwitcher";
 import { TranslatedTextBoundary } from "@/components/i18n/TranslatedTextBoundary";
 import { RoamlyLocationTracker } from "@/components/roamly/RoamlyLocationTracker";
@@ -907,13 +908,15 @@ function AppShellContent({
 
 export function AppShellClient({
   children,
-  initialAuth
+  initialAuth,
+  initialLocale
 }: {
   children: React.ReactNode;
   initialAuth: AppShellAuthState;
+  initialLocale?: RoamlyLocale;
 }) {
   return (
-    <I18nProvider>
+    <I18nProvider initialLocale={initialLocale}>
       {/* Jakob round (2026-11-03, C4): the global toast system
           mounts around the whole shell so every surface — Delete
           Trip's Undo first — can raise one. Batch 7 (2026-11-09):

@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { hasSetupSkip, setupSkipCookieName } from "@/lib/roamly/setupSkip";
 import { formatGateEyebrow } from "@/lib/roamly/tripIdentity";
+import { translateExactText } from "@/lib/i18n";
+import { getTripItineraryLanguage } from "@/lib/roamly/itineraryTranslations";
+import { TranslateItineraryButton } from "@/components/trip/TranslateItineraryButton";
 import { LiveTripClient, type LiveCompanionBookingDetail, type LiveSimulatorPlace } from "@/components/trip/LiveTripClient";
 import { SetupGateScreen } from "@/components/roamly/TripSetupGate";
 import { OfflineTripBanner } from "@/components/roamly/OfflineTripBanner";
@@ -97,8 +100,8 @@ export default async function LiveTripPage({
     return (
       <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:px-6">
         <BuiCard className="bui-enter p-5">
-          <BuiBadge tone="warm">Setup</BuiBadge>
-          <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">Connect Supabase to use Live Trip Companion.</h1>
+          <BuiBadge tone="warm">{translateExactText(locale, "Setup")}</BuiBadge>
+          <h1 className="mt-4 text-[26px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Connect Supabase to use Live Trip Companion.")}</h1>
         </BuiCard>
       </div>
     );
@@ -217,9 +220,15 @@ export default async function LiveTripPage({
   // (the client's hero is the single header); it still reaches the
   // client as a prop for directions links at each render site below.
   const photoPlanning = getTripPlanningMetadata(bundle.data.trip.metadata);
-  const localizedFull = bundle.data.itinerary?.full_json
-    ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale }).itinerary
+  const localizedResult = bundle.data.itinerary?.full_json
+    ? getLocalizedItinerary({ metadata: bundle.data.trip.metadata, baseItinerary: bundle.data.itinerary.full_json, locale })
     : null;
+  const localizedFull = localizedResult?.itinerary ?? null;
+  // Auto-translate wiring (2026-11-12, audit §2): the Live page renders
+  // the same TranslateItineraryButton the trip page mounts, with the
+  // same displayed-language derivation, so picking a language while on
+  // Live translates the trip instead of waiting for a trip-page visit.
+  const displayedItineraryLanguage = localizedResult?.language || getTripItineraryLanguage(bundle.data.trip.metadata);
   const daysCount = getTripDaysCount(bundle.data.trip);
   const budgetCurrency = getTripBudgetCurrency(bundle.data.trip);
   const currentDay = getTripDayFromDate(bundle.data.trip.start_date, daysCount || null, tripTimezoneForMath);
@@ -498,7 +507,8 @@ export default async function LiveTripPage({
           : null,
         nowMin: nowParts.minutes,
         cachedAt: null,
-        pendingSyncActions: 0
+        pendingSyncActions: 0,
+        locale
       });
     }
   }
@@ -631,6 +641,12 @@ export default async function LiveTripPage({
   if (!fieldTestMode) {
     return (
       <div className="calm-bleed mx-auto w-full max-w-5xl px-4 py-5 sm:px-6 sm:py-8">
+        {/* Auto-translate (2026-11-12): same button as the trip page —
+            it renders nothing when the stored translation already
+            matches the picked language, and auto-fires once otherwise. */}
+        <div className="mb-4">
+          <TranslateItineraryButton tripId={id} displayedLanguage={displayedItineraryLanguage} />
+        </div>
         {/* Offline round (2026-10-27): cached-trip label. Renders
             nothing while online; offline it shows the real
             last-online-load time for this trip. */}
@@ -658,9 +674,9 @@ export default async function LiveTripPage({
         ) : null}
         {tripCompleted ? (
           <BuiCard className="bui-enter p-5">
-            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">Trip complete</p>
-            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">Live Companion is closed for this trip</h2>
-            <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.</p>
+            <p className="text-[13px] font-normal uppercase tracking-[0.05em] text-cgray">{translateExactText(locale, "Trip complete")}</p>
+            <h2 className="mt-1.5 text-[22px] font-bold tracking-[-0.018em] text-chead">{translateExactText(locale, "Live Companion is closed for this trip")}</h2>
+            <p className="mt-2 text-[15px] font-normal leading-[1.45] text-cink">{translateExactText(locale, "This historical trip remains viewable, but NOW, NEXT, check-in, skip, starting-soon, and live Maps actions are unavailable.")}</p>
           </BuiCard>
         ) : (
           <LiveTripClient

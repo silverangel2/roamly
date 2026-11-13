@@ -241,7 +241,7 @@ ok("surfaces: panel renders displaySummary; day card derives from FULL timeline 
   // uncapped list for the summary while rendering the capped one,
   // with the SAME options as the home panel (travel leg kept, so
   // the destination clause survives; stored order kept).
-  assert.match(card, /fullTimelineItems = buildDisplayTimelineItems\(day, confirmedBookings, \{ suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true \}\)/);
+  assert.match(card, /fullTimelineItems = buildDisplayTimelineItems\(day, confirmedBookings, \{ suppressFlightFraming, maxRows: null, keepTravelRows: true, keepStoredOrder: true(, locale)? \}\)/);
   // Correction phase (D2, 2026-10-28): the card now maps the full
   // items ONCE into `summaryItems` and derives the summary AND the
   // rest/wrap clocks from that same list. The old inline
@@ -251,7 +251,7 @@ ok("surfaces: panel renders displaySummary; day card derives from FULL timeline 
   // fullTimelineItems with no filtering. The assertion follows the
   // new call shape instead of the old one.
   assert.match(card, /summaryItems = fullTimelineItems\.map/);
-  assert.match(card, /deriveDaySummary\(summaryItems\)/);
+  assert.match(card, /deriveDaySummary\(summaryItems(, locale)?\)/);
   // Familiarity redesign (2026-11-09, owner rejection of the
   // batch-1 face): the rest/wrap sentence no longer renders on
   // the day card — it was one of the header paragraphs the owner

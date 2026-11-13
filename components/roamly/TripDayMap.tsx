@@ -56,6 +56,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { ROAMLY_MAP_STYLE_URL, ROAMLY_MAP_WORKER_URL } from "@/lib/roamly/mapConfig";
 import { GuardedImage } from "@/components/roamly/GuardedImage";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 export type TripDayMapStop = {
   /** Stored coordinates, or null/absent when the stop has none —
@@ -127,6 +128,7 @@ function isValidStop(stop: TripDayMapStop): boolean {
  * placeHref → no link.
  */
 function MapPlaceCard({ stop }: { stop: TripDayMapStop }) {
+  const { translateText } = useI18n();
   return (
     <div className="w-[200px] p-0.5">
       {stop.photoUrl ? (
@@ -143,7 +145,7 @@ function MapPlaceCard({ stop }: { stop: TripDayMapStop }) {
       <p className="text-[14px] font-semibold leading-snug text-chead">{stop.label}</p>
       {stop.coordinatePrecision === "area" ? (
         <p className="mt-0.5 text-[12.5px] font-semibold leading-4 text-amber-800">
-          {approximatePinNote(stop)}
+          {translateText(approximatePinNote(stop))}
         </p>
       ) : null}
       {stop.detail ? (
@@ -154,7 +156,7 @@ function MapPlaceCard({ stop }: { stop: TripDayMapStop }) {
           href={stop.placeHref}
           className="mt-1.5 inline-block min-h-11 py-1 text-[13.5px] font-semibold text-cblue"
         >
-          View place
+          {translateText("View place")}
         </a>
       ) : null}
     </div>
@@ -172,6 +174,7 @@ type MarkerHandle = {
 };
 
 export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
+  const { translateText } = useI18n();
   // Every stop keeps its strip position; only stops with valid
   // coordinates earn a pin. The strip index IS the selection key
   // shared by pins and cards, which is what keeps them in sync.
@@ -357,14 +360,14 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
   return (
     <div>
       <div className="bui-squircle overflow-hidden rounded-bui-card border border-chair bg-cbg shadow-bui-card">
-        <div ref={containerRef} className="h-[280px] w-full" aria-label="Map of this day's stops" />
+        <div ref={containerRef} className="h-[280px] w-full" aria-label={translateText("Map of this day's stops")} />
       </div>
 
       {/* A18: the day's stops, in order, under the map — the
           Google Maps / Airbnb card strip. Mappable stops select +
           centre their pin; stops without coordinates are listed
           honestly as having no pin. */}
-      <ol aria-label="Stops on this day, in order" className="flex snap-x gap-2 overflow-x-auto pb-1 pt-3">
+      <ol aria-label={translateText("Stops on this day, in order")} className="flex snap-x gap-2 overflow-x-auto pb-1 pt-3">
         {entries.map((entry) => {
           const { stop } = entry;
           const selected = entry.index === selectedIndex;
@@ -405,17 +408,17 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
                 {entry.mappable ? (
                   stop.coordinatePrecision === "area" ? (
                     <span className="mt-1 block text-[12px] font-semibold leading-4 text-amber-800">
-                      {approximatePinNote(stop)}
-                      {selected ? " · shown on the map" : ""}
+                      {translateText(approximatePinNote(stop))}
+                      {selected ? <>{" · "}{translateText("shown on the map")}</> : ""}
                     </span>
                   ) : (
                     <span className="mt-1 block text-[12px] font-medium leading-4 text-cblue">
-                      {selected ? "Shown on the map" : "Tap to see on the map"}
+                      {selected ? translateText("Shown on the map") : translateText("Tap to see on the map")}
                     </span>
                   )
                 ) : (
                   <span className="mt-1 block text-[12px] font-medium leading-4 text-cgray">
-                    {stop.noPinNote || "No map pin — no location saved for this stop"}
+                    {stop.noPinNote || translateText("No map pin — no location saved for this stop")}
                   </span>
                 )}
               </button>
@@ -424,7 +427,7 @@ export function TripDayMap({ stops }: { stops: TripDayMapStop[] }) {
                   href={stop.placeHref}
                   className="mt-1 inline-block min-h-11 py-1 text-[13px] font-semibold text-cblue"
                 >
-                  View place
+                  {translateText("View place")}
                 </a>
               ) : null}
             </li>

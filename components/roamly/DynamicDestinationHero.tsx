@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/I18nProvider";
 import Image, { type StaticImageData } from "next/image";
 import { Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -56,6 +57,7 @@ const ROTATION_MS = 8500;
 const FADE_MS = 700;
 
 export function DynamicDestinationHero() {
+  const { t, translateText } = useI18n();
   const [activeIndex, setActiveIndex] = useState(0);
   const [incomingIndex, setIncomingIndex] = useState(1);
   const [transitioning, setTransitioning] = useState(false);
@@ -140,10 +142,10 @@ export function DynamicDestinationHero() {
       <div className="mx-auto grid min-h-[calc(100svh-8rem)] w-full max-w-7xl items-center gap-9 px-5 py-8 sm:min-h-[calc(100svh-5.5rem)] sm:px-8 sm:py-12 lg:grid-cols-[0.88fr_1.12fr] lg:gap-12 lg:px-12">
         <div className="roamly-enter order-2 flex min-w-0 flex-col items-start lg:order-1">
           <h1 className="max-w-[36rem] text-[3.2rem] font-semibold leading-[0.96] tracking-[-0.055em] text-chead sm:text-6xl lg:text-[4.5rem]">
-            Go somewhere. <span className="text-cblue">Feel at home there.</span>
+            {translateText("Go somewhere.")} <span className="text-cblue">{translateText("Feel at home there.")}</span>
           </h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-cgray sm:text-lg sm:leading-8">
-            A thoughtful itinerary shaped around your pace, your budget, and the moments you want to remember.
+            {translateText("A thoughtful itinerary shaped around your pace, your budget, and the moments you want to remember.")}
           </p>
           <div className="mt-7 w-full max-w-lg rounded-[1.5rem] border border-chair bg-white/90 p-4 shadow-soft sm:p-5">
             <PlaceSelector
@@ -155,33 +157,33 @@ export function DynamicDestinationHero() {
             />
             <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="block min-w-0">
-                <span className="text-sm font-black text-chead">Start date</span>
+                <span className="text-sm font-black text-chead">{translateText("Start date")}</span>
                 <input
                   type="date"
                   value={heroStartDate}
                   onChange={(event) => setHeroStartDate(event.target.value)}
-                  aria-label="Start date"
+                  aria-label={translateText("Start date")}
                   className="mt-2 min-h-12 w-full min-w-0 rounded-xl border border-chair bg-white px-3 py-3 text-base font-semibold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
                 />
               </label>
               <label className="block min-w-0">
-                <span className="text-sm font-black text-chead">End date</span>
+                <span className="text-sm font-black text-chead">{translateText("End date")}</span>
                 <input
                   type="date"
                   value={heroEndDate}
                   min={heroStartDate || undefined}
                   onChange={(event) => setHeroEndDate(event.target.value)}
-                  aria-label="End date"
+                  aria-label={translateText("End date")}
                   className="mt-2 min-h-12 w-full min-w-0 rounded-xl border border-chair bg-white px-3 py-3 text-base font-semibold text-chead outline-none transition focus:border-cblue focus:ring-4 focus:ring-cblue/10"
                 />
               </label>
             </div>
             <div className="mt-4">
-              <span className="text-sm font-black text-chead">Travellers</span>
+              <span className="text-sm font-black text-chead">{translateText("Travellers")}</span>
               <div className="mt-2 flex min-h-12 items-center justify-between gap-2 rounded-xl border border-chair bg-white px-1.5 py-1">
                 <button
                   type="button"
-                  aria-label="Decrease travellers"
+                  aria-label={translateText("Decrease travellers")}
                   disabled={heroTravelers <= 1}
                   onClick={() => setHeroTravelers((count) => Math.max(1, count - 1))}
                   className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-cink transition hover:bg-csoft hover:text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20 disabled:opacity-40"
@@ -189,11 +191,11 @@ export function DynamicDestinationHero() {
                   <Minus aria-hidden="true" size={18} strokeWidth={2.5} />
                 </button>
                 <span aria-live="polite" className="min-w-8 text-center text-base font-bold text-chead">
-                  {heroTravelers} {heroTravelers === 1 ? "traveller" : "travellers"}
+                  {heroTravelers === 1 ? t("ui.home.hero.travellerOne", "{count} traveller", { count: heroTravelers }) : t("ui.home.hero.travellerMany", "{count} travellers", { count: heroTravelers })}
                 </span>
                 <button
                   type="button"
-                  aria-label="Increase travellers"
+                  aria-label={translateText("Increase travellers")}
                   onClick={() => setHeroTravelers((count) => count + 1)}
                   className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-lg text-cink transition hover:bg-csoft hover:text-cblue focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20"
                 >
@@ -203,9 +205,9 @@ export function DynamicDestinationHero() {
             </div>
             <div className="mt-5 flex flex-col items-start gap-2">
               <BuiButtonLink href={searchHref} className="min-h-12 rounded-full px-6 hover:-translate-y-0.5 motion-reduce:transform-none">
-                Plan a trip
+                {translateText("Plan a trip")}
               </BuiButtonLink>
-              <p className="text-sm font-medium text-cgray">{PLAN_START_NOTE}</p>
+              <p className="text-sm font-medium text-cgray">{translateText(PLAN_START_NOTE)}</p>
             </div>
           </div>
         </div>
@@ -220,7 +222,7 @@ export function DynamicDestinationHero() {
                 <p className="text-sm text-white/85">{active.country}</p>
               </div>
               <div className="mt-3 flex items-center gap-3">
-                <div className="roamly-hero-dots flex min-w-0 flex-1 gap-1.5 overflow-x-auto" role="tablist" aria-label="Destinations">
+                <div className="roamly-hero-dots flex min-w-0 flex-1 gap-1.5 overflow-x-auto" role="tablist" aria-label={translateText("Destinations")}>
                   {destinations.map((destination, index) => (
                     <button
                       key={destination.name}
@@ -238,7 +240,7 @@ export function DynamicDestinationHero() {
                 <button
                   type="button"
                   onClick={() => setRotationPaused((paused) => !paused)}
-                  aria-label={rotationPaused ? "Resume destination previews" : "Pause destination previews"}
+                  aria-label={rotationPaused ? translateText("Resume destination previews") : translateText("Pause destination previews")}
                   aria-pressed={rotationPaused}
                   className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/90 text-chead focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/40 [&_svg]:h-3 [&_svg]:w-3"
                 >

@@ -54,6 +54,7 @@ import type { RoamlySetupState } from "@/lib/roamly/setupState";
 import { setupSkipCookieAssignment } from "@/lib/roamly/setupSkip";
 import { SetupCascade } from "@/components/roamly/SetupCascade";
 import { BuiCard } from "@/components/boardui/Card";
+import { useI18n } from "@/components/i18n/I18nProvider";
 
 export function SetupGateScreen({
   initialState,
@@ -75,6 +76,7 @@ export function SetupGateScreen({
   limitedFeatures?: string[];
 }) {
   const router = useRouter();
+  const { translateText } = useI18n();
   const [setup, setSetup] = useState(initialState);
 
   const handleStateChange = useCallback(
@@ -104,7 +106,7 @@ export function SetupGateScreen({
   if (setup.complete) {
     return (
       <div className="calm-bleed calm-crossfade bui-safe-bottom mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-3xl items-center px-4 py-10 sm:px-6">
-        <p className="bui-enter text-base font-normal leading-7 text-cgray">All set — opening your trip…</p>
+        <p className="bui-enter text-base font-normal leading-7 text-cgray">{translateText("All set — opening your trip…")}</p>
       </div>
     );
   }
@@ -113,29 +115,29 @@ export function SetupGateScreen({
     <div className="calm-bleed calm-crossfade bui-safe-bottom mx-auto flex min-h-[calc(100dvh-6.5rem-env(safe-area-inset-bottom))] w-full max-w-3xl items-start px-4 pb-10 pt-5 sm:px-6">
       <section className="bui-enter w-full">
         <p className="text-xs font-semibold uppercase tracking-[0.09em] text-cgray">{eyebrow}</p>
-        <h1 className="mt-1.5 text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">Your trip is ready!</h1>
+        <h1 className="mt-1.5 text-[30px] font-bold leading-[1.08] tracking-[-0.022em] text-chead">{translateText("Your trip is ready!")}</h1>
         <p className="mt-2.5 max-w-[330px] text-base font-normal leading-[1.45] text-cink">
-          Everything is prepared. Complete a few optional steps to unlock more features.
+          {translateText("Everything is prepared. Complete a few optional steps to unlock more features.")}
         </p>
         <div className="mt-4 flex items-center rounded-2xl bg-cgreen/10 p-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-cgreen text-white" aria-hidden="true"><Check size={16} strokeWidth={3} /></span>
-          <p className="min-w-0 flex-1 px-3 text-[17px] font-semibold leading-tight text-chead">Itinerary generated and saved</p>
+          <p className="min-w-0 flex-1 px-3 text-[17px] font-semibold leading-tight text-chead">{translateText("Itinerary generated and saved")}</p>
         </div>
-        <h2 className="mb-3 mt-6 text-[19px] font-bold tracking-[-0.018em] text-chead">Optional setup (recommended)</h2>
+        <h2 className="mb-3 mt-6 text-[19px] font-bold tracking-[-0.018em] text-chead">{translateText("Optional setup (recommended)")}</h2>
         <SetupCascade initialState={setup} onStateChange={handleStateChange} variant="optional" />
         <div className="my-4 flex items-center gap-3" aria-hidden="true">
           <span className="h-px flex-1 bg-chair" />
-          <span className="text-[15px] font-normal text-cgray">OR</span>
+          <span className="text-[15px] font-normal text-cgray">{translateText("OR")}</span>
           <span className="h-px flex-1 bg-chair" />
         </div>
         <a href={skipHref} onClick={handleSkip} className="bui-press bui-touch block">
           <BuiCard interactive className="flex items-center p-4">
-            <p className="min-w-0 flex-1 text-center text-[17px] font-semibold leading-tight text-chead">Skip for now</p>
+            <p className="min-w-0 flex-1 text-center text-[17px] font-semibold leading-tight text-chead">{translateText("Skip for now")}</p>
             <ChevronRight aria-hidden="true" size={20} strokeWidth={2} className="shrink-0 text-cchev" />
           </BuiCard>
         </a>
         <p className="mt-2 text-center text-[15px] font-normal leading-[1.45] text-cgray">
-          You can still view your full itinerary with limited features.
+          {translateText("You can still view your full itinerary with limited features.")}
         </p>
       </section>
     </div>

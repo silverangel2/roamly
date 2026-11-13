@@ -7,6 +7,7 @@ import { BuiButton } from "@/components/boardui/Button";
 import { BuiNotice } from "@/components/boardui/Notice";
 import { BuiChip } from "@/components/boardui/Badge";
 import { cx } from "@/components/boardui/cx";
+import { useI18n } from "@/components/i18n/I18nProvider";
 import type { HotelProductPresentation, HotelProductPresentationOption } from "@/lib/roamly/hotelProductPresentation";
 
 type PendingChoice = {
@@ -49,21 +50,21 @@ function selectable(presentation: HotelProductPresentation, option: HotelProduct
     option.providerProductId.length > 0;
 }
 
-function readableChanges(changes: string[]) {
-  return changes.map((change) => changeLabels[change] || "A factual detail changed");
+function readableChanges(changes: string[], translateText: (text: string) => string) {
+  return changes.map((change) => translateText(changeLabels[change] || "A factual detail changed"));
 }
 
-function amount(option: HotelProductPresentationOption) {
-  if (option.price.state === "UNKNOWN") return "Price unavailable";
-  const value = option.price.amount == null ? "Price unavailable" : new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(option.price.amount);
+function amount(option: HotelProductPresentationOption, translateText: (text: string) => string) {
+  if (option.price.state === "UNKNOWN") return translateText("Price unavailable");
+  const value = option.price.amount == null ? translateText("Price unavailable") : new Intl.NumberFormat("en", { maximumFractionDigits: 2 }).format(option.price.amount);
   return option.price.currency ? `${option.price.currency} ${value}` : value;
 }
 
-function cancellationLabel(state: HotelProductPresentationOption["cancellation"]["state"]) {
-  if (state === "PROVEN_FLEXIBLE") return "Refundable terms shown";
-  if (state === "PROVEN_NON_REFUNDABLE") return "Non-refundable";
-  if (state === "PARTIAL") return "Cancellation terms partial";
-  return "Cancellation terms unavailable";
+function cancellationLabel(state: HotelProductPresentationOption["cancellation"]["state"], translateText: (text: string) => string) {
+  if (state === "PROVEN_FLEXIBLE") return translateText("Refundable terms shown");
+  if (state === "PROVEN_NON_REFUNDABLE") return translateText("Non-refundable");
+  if (state === "PARTIAL") return translateText("Cancellation terms partial");
+  return translateText("Cancellation terms unavailable");
 }
 
 function safePending(value: unknown): PendingChoice | null {
@@ -85,6 +86,7 @@ function safePending(value: unknown): PendingChoice | null {
 }
 
 export function HotelProductChoicePicker({ tripId, presentation, initialPendingChoice }: ChoicePickerProps) {
+  const { translateText } = useI18n();
   const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(initialPendingChoice);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
   const [review, setReview] = useState<{ productId: string; changes: string[] } | null>(null);
@@ -113,12 +115,12 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
       if (response.ok) {
         const next = safePending(data?.pendingChoice);
         if (!next) {
-          setNotice({ tone: "error", text: "Your selection could not be confirmed. Please try again." });
+          setNotice({ tone: "error", text: translateText("Your selection could not be confirmed. Please try again.") });
           return;
         }
         setPendingChoice(next);
         setReview(null);
-        setNotice({ tone: "notice", text: "Your preferred hotel option is selected. Availability and terms can still change." });
+        setNotice({ tone: "notice", text: translateText("Your preferred hotel option is selected. Availability and terms can still change.") });
         return;
       }
       if (data?.error === "MATERIAL_CHANGE_ACKNOWLEDGEMENT_REQUIRED" && Array.isArray(data?.materialChanges)) {
@@ -127,24 +129,24 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
           setReview({ productId, changes });
           return;
         }
-        setNotice({ tone: "error", text: "This option changed in a way we cannot safely review yet." });
+        setNotice({ tone: "error", text: translateText("This option changed in a way we cannot safely review yet.") });
         return;
       }
       if (data?.error === "PRODUCT_NO_LONGER_CURRENT") {
-        setNotice({ tone: "error", text: "This option is no longer available." });
+        setNotice({ tone: "error", text: translateText("This option is no longer available.") });
         return;
       }
       if (data?.error === "PRODUCT_REVALIDATION_FAILED") {
-        setNotice({ tone: "error", text: "We couldn't refresh this option right now. Please try again." });
+        setNotice({ tone: "error", text: translateText("We couldn't refresh this option right now. Please try again.") });
         return;
       }
       if (data?.error === "CONFIRMED_BOOKING_AUTHORITATIVE") {
-        setNotice({ tone: "notice", text: "Your confirmed hotel booking remains authoritative." });
+        setNotice({ tone: "notice", text: translateText("Your confirmed hotel booking remains authoritative.") });
         return;
       }
-      setNotice({ tone: "error", text: "We couldn't confirm this option right now. Please try again." });
+      setNotice({ tone: "error", text: translateText("We couldn't confirm this option right now. Please try again.") });
     } catch {
-      setNotice({ tone: "error", text: "We couldn't refresh this option right now. Please try again." });
+      setNotice({ tone: "error", text: translateText("We couldn't refresh this option right now. Please try again.") });
     } finally {
       mutationInFlight.current = false;
       setBusyProductId(null);
@@ -159,14 +161,14 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
     try {
       const response = await fetchWithSupabaseAuth(`/api/trips/${encodeURIComponent(tripId)}/hotel-product-choice`, { method: "DELETE" });
       if (!response.ok) {
-        setNotice({ tone: "error", text: "We couldn't clear this selection right now. Please try again." });
+        setNotice({ tone: "error", text: translateText("We couldn't clear this selection right now. Please try again.") });
         return;
       }
       setPendingChoice(null);
       setReview(null);
-      setNotice({ tone: "notice", text: "Selection cleared. Your selected hotel and trip remain unchanged." });
+      setNotice({ tone: "notice", text: translateText("Selection cleared. Your selected hotel and trip remain unchanged.") });
     } catch {
-      setNotice({ tone: "error", text: "We couldn't clear this selection right now. Please try again." });
+      setNotice({ tone: "error", text: translateText("We couldn't clear this selection right now. Please try again.") });
     } finally {
       mutationInFlight.current = false;
       setBusyProductId(null);
@@ -177,7 +179,7 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
     <div className="mt-4 grid gap-3">
       {pendingMissingFromDisplay ? (
         <p role="status" className="rounded-bui-card border border-sun/40 bg-sun/15 px-3 py-3 text-sm font-black leading-6 text-amber-900">
-          Your previous product selection is not shown in the current options. Choose another option only if you want to change it.
+          {translateText("Your previous product selection is not shown in the current options. Choose another option only if you want to change it.")}
         </p>
       ) : null}
       {notice ? (
@@ -193,44 +195,44 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
             <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
                 <h4 className="break-words text-base font-black text-ink">{option.displayName}</h4>
-                <p className="mt-1 text-sm font-black text-ink">{amount(option)}</p>
+                <p className="mt-1 text-sm font-black text-ink">{amount(option, translateText)}</p>
               </div>
-              {option.recommendation === "RECOMMENDED" && presentation.inventoryStatus === "CURRENT" ? <BuiChip tone="warm" className="shrink-0">Recommended</BuiChip> : null}
+              {option.recommendation === "RECOMMENDED" && presentation.inventoryStatus === "CURRENT" ? <BuiChip tone="warm" className="shrink-0">{translateText("Recommended")}</BuiChip> : null}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <BuiChip>{cancellationLabel(option.cancellation.state)}</BuiChip>
-              {option.identity === "UNIDENTIFIED_INFORMATIONAL" ? <BuiChip>Product identity unavailable</BuiChip> : null}
-              {option.actionability === "INFORMATIONAL_ONLY" ? <BuiChip>Informational only</BuiChip> : null}
+              <BuiChip>{cancellationLabel(option.cancellation.state, translateText)}</BuiChip>
+              {option.identity === "UNIDENTIFIED_INFORMATIONAL" ? <BuiChip>{translateText("Product identity unavailable")}</BuiChip> : null}
+              {option.actionability === "INFORMATIONAL_ONLY" ? <BuiChip>{translateText("Informational only")}</BuiChip> : null}
             </div>
-            {option.unresolvedFacts.length ? <p className="mt-2 text-xs font-bold leading-5 text-cgray">Not verified: {option.unresolvedFacts.join(" · ")}</p> : null}
+            {option.unresolvedFacts.length ? <p className="mt-2 text-xs font-bold leading-5 text-cgray">{translateText("Not verified:")}{" "}{option.unresolvedFacts.join(" · ")}</p> : null}
             <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                {isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue">Selected option</p> : null}
-                {!canChoose && !isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cgray">Comparison only</p> : null}
+                {isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cblue">{translateText("Selected option")}</p> : null}
+                {!canChoose && !isSelected ? <p className="text-xs font-black uppercase tracking-[0.12em] text-cgray">{translateText("Comparison only")}</p> : null}
               </div>
               {isSelected ? (
                 <BuiButton variant="secondary" onClick={() => void clearSelection()} disabled={Boolean(busyProductId)} busy={busyProductId === "clear"}>
-                  {busyProductId === "clear" ? "Clearing…" : "Clear selection"}
+                  {busyProductId === "clear" ? translateText("Clearing…") : translateText("Clear selection")}
                 </BuiButton>
               ) : canChoose && productId ? (
                 <BuiButton onClick={() => void choose(productId)} disabled={Boolean(busyProductId)} busy={busy} aria-label={`Choose this hotel option: ${option.displayName}`}>
-                  {busy ? "Refreshing this option…" : "Choose this option"}
+                  {busy ? translateText("Refreshing this option…") : translateText("Choose this option")}
                 </BuiButton>
               ) : null}
             </div>
             {review?.productId === productId ? (
-              <div className="mt-3 rounded-bui-card border border-sun/40 bg-sun/15 p-3" role="alertdialog" aria-label="Review changed hotel option details">
-                <p className="text-sm font-black text-amber-950">A few factual details changed. Review them before choosing this option.</p>
+              <div className="mt-3 rounded-bui-card border border-sun/40 bg-sun/15 p-3" role="alertdialog" aria-label={translateText("Review changed hotel option details")}>
+                <p className="text-sm font-black text-amber-950">{translateText("A few factual details changed. Review them before choosing this option.")}</p>
                 <ul className="mt-2 grid gap-1 text-sm font-bold text-amber-900">
-                  {readableChanges(review.changes).map((change) => <li key={change}>• {change}</li>)}
+                  {readableChanges(review.changes, translateText).map((change) => <li key={change}>• {change}</li>)}
                 </ul>
-                <p className="mt-2 text-xs font-bold leading-5 text-amber-900">This still does not book or reserve the room.</p>
+                <p className="mt-2 text-xs font-bold leading-5 text-amber-900">{translateText("This still does not book or reserve the room.")}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <BuiButton onClick={() => void choose(productId, review.changes)} disabled={Boolean(busyProductId)} busy={busy}>
-                    {busy ? "Refreshing this option…" : "Accept changes and choose"}
+                    {busy ? translateText("Refreshing this option…") : translateText("Accept changes and choose")}
                   </BuiButton>
                   <BuiButton variant="secondary" onClick={() => setReview(null)} disabled={Boolean(busyProductId)}>
-                    Cancel
+                    {translateText("Cancel")}
                   </BuiButton>
                 </div>
               </div>
@@ -238,7 +240,7 @@ export function HotelProductChoicePicker({ tripId, presentation, initialPendingC
           </BuiCard>
         );
       })}
-      <p className="text-xs font-bold leading-5 text-cgray">Choosing an option records your preference for this hotel product. It does not guarantee availability, pricing, or booking terms.</p>
+      <p className="text-xs font-bold leading-5 text-cgray">{translateText("Choosing an option records your preference for this hotel product. It does not guarantee availability, pricing, or booking terms.")}</p>
     </div>
   );
 }

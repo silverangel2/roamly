@@ -22,6 +22,8 @@
  *   the same companion across trips.
  */
 
+import { translateExactText, translateKey, type RoamlyLocale } from "@/lib/i18n";
+
 export type BookingWalletState = {
   /** Subtitle shown on the Booking Wallet row. */
   label: string;
@@ -88,9 +90,11 @@ export function travelerPartySize(trips: AccountTripParty[]): number {
   return party;
 }
 
-export function travelerSubtitle(partySize: number, queryError: boolean): string {
-  if (queryError) return "Traveler info unavailable";
-  return `You • ${partySize} traveler${partySize === 1 ? "" : "s"}`;
+export function travelerSubtitle(partySize: number, queryError: boolean, locale: RoamlyLocale = "en"): string {
+  if (queryError) return translateExactText(locale, "Traveler info unavailable");
+  return partySize === 1
+    ? translateKey(locale, "ui.account.travelerYouOne", "You • 1 traveler")
+    : translateKey(locale, "ui.account.travelerYouMany", "You • {count} travelers", { count: partySize });
 }
 
 export type AccountPlanCard = {
