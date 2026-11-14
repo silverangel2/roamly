@@ -1777,8 +1777,13 @@ async function persistItinerary(params: {
   state: StagedGenerationState;
   final: boolean;
   requestId?: string;
+  // The validated itinerary from runStagedFinalValidation. When supplied,
+  // what is stored is exactly what passed validation; when omitted (day-batch
+  // partial saves, where no validated copy exists yet) the itinerary is
+  // re-assembled from state as before.
+  itinerary?: RoamlyItinerary;
 }) {
-  const itinerary = assembleItinerary(params.state);
+  const itinerary = params.itinerary ?? assembleItinerary(params.state);
   const sync = await syncGeneratedItinerary(params.supabase, {
     tripId: params.trip.id,
     userId: params.trip.user_id,
@@ -2236,7 +2241,7 @@ async function completeGeneration(params: {
   }
   if (!validation.ok) {
     const failed = finalValidationFailureState(state, validation.errors, validationAttemptCount);
-    await persistItinerary({ supabase: params.supabase, trip: params.trip, state: failed, final: false, requestId: params.requestId });
+    await persistItinerary({ supabase: params.supabase, trip: params.trip, state: failed, final: false, requestId: params.requestId, itinerary });
     await persistState({ supabase: params.supabase, trip: params.trip, state: failed });
     logGenerationDiagnostic("staged_generation_final_validation_failed", {
       requestId: params.requestId,
@@ -2266,7 +2271,7 @@ async function completeGeneration(params: {
     lastError: null,
     lastErrorCode: null
   });
-  await persistItinerary({ supabase: params.supabase, trip: params.trip, state: completed, final: true, requestId: params.requestId });
+  await persistItinerary({ supabase: params.supabase, trip: params.trip, state: completed, final: true, requestId: params.requestId, itinerary });
 
   // ── Roamly bot round: Concierge personalization + library hooks ─────────
   // Fail-soft by design: everything below is advisory — any throw leaves the

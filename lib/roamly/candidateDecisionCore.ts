@@ -8,6 +8,7 @@ import type {
   TripPlannerPayload
 } from "@/lib/trip-planner";
 import { hotelPersonalizationScore, type TravelerPersonalizationContext } from "@/lib/roamly/travelerPersonalization";
+import { isTimelineAdmissibleCandidate } from "@/lib/roamly/timelineGrounding";
 
 export type CandidateCategory = "flight" | "hotel" | "activity";
 export type CandidateFactualStatus = "verified" | "search_ready" | "estimated" | "unknown";
@@ -535,7 +536,22 @@ export function buildGroundedDecisionCore(input: { payload: TripPlannerPayload; 
   const selected = eligible.filter((candidate) => [recs.flight.recommendedCandidateId, recs.hotel.recommendedCandidateId, ...requirements.map((request) => eligible.find((item) => item.category === "activity" && satisfiesActivityRequest(item as ActivityCandidate, request))?.candidateId)].includes(candidate.candidateId));
   const confirmedTypes = new Set((input.confirmedBookings || []).map((booking) => booking.booking_type || ""));
   const selectedFlightCandidateId = confirmedTypes.has("flight") ? null : recs.flight.recommendedCandidateId;
-  const selectedHotelCandidateId = confirmedTypes.has("hotel") ? null : recs.hotel.recommendedCandidateId;
+  // A search query ("<city> hotel search") is a link to go and search, never
+  // a place the traveller stays. It may stay the best available RECOMMENDATION
+  // (the budget ledger keeps its unknown-amount line, so the budget stays
+  // honestly uncertain), but it is never the trip's SELECTED hotel: selecting
+  // it makes enforceSelectedHotelIdentity retitle every hotel timeline item
+  // to the search query, and final validation then fails the trip (KF-1).
+  const recommendedHotel = eligible.find(
+    (candidate): candidate is HotelCandidate =>
+      candidate.category === "hotel" && candidate.candidateId === recs.hotel.recommendedCandidateId
+  );
+  const selectedHotelCandidateId =
+    confirmedTypes.has("hotel") ||
+    !recommendedHotel ||
+    !isTimelineAdmissibleCandidate({ title: recommendedHotel.name }, input.payload.destination || input.payload.destinationCity)
+      ? null
+      : recs.hotel.recommendedCandidateId;
   return {
     constraints,
     candidates: normalized,
@@ -559,7 +575,12 @@ export function optimizeGroundedDecision(input: {
 }) {
   const decision = { ...input.decision, tradeoffOptions: [...input.decision.tradeoffOptions] };
   const byId = new Map(decision.candidates.map((candidate) => [candidate.candidateId, candidate]));
-  const currentIds = () => [decision.selectedFlightCandidateId, decision.selectedHotelCandidateId, ...decision.selectedActivityCandidateIds].filter((id): id is string => Boolean(id));
+  // The rebuild must account for the same candidates the decision's own ledger
+  // does: recommendations, not just selections. A search-query hotel is never
+  // SELECTED, but it stays the best available RECOMMENDATION — and the decision's
+  // ledger counts its price. Dropping it here would let an over-budget decision
+  // report WITHIN_BUDGET.
+  const currentIds = () => [decision.selectedFlightCandidateId, decision.selectedHotelCandidateId ?? decision.recommendations.hotel.recommendedCandidateId, ...decision.selectedActivityCandidateIds].filter((id): id is string => Boolean(id));
   const rebuild = () => budgetLedger({
     payload: input.payload,
     selected: currentIds().map((id) => byId.get(id)).filter((candidate): candidate is GroundedCandidate => Boolean(candidate)),
@@ -569,7 +590,7 @@ export function optimizeGroundedDecision(input: {
   let ledger = rebuild();
   for (const category of ["flight", "hotel"] as const) {
     if (ledger.status !== "OVER_BUDGET") break;
-    const currentId = category === "flight" ? decision.selectedFlightCandidateId : decision.selectedHotelCandidateId;
+    const currentId = category === "flight" ? decision.selectedFlightCandidateId : decision.selectedHotelCandidateId ?? decision.recommendations.hotel.recommendedCandidateId;
     const current = currentId ? byId.get(currentId) : null;
     const currentAmount = current ? candidateAmount(current) : null;
     const alternatives = decision.candidates.filter((candidate) => candidate.category === category && candidate.candidateId !== currentId && candidateAmount(candidate) !== null && (currentAmount === null || candidateAmount(candidate)! < currentAmount));
