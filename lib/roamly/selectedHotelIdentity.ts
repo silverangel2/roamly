@@ -1,4 +1,5 @@
 import type { RoamlyBookingSuggestion, RoamlyItinerary } from "@/lib/itinerary";
+import { isTimelineAdmissibleCandidate } from "@/lib/roamly/timelineGrounding";
 
 type SelectedHotelState = {
   confirmedBookings?: Array<{ booking_type?: string | null; booking_status?: string | null }> | null;
@@ -72,6 +73,10 @@ export function enforceSelectedHotelIdentity(itinerary: RoamlyItinerary, state: 
   const candidateId = text(candidate?.candidateId);
   const name = text(candidate?.name);
   if (!candidate || !candidateId || !name) return sanitized;
+  // A search query is never a hotel, even if a stale decision selected it:
+  // stamping it onto the timeline fails final validation (KF-1). Leave the
+  // engine's hotel items alone instead.
+  if (!isTimelineAdmissibleCandidate({ title: name })) return sanitized;
   const source = text(candidate.source);
   const propertyId = text(candidate.providerPropertyId) || null;
   const status = factualStatus(candidate.factualStatus);
