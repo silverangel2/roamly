@@ -641,7 +641,12 @@ function arrivalTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[] {
       estimated_cost: null,
       category: "Hotel",
       map_query: `${destination} hotel check in`,
-      item_type: "hotel",
+      // §6 follow-up (2026-11-13): an operational check-in action, NOT a stay.
+      // Typed "hotel" it was an ungrounded hotel item (no candidateId, no
+      // factualStatus) that final validation rejects — the repair added an item
+      // the validator then failed. Its siblings here are reminders/transfers;
+      // the stay itself is the engine's grounded hotel slot, not this action.
+      item_type: "reminder",
       routing_status: "UNCERTAIN",
       uncertainty: ["Check-in availability and recovery time are flexible." ]
     }
@@ -662,7 +667,14 @@ function departureTravelItems(payload: TripPlannerPayload): RoamlyActivitySeed[]
       estimated_cost: null,
       category: "Hotel",
       map_query: `${destination} hotel checkout`,
-      item_type: "hotel",
+      // §6 follow-up (2026-11-13): an operational checkout action, NOT a stay.
+      // Typed "hotel" it was an ungrounded hotel item (no candidateId, no
+      // factualStatus) that final validation rejects — the repair added an item
+      // the validator then failed (KL: 9 errors -> 1, the single remaining
+      // error). Grounding it with the anchor's candidateId would be false
+      // provenance (this action is not the property) and enforce would retitle
+      // it into the anchor name; its siblings here are reminders/transfers.
+      item_type: "reminder",
       routing_status: "UNCERTAIN",
       uncertainty: ["Checkout and luggage timing are not confirmed."]
     },

@@ -802,6 +802,20 @@ function enrichTimelineItems(itinerary: RoamlyItinerary, payload: TripPlannerPay
           booking: undefined
         };
       }
+      // Transport CTAs must route through Klook (validator: providerMatchesCategory).
+      // When no bookable affiliate is configured the resolver degrades to a Google
+      // Maps directions link (P1-5) — legal on the suggestions surface, but a booking
+      // the validator rejects on a timeline item ("Day N CTA Open route uses the
+      // wrong provider"). A transport item with no Klook link carries no CTA, exactly
+      // like an unconfigured flight item — the item text stays, only the button goes.
+      if (category === "transport" && resolved.provider === "google_maps") {
+        return {
+          ...item,
+          affiliate_category: category as typeof item.affiliate_category,
+          booking_label: undefined,
+          booking: undefined
+        };
+      }
       return {
         ...item,
         affiliate_category: category === "activity" || category === "ticket" ? "attraction" : category === "esim" || category === "product" ? category : (category as typeof item.affiliate_category),
