@@ -335,13 +335,71 @@ export type SophieSitrep = {
   degraded: string[];
 };
 
+/**
+ * Same operation, in the watch's ledger_health sense: same role,
+ * subsystem and objective, and the same authority level / source when
+ * both rows carry them. The door reads full ledger rows, so no
+ * truncation guard is needed here.
+ */
+function sameOperation(a: OperationsJobRow, b: OperationsJobRow): boolean {
+  const role = String(a.role ?? "").trim();
+  const subsystem = String(a.subsystem ?? "").trim();
+  const objective = String(a.objective ?? "").trim();
+  if (
+    !role ||
+    !subsystem ||
+    !objective ||
+    role !== String(b.role ?? "").trim() ||
+    subsystem !== String(b.subsystem ?? "").trim() ||
+    objective !== String(b.objective ?? "").trim()
+  ) {
+    return false;
+  }
+  const aAuth = String(a.authority_level ?? "").trim();
+  const bAuth = String(b.authority_level ?? "").trim();
+  if (aAuth && bAuth && aAuth !== bAuth) return false;
+  const aSource = jobSource(a);
+  const bSource = jobSource(b);
+  if (aSource && bSource && aSource !== bSource) return false;
+  return true;
+}
+
+/**
+ * A FAILED row is superseded when a later COMPLETED row ran the same
+ * operation. The failed run stays in the ledger — it just stops being
+ * reported as a live failure.
+ */
+function isSupersededFailure(
+  row: OperationsJobRow,
+  rows: OperationsJobRow[]
+): boolean {
+  const failedAt = Date.parse(String(row.created_at ?? ""));
+  if (Number.isNaN(failedAt)) return false;
+  return rows.some((other) => {
+    if (String(other.id ?? "") === String(row.id ?? "")) return false;
+    if (String(other.status ?? "").toUpperCase() !== "COMPLETED") return false;
+    const completedAt = Date.parse(String(other.created_at ?? ""));
+    if (Number.isNaN(completedAt) || completedAt <= failedAt) return false;
+    return sameOperation(row, other);
+  });
+}
+
 function summarizeJobs(rows: OperationsJobRow[]) {
+  // A failure already superseded by a later successful run of the same
+  // operation is history, not a live failure: the row stays in the
+  // ledger, but it leaves the counts and the failures list. Bots and
+  // recent jobs keep the full history.
+  const liveRows = rows.filter(
+    (row) =>
+      String(row.status ?? "").toUpperCase() !== "FAILED" ||
+      !isSupersededFailure(row, rows)
+  );
   const counts: Record<string, number> = {};
-  for (const row of rows) {
+  for (const row of liveRows) {
     const status = String(row.status ?? "unknown");
     counts[status] = (counts[status] || 0) + 1;
   }
-  const failures = rows
+  const failures = liveRows
     .filter((row) => String(row.status ?? "").toUpperCase() === "FAILED")
     .slice(0, 5)
     .map((row) => ({
