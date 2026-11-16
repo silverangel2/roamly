@@ -14,6 +14,9 @@ export const metadata: Metadata = {
   applicationName: "Roamly",
   manifest: "/manifest.json",
   metadataBase: new URL("https://roamlyhq.com"),
+  other: {
+    "msvalidate.01": "65C68FD3102BE8C91B28F6ADF6892478",
+  },
   icons: {
     icon: [
       { url: "/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
