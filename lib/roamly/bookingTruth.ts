@@ -446,6 +446,26 @@ export function bookingTruthState(booking: BookingLike): BookingTruthState {
 }
 
 /**
+ * Attention predicate — the ONE rule a briefing's "attention" list (and
+ * any other needs-action surface) filters on: the truth state is
+ * "cancelled", "needs_confirmation", or "email_unverified".
+ *
+ * Why a truth predicate, not a status list: the stored canonical
+ * status ("unknown") and the input vocabulary ("needs_confirmation")
+ * name the same unverified state in different places, and a literal
+ * list silently drops one of them — live-proof finding 1 (2026-11-16):
+ * Gmail-attached bookings, stored "unknown", never reached briefing
+ * attention. An active-looking status that failed the confirmed
+ * predicate is needs-confirmation too (bookingTruthState step 9), so it
+ * is attention here as well. Test, discarded, superseded, refunded,
+ * confirmed, traveler-confirmed, and planned rows never need attention.
+ */
+export function bookingNeedsTravelerAttention(booking: BookingLike): boolean {
+  const state = bookingTruthState(booking);
+  return state === "cancelled" || state === "needs_confirmation" || state === "email_unverified";
+}
+
+/**
  * The provenance class of a booking's recorded origin (Round 3,
  * Lane T) — WHERE the confirmation evidence came from:
  *  - "email": an email source (email/gmail/outlook), email_import /

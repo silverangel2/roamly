@@ -264,6 +264,7 @@ const authStub = {
 const discardRoute = loadModule("app/api/trips/[id]/bookings/email-imports/discard/route.ts", {
   "next/server": nextServerStub,
   "@/lib/roamly/auth": authStub,
+  "@/lib/supabase/admin": { createSupabaseAdminClient: () => activeSupabase },
   "@/lib/roamly/bookingEmailTombstone": tombstoneModule,
   "@/lib/roamly/bookingNotificationWithdrawal": withdrawalModule,
   "@/lib/roamly/itineraryBookingOverrides": {
@@ -282,6 +283,7 @@ const importsRoute = loadModule("app/api/trips/[id]/bookings/email-imports/route
 const attachRoute = loadModule("app/api/trips/[id]/bookings/email-imports/attach/route.ts", {
   "next/server": nextServerStub,
   "@/lib/roamly/auth": authStub,
+  "@/lib/supabase/admin": { createSupabaseAdminClient: () => activeSupabase },
   "@/lib/roamly/bookingWallet": { createTripBooking: fakeCreateTripBooking },
   "@/lib/roamly/extractionCredibility": credibilityModule,
   "@/lib/roamly/bookingEmailTombstone": tombstoneModule,
@@ -525,5 +527,24 @@ const syncE = await extractionModule.extractAndMatchTravelEmailBooking(emailPara
 check("(e) new message id about the same stay is NOT suppressed", syncE.status !== "suppressed");
 check("(e) new message id produced its own extraction row", Boolean(extractionByRef(`email:gmail:${MSG_E}`)));
 eq("(e) the original tombstone still stands untouched", db.booking_email_suppressions.filter((r) => r.source_reference === REF_A).length, 1);
+
+// ===========================================================================
+// Live-proof finding 2 (2026-11-16): the extraction-row transitions
+// must run on the service-role client — booking_extraction_results has
+// NO user UPDATE policy, so a user-session UPDATE silently affects 0
+// rows — and must verify the row actually landed, so a silent no-op is
+// a loud 500, never ok:true. (The runtime proof is case (a) above:
+// the row transitions to "rejected" through the admin client.)
+// ===========================================================================
+{
+  const discardSource = fs.readFileSync("app/api/trips/[id]/bookings/email-imports/discard/route.ts", "utf8");
+  check("discard transition uses the admin client", discardSource.includes("createSupabaseAdminClient()"));
+  check("discard transition verifies exactly one row landed", discardSource.includes("transitioned.length !== 1"));
+  check("discard transition requires match_status rejected", discardSource.includes('!== "rejected"'));
+  const attachSource = fs.readFileSync("app/api/trips/[id]/bookings/email-imports/attach/route.ts", "utf8");
+  check("attach mark uses the admin client", attachSource.includes("createSupabaseAdminClient()"));
+  check("attach mark verifies exactly one row landed", attachSource.includes("transitioned.length !== 1"));
+  check("attach mark requires match_status attached", attachSource.includes('!== "attached"'));
+}
 
 console.log(`\n${passed} recon-tombstone checks passed`);

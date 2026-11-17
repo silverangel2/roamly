@@ -272,6 +272,7 @@ const authStub = {
 const discardRoute = loadModule("app/api/trips/[id]/bookings/email-imports/discard/route.ts", {
   "next/server": nextServerStub,
   "@/lib/roamly/auth": authStub,
+  "@/lib/supabase/admin": { createSupabaseAdminClient: () => activeSupabase },
   "@/lib/roamly/bookingEmailTombstone": tombstoneModule,
   "@/lib/roamly/bookingNotificationWithdrawal": withdrawalModule,
   "@/lib/roamly/itineraryBookingOverrides": {
@@ -290,6 +291,7 @@ const importsRoute = loadModule("app/api/trips/[id]/bookings/email-imports/route
 const attachRoute = loadModule("app/api/trips/[id]/bookings/email-imports/attach/route.ts", {
   "next/server": nextServerStub,
   "@/lib/roamly/auth": authStub,
+  "@/lib/supabase/admin": { createSupabaseAdminClient: () => activeSupabase },
   "@/lib/roamly/bookingWallet": { createTripBooking: fakeCreateTripBooking },
   "@/lib/roamly/extractionCredibility": credibilityModule,
   "@/lib/roamly/bookingEmailTombstone": tombstoneModule,

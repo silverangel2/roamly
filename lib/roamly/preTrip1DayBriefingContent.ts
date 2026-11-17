@@ -1,6 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
-import { briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
+import { briefingBookingNeedsAttention, briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
 import type { PreTripRequirementSummary } from "./preTripRequirements";
 
 export type PreTrip1DayBooking = {
@@ -108,7 +108,7 @@ export function buildPreTrip1DayBriefingContent(input: PreTrip1DayContentInput) 
   const transport = confirmed.filter(isTransport).slice(0, 2).map((booking) => bookingLabel(booking, input.timezone, locale));
   const stay = confirmed.filter(isStay).slice(0, 1).map((booking) => bookingLabel(booking, input.timezone, locale));
   const attention = input.bookings
-    .filter((booking) => ["cancelled", "needs_confirmation", "detected"].includes(clean(booking.booking_status)))
+    .filter(briefingBookingNeedsAttention)
     .slice(0, 2)
     .map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);

@@ -34,7 +34,11 @@ const content = buildPreTrip1DayBriefingContent({
   bookings: [
     { id: "flight-1", booking_type: "flight", booking_status: "confirmed", title: "Air Canada", start_at: "2026-10-15T13:00:00.000Z", origin: "YUL", destination: "NRT", traveler_confirmed: true },
     { id: "hotel-1", booking_type: "hotel", booking_status: "booked", title: "Shinjuku stay", check_in_at: "2026-10-15T15:00:00.000Z", traveler_confirmed: true },
-    { id: "cancelled-1", booking_type: "activity", booking_status: "cancelled", title: "Cancelled museum", traveler_confirmed: true }
+    { id: "cancelled-1", booking_type: "activity", booking_status: "cancelled", title: "Cancelled museum", traveler_confirmed: true },
+    // Live-proof finding 1 (2026-11-16): a Gmail-attached booking is
+    // stored "unknown" (the DB CHECK forbids "needs_confirmation") and
+    // must still reach the attention list via the truth predicate.
+    { id: "hotel-gmail-1", booking_type: "hotel", booking_status: "unknown", title: "Victoria hotel", provider_name: "Booking.com", confirmation_number: "HFX8842", source_type: "gmail", check_in_at: "2026-10-15T15:00:00.000Z", traveler_confirmed: false }
   ],
   firstActivity: { id: "activity-1", title: "Tsukiji walk", scheduled_start: "2026-10-15T23:00:00.000Z", address: "Tsukiji", status: "planned" },
   gmailStatus: "connected",
@@ -48,6 +52,9 @@ assert.match(content.body, /YUL to NRT/);
 assert.match(content.body, /Stay: Shinjuku stay/);
 assert.match(content.body, /First up: Tsukiji walk/);
 assert.match(content.body, /Cancelled museum needs attention/);
+assert.match(content.body, /Victoria hotel needs attention/);
+assert.doesNotMatch(content.body, /Air Canada needs attention/);
+assert.doesNotMatch(content.body, /Shinjuku stay needs attention/);
 assert.match(content.body, /rail pass/);
 assert.match(content.body, /Booking email monitoring is connected/);
 assert.match(content.body, /Live Companion is included/);

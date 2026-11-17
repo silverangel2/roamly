@@ -1,6 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
-import { briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
+import { briefingBookingNeedsAttention, briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
 
 export type DailyTripBooking = {
   id: string;
@@ -168,7 +168,7 @@ export function buildDailyTripBriefingContent(input: {
   const stay = confirmedBookings.filter((booking) => ["hotel", "accommodation", "lodging", "stay"].includes(clean(booking.booking_type))).slice(0, 1).map((booking) => bookingLabel(booking, input.timezone, locale));
   const firstLabel = first ? [clean(first.title) || msg(locale, "todayPlan"), labelTime(first.scheduled_start, input.timezone, locale), clean(first.address)].filter(Boolean).join(" · ") : "";
   const mustDo = clean(input.mustDo);
-  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
+  const attention = input.bookings.filter(briefingBookingNeedsAttention).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
   const body = [
     msg(locale, upcomingActivities.length || confirmedBookings.length ? "todayBusy" : "todayOpen", { destination }),

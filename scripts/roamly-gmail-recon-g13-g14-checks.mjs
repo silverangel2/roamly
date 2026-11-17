@@ -334,6 +334,24 @@ check("G13: quarantine writes the existing travel table on the existing key", co
 check("G13: quarantine uses the existing error result value", connections.includes('processing_result: "error"'));
 check("G13: loop quarantines a retryable message instead of stalling", connections.includes("quarantineGmailTravelMessage"));
 check("G13: sync still returns a retry when the quarantine write itself fails", connections.includes("else retryable = true;"));
+// Live-proof finding 3 (2026-11-16): the funnel used to swallow the
+// underlying error twice (the extraction catch discarded the throw;
+// the return carried no error at all), so every failure quarantined
+// as generic GMAIL_MESSAGE_PROCESSING_FAILED. The specific code must
+// survive to the quarantine record.
+check(
+  "G13: extraction throw keeps its specific code",
+  connections.includes("thrown instanceof Error && thrown.message") &&
+    connections.includes('"GMAIL_BOOKING_EXTRACTION_FAILED"')
+);
+check(
+  "G13: extraction failure returns its error code to the caller",
+  connections.includes("return { ...saved, retryable: Boolean(extraction?.error), error: extraction?.error || null };")
+);
+check(
+  "G13: processing catch keeps the thrown message for the quarantine",
+  connections.includes('error: message || "GMAIL_MESSAGE_PROCESSING_FAILED"')
+);
 
 const gate = read("lib/roamly/gateService.ts");
 check("gate view excludes disconnected rows", gate.includes('.neq("connection_status", "disconnected")'));
