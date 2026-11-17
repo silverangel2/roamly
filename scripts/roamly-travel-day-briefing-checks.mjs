@@ -46,7 +46,12 @@ const content = buildTravelDayBriefingContent({
   endDate: "2026-10-22",
   timezone: "Asia/Tokyo",
   tripStart,
-  bookings,
+  bookings: [
+    ...bookings,
+    // Live-proof finding 1 (2026-11-16): a Gmail-attached booking stored
+    // "unknown" must reach the attention list via the truth predicate.
+    { id: "hotel-gmail", booking_type: "hotel", booking_status: "unknown", title: "Victoria hotel", provider_name: "Booking.com", confirmation_number: "HFX8842", source_type: "gmail", check_in_at: "2026-10-15T08:00:00.000Z", traveler_confirmed: false }
+  ],
   firstActivity: { id: "museum", title: "Museum", scheduled_start: "2026-10-15T04:00:00.000Z", status: "planned" },
   gmailStatus: null,
   liveCompanionIncluded: true,
@@ -56,6 +61,9 @@ const content = buildTravelDayBriefingContent({
 assert.equal(content.subject, "Tokyo starts today");
 assert.match(content.body, /Booked transport: Air Canada/);
 assert.match(content.body, /Stay: Shinjuku stay/);
+assert.match(content.body, /Victoria hotel needs attention/);
+assert.doesNotMatch(content.body, /Air Canada needs attention/);
+assert.doesNotMatch(content.body, /Shinjuku stay needs attention/);
 assert.match(content.body, /First up: Museum/);
 assert.match(content.body, /Traveler note: Pick up the rail pass/);
 assert.match(content.body, /Live Companion is available/);

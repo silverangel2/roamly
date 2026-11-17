@@ -647,8 +647,24 @@ async function recordGmailTravelMessage(params: {
       metadata: enrichedMetadata,
       filter: saved.filter,
       emailMessageId: saved.messageRecordId
-    }).catch(() => ({ error: "GMAIL_BOOKING_EXTRACTION_FAILED" }));
-    return { ...saved, retryable: Boolean(extraction?.error) };
+    }).catch((thrown: unknown) => ({
+      // Live-proof finding 3 (2026-11-16): the thrown error used to be
+      // discarded here and the return carried no error at all, so
+      // every extraction failure quarantined as generic
+      // GMAIL_MESSAGE_PROCESSING_FAILED and the throw site stayed
+      // unidentified. Preserve the specific code: a thrown Error
+      // carries its code in the message (persistExtraction throws
+      // GMAIL_BOOKING_EXTRACTION_PERSIST_FAILED, and friends); anything
+      // else falls back to the generic extraction code.
+      error:
+        thrown instanceof Error && thrown.message
+          ? thrown.message
+          : "GMAIL_BOOKING_EXTRACTION_FAILED"
+    }));
+    // The error code rides out to the quarantine record
+    // (filter_reasons) via processGmailMessageIds — a failure that
+    // cannot name itself cannot be fixed.
+    return { ...saved, retryable: Boolean(extraction?.error), error: extraction?.error || null };
   }
   return { ...saved, retryable: saved.filter.shouldProcess && !saved.saved };
 }
@@ -1123,7 +1139,20 @@ async function processGmailMessageIds(params: {
       connection: params.connection,
       accessToken: params.accessToken,
       messageId
-    }).catch(() => ({ retryable: true as const, error: "GMAIL_MESSAGE_PROCESSING_FAILED" }));
+    }).catch((thrown: unknown) => {
+      // Live-proof finding 3 (2026-11-16): the thrown error used to be
+      // discarded here, so a failure inside recordGmailTravelMessage
+      // quarantined as generic GMAIL_MESSAGE_PROCESSING_FAILED. Keep
+      // the specific message — ids only, never email content — and let
+      // it name the quarantine record below.
+      const message = thrown instanceof Error && thrown.message ? thrown.message : "";
+      console.error("Roamly Gmail message processing failed", {
+        connectionId: params.connection.id,
+        messageId,
+        error: message || "GMAIL_MESSAGE_PROCESSING_FAILED"
+      });
+      return { retryable: true as const, error: message || "GMAIL_MESSAGE_PROCESSING_FAILED" };
+    });
     if (!processed.retryable) continue;
     const errorCode = (processed as { error?: string }).error || "GMAIL_MESSAGE_PROCESSING_FAILED";
     const wasQuarantined = await quarantineGmailTravelMessage({

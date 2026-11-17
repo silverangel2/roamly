@@ -1416,7 +1416,27 @@ async function findMatchingCanonicalBooking(params: {
 
   if (title && startAt) {
     const matched = scopedResult(await scopedIdentifierMatch("title", title, [["start_at", startAt]]));
-    if (matched) return matched;
+    if (matched) {
+      // Live-proof finding 4 (2026-11-16): a title+date match is a
+      // WEAK identity — the same hotel + dates can be a different
+      // person's booking with a different confirmation code. When
+      // BOTH rows carry a code and they differ, this is NOT the same
+      // reservation: refuse the match so the caller inserts a new row
+      // instead of letting the revision overwrite the existing
+      // booking's confirmation code. Either side code-less keeps the
+      // old behaviour (legitimate code-less revisions still match).
+      if (matched.booking && !matched.ambiguous) {
+        const existingCode = textValue(matched.booking.confirmation_number);
+        if (
+          confirmationNumber &&
+          existingCode &&
+          confirmationNumber.toLowerCase() !== existingCode.toLowerCase()
+        ) {
+          return { booking: null, error: null };
+        }
+      }
+      return matched;
+    }
   }
 
   return {

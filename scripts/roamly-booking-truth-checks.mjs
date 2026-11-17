@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   bookingDisplayLabel,
+  bookingNeedsTravelerAttention,
   bookingTruthState,
   evidenceGrade,
   hasCredibleProviderEvidence,
@@ -25,6 +26,7 @@ import {
   isTravelerConfirmedOnly,
   titleForTruth
 } from "../lib/roamly/bookingTruth.ts";
+import { briefingBookingNeedsAttention } from "../lib/roamly/briefingBookingTruth.mjs";
 import { isConfirmedBooking } from "../lib/roamly/bookingWallet.ts";
 import { applyConfirmedBookingOverrideToItinerary } from "../lib/roamly/itineraryBookingOverrides.ts";
 import { buildPlaceDetail } from "../lib/roamly/placeDetail.ts";
@@ -281,6 +283,61 @@ function placeFor(bookings) {
     "auto-apply downgrades confirmed/missing status to needs_confirmation",
     autoApply.includes('? "needs_confirmation"') && autoApply.includes('extraction.booking.bookingStatus === "confirmed"')
   );
+}
+
+// ---- Attention predicate (live-proof finding 1, 2026-11-16) ----
+// The briefing attention list filters on the ONE truth state, never on
+// a literal status list: a Gmail-attached booking is stored "unknown"
+// (the DB CHECK forbids "needs_confirmation") and a literal list drops
+// it. The mirror predicate in briefingBookingTruth.mjs must agree with
+// the canonical one on every fixture below (lockstep).
+{
+  const attached = {
+    id: "b1", booking_type: "hotel", booking_status: "unknown", title: "Victoria hotel",
+    provider_name: "Booking.com", confirmation_number: "HFX8842", source_type: "gmail",
+    traveler_confirmed: false
+  };
+  const serializedNeedsConfirmation = {
+    id: "b2", booking_type: "hotel", booking_status: "needs_confirmation", title: "Victoria hotel",
+    provider_name: "Booking.com", confirmation_number: "HFX8842", source_type: "gmail",
+    traveler_confirmed: false
+  };
+  const cancelled = { id: "b3", booking_type: "hotel", booking_status: "cancelled", title: "Gone hotel", traveler_confirmed: false };
+  const confirmed = {
+    id: "b4", booking_type: "hotel", booking_status: "booked", title: "Real stay",
+    provider_name: "Booking.com", confirmation_number: "ABC12345", source_type: "provider",
+    traveler_confirmed: true
+  };
+  const travelerOnly = { id: "b5", booking_type: "hotel", booking_status: "booked", title: "My stay", traveler_confirmed: true };
+  const discarded = {
+    id: "b6", booking_type: "hotel", booking_status: "unknown", title: "Victoria hotel",
+    provider_name: "Booking.com", confirmation_number: "HFX8842", source_type: "gmail",
+    traveler_confirmed: false, metadata: { emailImportDiscarded: { discarded_at: "2026-11-16T00:00:00.000Z" } }
+  };
+  const testRow = { id: "b7", booking_type: "hotel", booking_status: "unknown", title: "QA test stay", traveler_confirmed: false };
+  const superseded = { id: "b8", booking_type: "hotel", booking_status: "booked", title: "Old stay", superseded_by_booking_id: "b9", traveler_confirmed: false };
+  const refunded = { id: "b9", booking_type: "hotel", booking_status: "refunded", title: "Refunded stay", traveler_confirmed: false };
+  const planned = { id: "b10", booking_type: "hotel", booking_status: "draft", title: "Maybe stay", traveler_confirmed: false };
+  const activeUnconfirmed = { id: "b11", booking_type: "hotel", booking_status: "booked", title: "Unverified stay", source_type: "manual", traveler_confirmed: false };
+  const cases = [
+    ["stored-unknown gmail attach needs attention", attached, true],
+    ["serialized needs_confirmation needs attention", serializedNeedsConfirmation, true],
+    ["cancelled needs attention", cancelled, true],
+    ["confirmed never needs attention", confirmed, false],
+    ["traveler-confirmed-only never needs attention", travelerOnly, false],
+    ["discarded never needs attention", discarded, false],
+    ["test never needs attention", testRow, false],
+    ["superseded never needs attention", superseded, false],
+    ["refunded never needs attention", refunded, false],
+    ["planned never needs attention", planned, false],
+    ["active-but-unconfirmed needs attention", activeUnconfirmed, true]
+  ];
+  for (const [name, booking, expected] of cases) {
+    check(`attention: ${name}`, bookingNeedsTravelerAttention(booking) === expected);
+    check(`attention mirror: ${name}`, briefingBookingNeedsAttention(booking) === expected);
+  }
+  check("attention: stored-unknown attach grades email_unverified", bookingTruthState(attached) === "email_unverified");
+  check("attention: confirmed fixture grades confirmed", bookingTruthState(confirmed) === "confirmed");
 }
 
 console.log(`\n${passed} booking-truth checks passed`);

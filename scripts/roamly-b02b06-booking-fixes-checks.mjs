@@ -372,6 +372,59 @@ const TRIP = "trip-1";
   assert.equal(reviewRow.metadata.ambiguousMatch, true, "B03: ambiguous row carries the flag");
   assert.equal(supabase.tables.roamly_bookings.find((row) => row.id === "legacy-1").title, "Legacy 1", "B03: legacy rows untouched");
   assert.equal(supabase.tables.roamly_bookings.find((row) => row.id === "legacy-2").title, "Legacy 2", "B03: legacy rows untouched");
+  // Live-proof finding 4 (2026-11-16): same provider + type + title +
+  // start, DIFFERENT confirmation codes — the title+date fallback is a
+  // weak identity and must NOT revise the existing row (M3 overwrote
+  // M1's code). The second import inserts its own row; the first keeps
+  // its code. Control first: a code-less re-import of the same stay
+  // still matches via title+date (proves the fallback path hits in
+  // this fake, so the different-code insert below is the guard
+  // refusing, not a missed match).
+  const supabaseF4ctl = createFakeSupabase();
+  const ctlFirst = await createTripBooking({
+    supabase: supabaseF4ctl, userId: USER, tripId: TRIP,
+    input: {
+      bookingType: "hotel", provider: "Booking.com", confirmationCode: "HFX8842",
+      title: "Victoria hotel", startTime: "2026-11-20T15:00:00.000Z", travelerConfirmed: false
+    }
+  });
+  assert.equal(ctlFirst.created, true, "F4 control setup: first hotel created");
+  const ctlCodeless = await createTripBooking({
+    supabase: supabaseF4ctl, userId: USER, tripId: TRIP,
+    input: {
+      bookingType: "hotel", provider: "Booking.com",
+      title: "Victoria hotel", startTime: "2026-11-20T15:00:00.000Z", travelerConfirmed: false
+    }
+  });
+  assert.equal(ctlCodeless.created, false, "F4 control: code-less re-import still matches via title+date");
+  assert.equal(supabaseF4ctl.tables.roamly_bookings.length, 1, "F4 control: code-less re-import does not duplicate");
+  const supabaseF4 = createFakeSupabase();
+  const first = await createTripBooking({
+    supabase: supabaseF4, userId: USER, tripId: TRIP,
+    input: {
+      bookingType: "hotel", provider: "Booking.com", confirmationCode: "HFX8842",
+      title: "Victoria hotel", startTime: "2026-11-20T15:00:00.000Z", travelerConfirmed: false
+    }
+  });
+  assert.equal(first.error, null, "F4 setup: first hotel insert succeeds");
+  assert.equal(first.created, true, "F4 setup: first hotel created");
+  const secondPerson = await createTripBooking({
+    supabase: supabaseF4, userId: USER, tripId: TRIP,
+    input: {
+      bookingType: "hotel", provider: "Booking.com", confirmationCode: "HFX9157",
+      title: "Victoria hotel", startTime: "2026-11-20T15:00:00.000Z", travelerConfirmed: false
+    }
+  });
+  assert.equal(secondPerson.error, null, "F4: different-code same-stay import succeeds");
+  assert.equal(secondPerson.created, true, "F4: different confirmation code inserts its own row, never revises");
+  assert.equal(supabaseF4.tables.roamly_bookings.length, 2, "F4: two distinct rows remain");
+  assert.equal(supabaseF4.tables.roamly_bookings.find((row) => row.confirmation_number === "HFX8842").title, "Victoria hotel", "F4: original booking untouched");
+  assert.equal(supabaseF4.tables.roamly_bookings.find((row) => row.confirmation_number === "HFX9157").title, "Victoria hotel", "F4: second booking is its own row");
+  assert.equal(
+    fs.readFileSync("lib/roamly/bookingWallet.ts", "utf8").includes("confirmationNumber.toLowerCase() !== existingCode.toLowerCase()"),
+    true,
+    "F4: title+date fallback refuses a match when both confirmation codes differ"
+  );
   console.log("B03 provider-scoped identity checks passed.");
 
   // B06: segments on a fresh flight, then omitted / explicit-empty / explicit.

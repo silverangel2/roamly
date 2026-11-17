@@ -1,6 +1,6 @@
 import type { RoamlyLocale } from "@/lib/i18n";
 import { briefingMessage as msg } from "./briefingMessages.mjs";
-import { briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
+import { briefingBookingNeedsAttention, briefingBookingState, briefingProvenanceSuffix } from "./briefingBookingTruth.mjs";
 
 export type TravelDayBooking = {
   id: string;
@@ -158,7 +158,7 @@ export function buildTravelDayBriefingContent(input: TravelDayContentInput) {
   const firstPlan = input.firstActivity && !["completed", "skipped", "expired", "cancelled"].includes(clean(input.firstActivity.status))
     ? [clean(input.firstActivity.title) || msg(locale, "firstUp"), dateLabel(input.firstActivity.scheduled_start, input.timezone, locale), clean(input.firstActivity.address)].filter(Boolean).join(" · ")
     : "";
-  const attention = input.bookings.filter((booking) => ["cancelled", "needs_confirmation"].includes(clean(booking.booking_status))).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
+  const attention = input.bookings.filter(briefingBookingNeedsAttention).slice(0, 2).map((booking) => `${clean(booking.title) || clean(booking.booking_type) || "Booking"} ${msg(locale, "bookingAttention")}`);
   const mustDo = clean(input.mustDo);
   if (mustDo) attention.push(`${msg(locale, "travelerNote")}: ${mustDo.slice(0, 220)}`);
   const startLabel = new Intl.DateTimeFormat(locale, { timeZone: input.timezone, hour: "numeric", minute: "2-digit" }).format(input.tripStart);

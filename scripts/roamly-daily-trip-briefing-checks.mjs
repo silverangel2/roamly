@@ -30,13 +30,18 @@ const activities = [
 ];
 const firstEvent = findFirstDailyEvent({ date: dayTwo, timezone: "Asia/Tokyo", bookings: [], activities });
 assert.equal(firstEvent?.toISOString(), "2026-10-11T04:00:00.000Z");
-const content = buildDailyTripBriefingContent({ destination: "Tokyo", dayKey: "2026-10-11", timezone: "Asia/Tokyo", now: new Date("2026-10-10T22:30:00.000Z"), bookings: [{ id: "flight", booking_type: "flight", booking_status: "confirmed", title: "Air Canada", start_at: "2026-10-11T01:00:00.000Z", traveler_confirmed: true }], activities, mustDo: "Pick up the rail pass", liveCompanionIncluded: true, tripPath: "/trip/trip-1/live" });
+const content = buildDailyTripBriefingContent({ destination: "Tokyo", dayKey: "2026-10-11", timezone: "Asia/Tokyo", now: new Date("2026-10-10T22:30:00.000Z"), bookings: [{ id: "flight", booking_type: "flight", booking_status: "confirmed", title: "Air Canada", start_at: "2026-10-11T01:00:00.000Z", traveler_confirmed: true },
+  // Live-proof finding 1 (2026-11-16): a Gmail-attached booking stored
+  // "unknown" must reach the attention list via the truth predicate.
+  { id: "hotel-gmail", booking_type: "hotel", booking_status: "unknown", title: "Victoria hotel", provider_name: "Booking.com", confirmation_number: "HFX8842", source_type: "gmail", check_in_at: "2026-10-11T05:00:00.000Z", traveler_confirmed: false }], activities, mustDo: "Pick up the rail pass", liveCompanionIncluded: true, tripPath: "/trip/trip-1/live" });
 assert.match(content.subject, /Your day in Tokyo/);
 assert.match(content.body, /First up: Gallery/);
 assert.doesNotMatch(content.body, /Breakfast/);
 assert.doesNotMatch(content.body, /Museum/);
 assert.match(content.body, /Booked: Air Canada/);
 assert.match(content.body, /confirmed by you/);
+assert.match(content.body, /Victoria hotel needs attention/);
+assert.doesNotMatch(content.body, /Air Canada needs attention/);
 assert.match(content.body, /Traveler note: Pick up the rail pass/);
 assert.match(content.body, /Live Companion is available/);
 assert.doesNotMatch(content.body, /weather|delay|affiliate/i);

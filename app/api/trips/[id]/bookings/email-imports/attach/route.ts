@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createTripBooking, type TripBookingInput } from "@/lib/roamly/bookingWallet";
 import { evaluateExtractionCredibility } from "@/lib/roamly/extractionCredibility";
 import { loadSuppressedSourceReferences } from "@/lib/roamly/bookingEmailTombstone";
@@ -186,7 +187,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  await auth.supabase
+  // Live-proof finding 2 (2026-11-16): booking_extraction_results has
+  // NO user UPDATE policy (SELECT-only for authenticated; the rows are
+  // service-role-created), so this update used to run on the user
+  // session and silently affect 0 rows — the booking was created fine
+  // but the "attached" audit mark never landed. The mark therefore
+  // runs on the service-role client after the ownership-checked lookup
+  // above, and the select-back verifies it landed — exactly one row,
+  // match_status "attached" — so a silent no-op is now a loud 500.
+  // A retry after such a failure is safe: createTripBooking matches
+  // the existing row by confirmation and updates it in place instead
+  // of duplicating it.
+  const admin = createSupabaseAdminClient();
+  if (!admin) {
+    return NextResponse.json({ ok: false, error: "We could not record that attachment." }, { status: 503 });
+  }
+  const { data: transitioned, error: markError } = await admin
     .from("booking_extraction_results")
     .update({
       trip_id: id,
@@ -195,7 +211,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       applied_at: attachedAt
     })
     .eq("id", extractionId)
-    .eq("user_id", auth.user.id);
+    .eq("user_id", auth.user.id)
+    .select("id,match_status");
+  if (
+    markError ||
+    !Array.isArray(transitioned) ||
+    transitioned.length !== 1 ||
+    String((transitioned[0] as Record<string, unknown>).match_status) !== "attached"
+  ) {
+    return NextResponse.json({ ok: false, error: "We could not record that attachment." }, { status: 500 });
+  }
 
   await reconcileTripBookings({
     supabase: auth.supabase,

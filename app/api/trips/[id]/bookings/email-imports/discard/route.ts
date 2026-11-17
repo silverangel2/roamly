@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/roamly/auth";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   EMAIL_IMPORT_DISCARD_REASON,
   recordEmailImportTombstone,
@@ -118,17 +119,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // Step 2 — transition the extraction row to "rejected" (NEVER
   // delete). Idempotent: discarding an already-discarded import is a
   // harmless success.
+  //
+  // Live-proof finding 2 (2026-11-16): booking_extraction_results has
+  // NO user UPDATE policy (SELECT-only for authenticated; the rows are
+  // service-role-created), so a user-session UPDATE affects 0 rows
+  // with no error and the promised "rejected" audit status never
+  // lands. The transition therefore runs on the service-role client:
+  // the ownership-checked lookup above (user client, user_id =
+  // auth.user.id) already proved this row is the caller's, and the
+  // admin update stays scoped to that id + user_id. The select-back
+  // verifies the transition actually landed — exactly one row,
+  // match_status "rejected" — so a silent no-op is now a loud 500
+  // instead of an ok:true lie. (Same pattern as the supersede route.)
   if (String(row.match_status) !== "rejected") {
     const reasons = Array.isArray(row.match_reasons)
       ? row.match_reasons.filter((reason): reason is string => typeof reason === "string")
       : [];
     if (!reasons.includes(EMAIL_IMPORT_DISCARD_REASON)) reasons.push(EMAIL_IMPORT_DISCARD_REASON);
-    const { error: updateError } = await auth.supabase
+    const admin = createSupabaseAdminClient();
+    if (!admin) {
+      return NextResponse.json({ ok: false, error: "We could not discard that import." }, { status: 503 });
+    }
+    const { data: transitioned, error: updateError } = await admin
       .from("booking_extraction_results")
       .update({ match_status: "rejected", match_reasons: reasons })
       .eq("id", extractionId)
-      .eq("user_id", auth.user.id);
-    if (updateError) {
+      .eq("user_id", auth.user.id)
+      .select("id,match_status");
+    if (
+      updateError ||
+      !Array.isArray(transitioned) ||
+      transitioned.length !== 1 ||
+      String((transitioned[0] as Record<string, unknown>).match_status) !== "rejected"
+    ) {
       return NextResponse.json({ ok: false, error: "We could not discard that import." }, { status: 500 });
     }
   }
