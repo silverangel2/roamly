@@ -35,6 +35,7 @@ import {
 import { PACK_SCHEMA_VERSION } from "@/lib/roamly/engine/types";
 import {
   collectPoiCandidates,
+  DEFAULT_COLLECTION_DEADLINE_MS,
   fetchGuideSights,
   fetchWeatherDays,
   liveBuildProvenance,
@@ -49,6 +50,7 @@ import { scoreStays } from "@/lib/roamly/engine/anchors";
 import { DEFAULT_FETCH_POLICY } from "@/lib/roamly/engine/packs/collectors";
 import {
   collectPoiCandidatesFromOpenPlaces,
+  DEFAULT_OPEN_PLACES_DEADLINE_MS,
   openPlacesBuildProvenance,
   type OpenPlacesOptions
 } from "@/lib/roamly/engine/packs/openPlaces";
@@ -418,6 +420,40 @@ export async function runBuildJob(
     } catch {
       /* released under us — same outcome */
     }
+    // PACK-BUILD FIX (2026-11-18, defect 2): verify the release
+    // actually landed. releaseBuild returns null (not throw)
+    // when the job is not building under our lease, so a silent
+    // non-release used to leave the job "building" and suppress
+    // every later kick until the 10-min lease expired — the
+    // 10–13 min idle gap behind the Xinxiang/Gqeberha waits.
+    // Re-read: while the job is STILL building under OUR lease,
+    // retry once; if it is still ours after the retry, say so
+    // loudly — the next kick will wait out the lease, and that
+    // is now a visible defect, not a silent gap. A building job
+    // under a DIFFERENT lease is a new holder, never ours to
+    // release — leave it alone (release fencing makes the retry
+    // safe either way: it matches status "building" + leaseId).
+    const releasedUnderOurLease = async (): Promise<boolean> => {
+      let after: BuildJobRecord | null = null;
+      try {
+        after = await store.getBuildJob(jobId);
+      } catch {
+        return true; // cannot verify — never warn on a read failure
+      }
+      return !(after && after.status === "building" && after.lease?.leaseId === lease.leaseId);
+    };
+    if (!(await releasedUnderOurLease())) {
+      try {
+        await store.releaseBuild(jobId, lease.leaseId);
+      } catch {
+        /* released under us — same outcome */
+      }
+      if (!(await releasedUnderOurLease())) {
+        console.warn(
+          `[packs] roamly_pack_release_failed job=${jobId} lease=${lease.leaseId} — budget-exhausted drive ended but the job is still "building" under this lease; the next kick will wait out the lease instead of retrying at once.`
+        );
+      }
+    }
     return null;
   }
   if (winner.type === "failed") {
@@ -504,11 +540,19 @@ function mergeCandidates(base: StoredCandidate[], extra: StoredCandidate[]): Sto
 /** Re-run the OSM collection against a ~15 km box around the
  *  centre. A widening failure is swallowed (the base collection
  *  stands); a widening success returns its full candidate set
- *  for merging. */
+ *  for merging.
+ *
+ *  PACK-BUILD FIX (2026-11-18): the widen runs inside the live
+ *  lane's single envelope — `deadlineMs` is the time the main
+ *  collection left, never a fresh 210 s. Before this fix the
+ *  widen was a second full collection with its own deadline, so
+ *  a thin destination structurally overran the 270 s drive
+ *  budget and the drive discarded everything. */
 async function widenCollection(
   fetcher: Fetcher,
   destination: DestinationDTO,
-  policy: FetchPolicy
+  policy: FetchPolicy,
+  deadlineMs: number = DEFAULT_COLLECTION_DEADLINE_MS
 ): Promise<StoredCandidate[]> {
   try {
     const dLat = 0.135; // ~15 km
@@ -523,7 +567,7 @@ async function widenCollection(
       },
       coverageBoxes: []
     };
-    const collection = await collectPoiCandidates(fetcher, widened, policy);
+    const collection = await collectPoiCandidates(fetcher, widened, policy, () => new Date(), deadlineMs);
     return collection.candidates;
   } catch {
     return [];
@@ -658,6 +702,13 @@ export interface LiveCollectorOptions {
   /** Open Places collection options (deadline/sleep/clock) — proofs
    *  inject these; production takes the defaults. */
   openPlaces?: OpenPlacesOptions;
+  /** Live-lane envelope (pack-build fix, 2026-11-18): total
+   *  wall-clock budget for main collection + thin widen + guide
+   *  enrichment + leg matrix inside one live-lane run. Production
+   *  takes the default (the 210 s collection deadline); proofs
+   *  inject a small envelope to prove the lane returns inside it
+   *  instead of running each phase on a fresh budget. */
+  laneDeadlineMs?: number;
 }
 
 /** The leg-matrix tail every collection lane shares: OSRM /table
@@ -677,7 +728,12 @@ export interface LiveCollectorOptions {
 export async function attachLegMatrix(
   fetcher: Fetcher,
   destination: DestinationDTO,
-  candidates: StoredCandidate[]
+  candidates: StoredCandidate[],
+  /** Per-profile OSRM budget (pack-build fix, 2026-11-18): the
+   *  live lane passes the time its envelope has left, so the
+   *  matrix can no longer add up to 40 s past a spent
+   *  collection. Defaults to the shipped 20 s. */
+  timeoutMs: number = 20_000
 ): Promise<StoredLegMatrix | null> {
   const shortlistKeys = solverShortlistKeys(destination, candidates, new Date());
   const legMatrix = await buildLegMatrix(
@@ -685,7 +741,7 @@ export async function attachLegMatrix(
     destination.centre,
     candidates,
     () => new Date(),
-    20_000,
+    timeoutMs,
     shortlistKeys
   );
   if (!legMatrix) {
@@ -724,10 +780,31 @@ export function liveCollector(
       ? options.openPlacesApiKey
       : (process.env.OPEN_PLACES_API_KEY || "").trim() || null;
   return async (destination) => {
+    // PACK-BUILD FIX (2026-11-18, defect 1): ONE envelope for
+    // the whole live lane. Before this fix the main collection
+    // alone honoured a 210 s deadline while every later phase
+    // ran on a fresh budget — widen a second 210 s collection,
+    // guide up to 40 s, matrix up to 40 s, Open Places fallback
+    // a further 120 s — so a thin destination structurally
+    // overran the 270 s drive budget and each budget-exhausted
+    // drive discarded all of it (Xinxiang drives 1–2: ~274 s,
+    // published []; drive 3: ~210 s, published). Every phase
+    // below now gets only the time the lane has left; a thin
+    // destination degrades to partial (labelled SPARSE) instead
+    // of being discarded whole.
+    const laneDeadlineMs = options.laneDeadlineMs ?? DEFAULT_COLLECTION_DEADLINE_MS;
+    const laneStartedAt = Date.now();
+    const laneRemainingMs = (): number => laneDeadlineMs - (Date.now() - laneStartedAt);
     let collection: PoiCollection | null = null;
     let osmError: Error | null = null;
     try {
-      collection = await collectPoiCandidates(fetcher, destination, policy);
+      collection = await collectPoiCandidates(
+        fetcher,
+        destination,
+        policy,
+        () => new Date(),
+        Math.min(DEFAULT_COLLECTION_DEADLINE_MS, laneRemainingMs())
+      );
     } catch (err) {
       osmError = err instanceof Error ? err : new Error(String(err));
     }
@@ -743,16 +820,37 @@ export function liveCollector(
       // thinness (the KF-1 lesson: the failure was never the
       // data, and a traveller is owed a trip, not an error).
       if (packCounts(candidates).sights < THIN_PACK_SIGHTS) {
-        const widened = await widenCollection(fetcher, destination, policy);
-        if (widened.length) {
-          candidates = mergeCandidates(candidates, widened);
-          thinNote += "; thin destination — collection widened to ~15 km";
+        // The widen gets only the lane's remaining time — below
+        // 15 s it cannot run even one chunk (the repair pass
+        // needs >= 15 s), so skip it and keep the base
+        // collection.
+        const widenRemainingMs = laneRemainingMs();
+        if (widenRemainingMs > 15_000) {
+          const widened = await widenCollection(fetcher, destination, policy, widenRemainingMs);
+          if (widened.length) {
+            candidates = mergeCandidates(candidates, widened);
+            thinNote += "; thin destination — collection widened to ~15 km";
+          }
         }
         if (packCounts(candidates).sights < THIN_PACK_SIGHTS) {
-          const guide = await fetchGuideSights(fetcher, destination.centre, policy);
-          if (guide.length) {
-            candidates = mergeCandidates(candidates, guide);
-            thinNote += `; enriched with ${guide.length} open-guide sights (Wikipedia/Wikivoyage geosearch, labelled per row)`;
+          // Guide enrichment is two sequential fetches, each
+          // capped at min(attemptTimeoutMs, 20 s): bound the pair
+          // to the lane's remaining time by halving it per fetch.
+          // Below 5 s there is nothing useful left to fetch.
+          const guideRemainingMs = laneRemainingMs();
+          if (guideRemainingMs > 5_000) {
+            const guidePolicy: FetchPolicy = {
+              ...policy,
+              attemptTimeoutMs: Math.min(
+                policy.attemptTimeoutMs,
+                Math.max(1_000, Math.floor(guideRemainingMs / 2))
+              )
+            };
+            const guide = await fetchGuideSights(fetcher, destination.centre, guidePolicy);
+            if (guide.length) {
+              candidates = mergeCandidates(candidates, guide);
+              thinNote += `; enriched with ${guide.length} open-guide sights (Wikipedia/Wikivoyage geosearch, labelled per row)`;
+            }
           }
         }
         if (packCounts(candidates).sights < THIN_PACK_SIGHTS) {
@@ -761,7 +859,16 @@ export function liveCollector(
       }
       const provenance = liveBuildProvenance(collection, collection.evidence.fetchedAt);
       if (thinNote) provenance.label += thinNote;
-      const legMatrix = await attachLegMatrix(fetcher, destination, candidates);
+      // The matrix gets at most the lane's remaining time (and
+      // at most the shipped 20 s per profile). Below 2 s the
+      // pack publishes without a matrix — the existing honest
+      // behaviour — instead of starting routing the drive cannot
+      // wait for.
+      const matrixRemainingMs = laneRemainingMs();
+      const legMatrix =
+        matrixRemainingMs > 2_000
+          ? await attachLegMatrix(fetcher, destination, candidates, Math.min(20_000, matrixRemainingMs))
+          : null;
       return { candidates, provenance, legMatrix };
     }
     if (!openPlacesApiKey) {
@@ -772,9 +879,26 @@ export function liveCollector(
         provenance: liveBuildProvenance(empty, empty.evidence.fetchedAt)
       };
     }
+    // The fallback runs AFTER the Overpass ladder inside the same
+    // lane, so it gets only the lane's remaining time (its own
+    // default is 120 s — on top of a spent 210 s collection that
+    // is past the drive budget). Below 15 s there is no useful
+    // fallback to run: preserve the OSM outcome exactly.
+    const fallbackRemainingMs = laneRemainingMs();
+    if (fallbackRemainingMs < 15_000) {
+      if (osmError) throw osmError;
+      const empty = collection as PoiCollection;
+      return {
+        candidates: empty.candidates,
+        provenance: liveBuildProvenance(empty, empty.evidence.fetchedAt)
+      };
+    }
     let fallback;
     try {
-      fallback = await collectPoiCandidatesFromOpenPlaces(fetcher, destination, policy, openPlacesApiKey, options.openPlaces);
+      fallback = await collectPoiCandidatesFromOpenPlaces(fetcher, destination, policy, openPlacesApiKey, {
+        ...(options.openPlaces ?? {}),
+        deadlineMs: Math.min(options.openPlaces?.deadlineMs ?? DEFAULT_OPEN_PLACES_DEADLINE_MS, fallbackRemainingMs)
+      });
     } catch (err) {
       const fallbackError = err instanceof Error ? err : new Error(String(err));
       throw new Error(
