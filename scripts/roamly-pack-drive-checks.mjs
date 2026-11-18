@@ -34,6 +34,20 @@
 //      exactly once; the waiting state is the NAMED pack-wait
 //      state (F8: waitingOnPack stamped, cleared on outline
 //      success); the next wake proceeds past the outline.
+//   §8 Retry after budget exhaustion (pack-build fix, 2026-11-18):
+//      two budget-exhausted drives back to back EACH leave the
+//      job queued with the lease cleared (the verified release),
+//      so the next drive re-decides and re-claims at once; a
+//      third drive with a fast collector publishes. §8b: a store
+//      whose first release silently no-ops is still released by
+//      the verify+retry, with no warning. §8c: a release that
+//      cannot land at all warns roamly_pack_release_failed loudly.
+//   §9 Live-lane envelope (pack-build fix, 2026-11-18): with a
+//      small injected lane envelope and a slow upstream, the
+//      whole live lane returns inside the envelope — the widen,
+//      guide and matrix phases get only the time the main
+//      collection left, never a fresh budget — and the thin
+//      destination degrades to a partial, labelled SPARSE pack.
 //
 // Run: npm run test:pack-drive
 
@@ -43,7 +57,7 @@ const { advanceEngineGeneration, startEngineGeneration, ZERO_ENGINE_SOURCE } = a
   "@/lib/roamly/engine/generate.ts"
 );
 const { InMemoryPackStore } = await import("@/lib/roamly/engine/packs/store.ts");
-const { readServingPack } = await import("@/lib/roamly/engine/packs/builder.ts");
+const { liveCollector, readServingPack } = await import("@/lib/roamly/engine/packs/builder.ts");
 const { runPackKick, drivePackBuild } = await import("@/lib/roamly/engine/packs/kick.ts");
 
 let count = 0;
@@ -367,6 +381,196 @@ const emptyContext = () => ({
   ok(wake2.waitingForPack !== true, "§7 the next wake proceeds past the outline");
   const proceededRow = await genStore.loadTrip(tripId, USER_ID);
   eq(proceededRow.metadata.generation.waitingOnPack ?? null, null, "§7 F8: outline success clears the named wait state");
+}
+
+/* ---------------- §8 — retry after budget exhaustion (pack-build fix, 2026-11-18) ---------------- */
+// Defect 2's regression: two budget-exhausted drives back to back
+// must EACH leave the job "queued" with the lease cleared (the
+// Fix B verified release), so the next drive re-decides and
+// re-claims at once instead of being turned away as
+// "build-in-flight" and waiting out the 10-min lease; a third
+// drive with a fast collector then publishes. The Xinxiang shape:
+// drives 1–2 ~274 s budget-exhausted, drive 3 ~210 s published —
+// the wait between them was the defect, not the drives.
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [3000, 3000, 0]);
+  const drive1 = await drivePackBuild(store, dest.destinationId, { collectorFor, driveBudgetMs: 600 });
+  eq(drive1.outcome, "budget-exhausted", "§8 drive 1 ends budget-exhausted like Xinxiang drive 1");
+  eq((await store.getBuildJob(job.jobId)).status, "queued", "§8 the job is queued after drive 1, not left building");
+  eq((await store.getBuildJob(job.jobId)).lease, null, "§8 the lease is cleared after drive 1");
+  const drive2 = await drivePackBuild(store, dest.destinationId, { collectorFor, driveBudgetMs: 600 });
+  eq(drive2.outcome, "budget-exhausted", "§8 drive 2 re-decides and runs — it is NOT turned away as build-in-flight");
+  eq(calls.count, 2, "§8 the collector ran once per drive");
+  eq((await store.getBuildJob(job.jobId)).status, "queued", "§8 the job is queued after drive 2, not left building");
+  eq((await store.getBuildJob(job.jobId)).lease, null, "§8 the lease is cleared after drive 2");
+  const drive3 = await drivePackBuild(store, dest.destinationId, { collectorFor, driveBudgetMs: 10_000 });
+  eq(drive3.outcome, "published", "§8 drive 3 with a fast collector publishes");
+  eq(calls.count, 3, "§8 the collector ran once per drive, three drives total");
+  eq((await store.getBuildJob(job.jobId)).status, "done", "§8 the job completes on the third drive");
+}
+
+/* ---------------- §8b — a silently dropped release is retried, not lost ---------------- */
+// Fix B's verify step: a store whose first releaseBuild returns
+// null WITHOUT releasing (the Supabase zero-rows-matched shape)
+// must still end with the job queued — the re-read catches the
+// still-building job and the retry releases it. No warning: the
+// retry succeeded.
+{
+  class FlakyReleaseStore extends InMemoryPackStore {
+    constructor() {
+      super();
+      this.dropNextRelease = true;
+    }
+    async releaseBuild(jobId, leaseId) {
+      if (this.dropNextRelease) {
+        this.dropNextRelease = false;
+        return null;
+      }
+      return super.releaseBuild(jobId, leaseId);
+    }
+  }
+  const warnings = [];
+  const origWarn = console.warn;
+  console.warn = (...args) => {
+    warnings.push(args.join(" "));
+  };
+  try {
+    const store = new FlakyReleaseStore();
+    const dest = testDestination();
+    await store.registerDestination(dest);
+    const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+    const calls = { count: 0 };
+    const drive = await drivePackBuild(store, dest.destinationId, {
+      collectorFor: scriptedCollector(calls, [3000]),
+      driveBudgetMs: 600
+    });
+    eq(drive.outcome, "budget-exhausted", "§8b the drive still ends budget-exhausted with a flaky release");
+    eq((await store.getBuildJob(job.jobId)).status, "queued", "§8b the verify+retry released the job despite the dropped first release");
+    eq((await store.getBuildJob(job.jobId)).lease, null, "§8b the lease is cleared after the retry");
+    eq(
+      warnings.filter((w) => w.includes("roamly_pack_release_failed")).length,
+      0,
+      "§8b no release-failed warning — the retry succeeded"
+    );
+  } finally {
+    console.warn = origWarn;
+  }
+}
+
+/* ---------------- §8c — a release that cannot land warns loudly ---------------- */
+// When the release cannot land at all, the job honestly stays
+// "building" — but the failure must be LOUD
+// (roamly_pack_release_failed), never the silent 10–13 min gap
+// the Xinxiang/Gqeberha waits hid in.
+{
+  class BrokenReleaseStore extends InMemoryPackStore {
+    async releaseBuild() {
+      return null;
+    }
+  }
+  const warnings = [];
+  const origWarn = console.warn;
+  console.warn = (...args) => {
+    warnings.push(args.join(" "));
+  };
+  try {
+    const store = new BrokenReleaseStore();
+    const dest = testDestination();
+    await store.registerDestination(dest);
+    const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+    const calls = { count: 0 };
+    const drive = await drivePackBuild(store, dest.destinationId, {
+      collectorFor: scriptedCollector(calls, [3000]),
+      driveBudgetMs: 600
+    });
+    eq(drive.outcome, "budget-exhausted", "§8c the drive still ends budget-exhausted with a broken release");
+    eq((await store.getBuildJob(job.jobId)).status, "building", "§8c the job honestly stays building — the test proves the alarm, not a false release");
+    ok(warnings.some((w) => w.includes("roamly_pack_release_failed")), "§8c the un-landable release emits roamly_pack_release_failed");
+    ok(warnings.some((w) => w.includes(job.jobId)), "§8c the warning names the job");
+  } finally {
+    console.warn = origWarn;
+  }
+}
+
+/* ---------------- §9 — the live lane returns inside ONE envelope ---------------- */
+// Fix A: with a small injected lane envelope (3.2 s) and a slow
+// upstream (300 ms per Overpass call), the whole live lane — main
+// collection + thin widen + guide + matrix — must return inside
+// the envelope instead of running each phase on a fresh budget
+// (unfixed: main ~1.8 s + widen ~1.8 s + guide ~0.6 s + matrix
+// ~0.3 s ≈ 4.5 s). The thin destination degrades to a partial,
+// labelled SPARSE pack — it is never discarded whole.
+{
+  const calls = { overpass: 0, guide: 0, matrix: 0 };
+  const sleepAbortable = (ms, signal) =>
+    new Promise((resolve, reject) => {
+      if (signal?.aborted) return reject(new Error("aborted"));
+      const timer = setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, ms);
+      const onAbort = () => {
+        clearTimeout(timer);
+        reject(new Error("aborted"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  const slowFetcher = async (url, init) => {
+    if (url.includes("overpass")) {
+      calls.overpass += 1;
+      const n = calls.overpass;
+      await sleepAbortable(300, init?.signal);
+      // One sight per chunk: 6 chunks → 6 sights, thin (< 12),
+      // so the widen/guide/SPARSE path engages.
+      const elements = [
+        {
+          type: "node",
+          id: n * 10 + 1,
+          lat: 45.0 + n * 0.001,
+          lon: -64.0 + n * 0.001,
+          tags: { name: `Thinville Museum ${n}`, tourism: "museum" }
+        }
+      ];
+      return { ok: true, status: 200, text: async () => JSON.stringify({ elements }) };
+    }
+    if (url.includes("wikipedia.org") || url.includes("wikivoyage.org")) {
+      calls.guide += 1;
+      await sleepAbortable(300, init?.signal);
+      return { ok: true, status: 200, text: async () => JSON.stringify({ query: { pages: [] } }) };
+    }
+    if (url.includes("router.project-osrm.org") || url.includes("routing.openstreetmap.de")) {
+      calls.matrix += 1;
+      await sleepAbortable(300, init?.signal);
+      return { ok: true, status: 200, text: async () => JSON.stringify({ code: "Ok", durations: [[0, 60], [60, 0]] }) };
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const thinDest = {
+    destinationId: "dst-thinville",
+    displayName: "Thinville",
+    country: "Testland",
+    centre: { lat: 45.0, lon: -64.0 },
+    bbox: { minLat: 44.9, minLon: -64.1, maxLat: 45.1, maxLon: -63.9 },
+    coverageBoxes: [],
+    timeZone: "UTC",
+    geocodeProvenance: { source: "test", sourceRef: null, recordedAt: null, label: "drive checks" }
+  };
+  const collect = liveCollector(slowFetcher, undefined, { laneDeadlineMs: 3200, openPlacesApiKey: null });
+  const started = Date.now();
+  const result = await collect(thinDest);
+  const elapsed = Date.now() - started;
+  ok(elapsed < 3000, `§9 the live lane returns inside its envelope (took ${elapsed} ms; unfixed ≈ 4500 ms)`);
+  eq(calls.overpass, 6, "§9 exactly the 6 main-collection Overpass calls — the widen never ran a second collection");
+  eq(calls.guide, 0, "§9 the guide phase never ran on a spent envelope");
+  eq(calls.matrix, 0, "§9 the matrix phase never ran on a spent envelope");
+  eq(result.candidates.length, 6, "§9 the thin collection still yields a pack (6 chunks × 1 sight)");
+  eq(result.legMatrix, null, "§9 the pack publishes without a matrix when the envelope is spent");
+  ok(result.provenance.label.includes("SPARSE"), "§9 the thin pack is labelled SPARSE, honestly partial");
 }
 
 console.log(`PACK-DRIVE CHECKS: ${count}/${count} PASS`);
