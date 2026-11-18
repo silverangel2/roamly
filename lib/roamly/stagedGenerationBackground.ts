@@ -8,6 +8,12 @@ type ScheduleStagedGenerationAdvanceParams = {
   origin?: string | null;
   reason: string;
   requestId?: string;
+  /** Absolute epoch ms at which the hosting function is killed
+   *  (the request's start + its maxDuration). Threaded to the
+   *  worker so the pack drive scheduled from the outline stage
+   *  is capped at this deadline minus the host margin (pack-wedge
+   *  fix, 2026-11-18). Absent = the pre-fix 270 s drive default. */
+  hostDeadlineMs?: number;
 };
 
 // One slice drives the trip's remaining layers in ONE worker run
@@ -218,6 +224,11 @@ async function wakeWorker(params: ScheduleStagedGenerationAdvanceParams, url: st
       requestId: params.requestId || `background:${params.tripId}`,
       reason: index === 0 ? params.reason : `${params.reason}:background_slice_${index + 1}`,
       executionDeadlineMs: Date.now() + BACKGROUND_WORKER_SLICE_BUDGET_MS,
+      // Pack-wedge fix (2026-11-18): the SLICE deadline above is
+      // not the host deadline — the drive runs via after() past
+      // the slice, inside the original request's function, so the
+      // host deadline threads separately.
+      hostDeadlineMs: params.hostDeadlineMs ?? null,
       config: getStagedGenerationBackgroundWorkerConfig()
     });
     summaries.push(summary);

@@ -500,6 +500,7 @@ async function processClaimedJob(params: {
   requestId: string;
   config: RoamlyGenerationWorkerConfig;
   executionDeadlineMs: number;
+  hostDeadlineMs?: number | null;
 }) {
   let advanced = false;
   let currentWork: ReturnType<typeof nextStagedGenerationWork> = null;
@@ -790,7 +791,15 @@ async function processClaimedJob(params: {
         engineJob && !engineDeps
           ? { ok: false, status: state.status, state, advanced: false, error: "ZERO_ENGINE_UNAVAILABLE" }
           : engineDeps
-            ? await advanceEngineGeneration({ deps: engineDeps, tripId: params.job.trip_id, requestId: params.requestId })
+            ? await advanceEngineGeneration({
+                deps: engineDeps,
+                tripId: params.job.trip_id,
+                requestId: params.requestId,
+                // Pack-wedge fix (2026-11-18): the drive's host
+                // deadline threads through to the pack drive, so
+                // it is capped at the hosting function's life.
+                hostDeadlineMs: params.hostDeadlineMs ?? undefined
+              })
             : await advanceStagedItineraryGeneration({
                 supabase: params.admin,
                 tripId: params.job.trip_id,
@@ -1054,6 +1063,7 @@ async function processJobsInPool(params: {
   requestId: string;
   config: RoamlyGenerationWorkerConfig;
   executionDeadlineMs: number;
+  hostDeadlineMs?: number | null;
 }) {
   const results: RoamlyGenerationWorkerResult[] = [];
   let cursor = 0;
@@ -1071,7 +1081,8 @@ async function processJobsInPool(params: {
             workerId: params.workerId,
             requestId: params.requestId,
             config: params.config,
-            executionDeadlineMs: params.executionDeadlineMs
+            executionDeadlineMs: params.executionDeadlineMs,
+            hostDeadlineMs: params.hostDeadlineMs ?? null
           })
         );
       }
@@ -1117,6 +1128,14 @@ export async function processGenerationQueue(params: {
   reason?: string | null;
   config?: Partial<RoamlyGenerationWorkerConfig>;
   executionDeadlineMs?: number | null;
+  /** Absolute epoch ms at which the hosting function is killed
+   *  (the request's start + its maxDuration). NOT the slice
+   *  deadline: the pack drive scheduled from the outline stage
+   *  runs via after() past the slice, inside the original
+   *  request's function, so it is capped at THIS deadline minus
+   *  the host margin (pack-wedge fix, 2026-11-18). Absent = the
+   *  pre-fix 270 s drive default. */
+  hostDeadlineMs?: number | null;
 } = {}) {
   const admin = createSupabaseAdminClient();
   const config = getGenerationWorkerConfig(params.config || {});
@@ -1251,7 +1270,8 @@ export async function processGenerationQueue(params: {
       workerId,
       requestId,
       config,
-      executionDeadlineMs
+      executionDeadlineMs,
+      hostDeadlineMs: params.hostDeadlineMs ?? null
     });
 
     results.push(...batchResults);

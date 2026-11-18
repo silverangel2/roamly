@@ -63,6 +63,14 @@ import type { TravelerDetails, TripPlannerPayload, TripType } from "@/lib/trip-p
 export const runtime = "nodejs";
 export const maxDuration = 90;
 
+/** The generate route's own platform cap (app/api/trips/generate/
+ *  route.ts declares maxDuration = 300; this module's 90 above is
+ *  NOT the effective value for that route). The background chain
+ *  armed below runs inside after() under the 300 s cap, so a pack
+ *  drive it schedules is capped at this deadline minus the host
+ *  margin (pack-wedge fix, 2026-11-18). */
+const GENERATE_HOST_LIFETIME_MS = 300_000;
+
 function getString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -437,7 +445,11 @@ async function activeGenerationResponse(params: {
     tripId: params.tripId,
     origin: params.requestOrigin,
     reason: "duplicate_generate_resume",
-    requestId: params.requestId
+    requestId: params.requestId,
+    // Pack-wedge fix (2026-11-18): the chain runs inside after()
+    // under the generate route's 300 s cap; its drives are capped
+    // at that deadline minus the host margin.
+    hostDeadlineMs: Date.now() + GENERATE_HOST_LIFETIME_MS
   });
   return NextResponse.json(
     {
@@ -952,7 +964,11 @@ async function finalizeItinerary(params: {
     tripId: params.tripId,
     origin: params.requestOrigin,
     reason: "generation_job_created",
-    requestId: params.requestId
+    requestId: params.requestId,
+    // Pack-wedge fix (2026-11-18): the chain runs inside after()
+    // under the generate route's 300 s cap; its drives are capped
+    // at that deadline minus the host margin.
+    hostDeadlineMs: Date.now() + GENERATE_HOST_LIFETIME_MS
   });
 
   return NextResponse.json(

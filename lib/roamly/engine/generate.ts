@@ -1559,6 +1559,14 @@ export interface EngineAdvanceDeps {
    *  prebuilt Overture extract first, live Overpass fallback);
    *  checks inject a fake. */
   packCollectorFor?: (destinationId: string) => PackCollector;
+  /** Absolute epoch ms at which the hosting function is killed
+   *  (the request's start + its maxDuration) — set per advance by
+   *  advanceEngineGeneration from its hostDeadlineMs param. The
+   *  pack drive scheduled from the outline stage is capped at
+   *  this deadline minus the host margin, so its release always
+   *  lands while the function is alive (pack-wedge fix,
+   *  2026-11-18). Absent = the pre-fix 270 s drive default. */
+  hostDeadlineMs?: number;
 }
 
 export type EngineAdvanceResult = {
@@ -1700,7 +1708,13 @@ function schedulePackBuildKick(deps: EngineAdvanceDeps, destinationId: string, t
   if (!schedule) return;
   try {
     schedule(async () => {
-      const result = await drivePackBuild(deps.packStore, destinationId, { collectorFor: deps.packCollectorFor });
+      const result = await drivePackBuild(deps.packStore, destinationId, {
+        collectorFor: deps.packCollectorFor,
+        // Pack-wedge fix (2026-11-18): the drive is capped at the
+        // hosting function's deadline minus the host margin, so its
+        // release lands while the function is still alive.
+        hostDeadlineMs: deps.hostDeadlineMs
+      });
       console.log(
         JSON.stringify({
           event: "roamly_pack_kick",
@@ -2303,8 +2317,17 @@ export async function advanceEngineGeneration(params: {
   tripId: string;
   userId?: string;
   requestId: string;
+  /** Absolute epoch ms at which the hosting function is killed.
+   *  Threaded onto the deps so the pack drive scheduled from the
+   *  outline stage is capped at this deadline minus the host
+   *  margin (pack-wedge fix, 2026-11-18). */
+  hostDeadlineMs?: number;
 }): Promise<EngineAdvanceResult> {
   const { deps } = params;
+  // The drive's host is the function that armed this advance; a
+  // deadline passed in here wins over any value already on the
+  // deps (the checks set it on the deps directly, without a param).
+  if (params.hostDeadlineMs !== undefined) deps.hostDeadlineMs = params.hostDeadlineMs;
   const initialTrip = await deps.store.loadTrip(params.tripId, params.userId);
   const initialState = getStagedGenerationState(initialTrip.metadata, params.tripId);
   if (!initialState) {

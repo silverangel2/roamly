@@ -48,6 +48,14 @@
 //      guide and matrix phases get only the time the main
 //      collection left, never a fresh budget — and the thin
 //      destination degrades to a partial, labelled SPARSE pack.
+//   §10 Host-deadline cap (pack-wedge fix, 2026-11-18): a drive
+//      whose hosting function dies before the 270 s drive budget
+//      is capped at hostDeadlineMs − 30 s, so the budget race
+//      fires and the release lands while the function is still
+//      alive — the job is back at "queued" and the next drive
+//      claims it at once instead of being turned away as
+//      "build-in-flight" for the 10-min lease. A drive whose host
+//      outlives the default is not capped at all.
 //
 // Run: npm run test:pack-drive
 
@@ -571,6 +579,67 @@ const emptyContext = () => ({
   eq(result.candidates.length, 6, "§9 the thin collection still yields a pack (6 chunks × 1 sight)");
   eq(result.legMatrix, null, "§9 the pack publishes without a matrix when the envelope is spent");
   ok(result.provenance.label.includes("SPARSE"), "§9 the thin pack is labelled SPARSE, honestly partial");
+}
+
+/* ---------------- §10 — the host-deadline cap (pack-wedge fix, 2026-11-18) ---------------- */
+// The Yichun shape: the drive started ~118 s into a 300 s generate
+// request, so its 270 s budget expired ~88 s AFTER the function
+// died — the release never ran and the job sat "building" under
+// its 10-min lease. With a host deadline the drive budget is
+// capped at hostDeadlineMs − 30 s, so the budget race fires and
+// the release lands while the function is still alive.
+//   §10a A drive whose host dies in 31 s is capped to ~1 s: a
+//      3000 ms collector that would PUBLISH under the 270 s
+//      default is budget-released instead, the job is queued
+//      with the lease cleared, and a second drive with a fast
+//      collector publishes at once — the next kick claims it.
+//   §10b A drive whose host outlives the 270 s default (300 s
+//      out) is NOT capped: the same 3000 ms collector publishes
+//      in one attempt.
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [3000, 0]);
+  // Host dies in 31 s: cap = 31 s − 30 s margin ≈ 1 s.
+  const drive1 = await drivePackBuild(store, dest.destinationId, {
+    collectorFor,
+    driveBudgetMs: 270_000,
+    hostDeadlineMs: Date.now() + 31_000
+  });
+  eq(drive1.outcome, "budget-exhausted", "§10a the host-capped drive ends budget-exhausted — pre-fix it would have published");
+  ok(drive1.elapsedMs < 10_000, `§10a the drive ended by the cap in ~1 s (took ${drive1.elapsedMs} ms), not by the 270 s default`);
+  eq((await store.getBuildJob(job.jobId)).status, "queued", "§10a the job is queued after the capped drive, not left building");
+  eq((await store.getBuildJob(job.jobId)).lease, null, "§10a the lease is cleared after the capped drive");
+  eq(calls.count, 1, "§10a the collector ran once in the capped drive");
+  const drive2 = await drivePackBuild(store, dest.destinationId, {
+    collectorFor,
+    driveBudgetMs: 10_000,
+    hostDeadlineMs: Date.now() + 300_000
+  });
+  eq(drive2.outcome, "published", "§10a the next drive claims the released job and publishes");
+  eq(calls.count, 2, "§10a the collector ran once per drive, two drives total");
+  eq((await store.getBuildJob(job.jobId)).status, "done", "§10a the job completes on the second drive — no wedge, no hourly wait");
+}
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  const { job } = await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [3000]);
+  // Host dies in 300 s: cap = 300 s − 30 s = 270 s = the default,
+  // so the drive is not capped at all.
+  const drive = await drivePackBuild(store, dest.destinationId, {
+    collectorFor,
+    driveBudgetMs: 270_000,
+    hostDeadlineMs: Date.now() + 300_000
+  });
+  eq(drive.outcome, "published", "§10b a drive whose host outlives the default publishes in one attempt");
+  eq(drive.attempts, 1, "§10b one attempt suffices when the host is not the binding constraint");
+  eq((await store.getBuildJob(job.jobId)).status, "done", "§10b the job completes");
 }
 
 console.log(`PACK-DRIVE CHECKS: ${count}/${count} PASS`);

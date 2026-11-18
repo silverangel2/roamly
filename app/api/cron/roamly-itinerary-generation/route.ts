@@ -28,7 +28,7 @@ const ROUTE_EXECUTION_BUDGET_MS = 270_000;
 // is still in progress. The chain was previously armed only at trip
 // creation, so one stall (or one hard-killed driver) disarmed it forever;
 // the trip lease arbitrates against the chain duplicating a live driver.
-function rearmInProgressTrips(summary: RoamlyGenerationWorkerSummary, request: NextRequest, requestId: string) {
+function rearmInProgressTrips(summary: RoamlyGenerationWorkerSummary, request: NextRequest, requestId: string, hostDeadlineMs?: number) {
   const origin = new URL(request.url).origin;
   for (const result of summary.results) {
     const status = result.progress?.status;
@@ -38,7 +38,11 @@ function rearmInProgressTrips(summary: RoamlyGenerationWorkerSummary, request: N
       tripId: result.tripId,
       origin,
       reason: "cron_wake_rearm",
-      requestId
+      requestId,
+      // Pack-wedge fix (2026-11-18): the re-armed chain runs inside
+      // after() under this cron's 300 s cap; its drives are capped
+      // at that deadline minus the host margin.
+      hostDeadlineMs
     });
   }
 }
@@ -48,10 +52,15 @@ function rearmInProgressTrips(summary: RoamlyGenerationWorkerSummary, request: N
 // reopened and driven first. A sweep failure is recorded like any
 // other background detector failure and never fails the wake itself.
 async function runRecoverySweep(
-  admin: ReturnType<typeof createSupabaseAdminClient>
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  hostDeadlineMs?: number
 ): Promise<StrandedGenerationRecoverySummary | null> {
   if (!admin) return null;
-  return runStrandedGenerationRecovery(admin).catch(async () => {
+  // Pack-wedge fix (2026-11-18): the sweep drives stranded trips
+  // inside this cron request, so its drives are capped at the
+  // cron's deadline minus the host margin — a drive the sweep
+  // starts must not outlive the request that hosts it.
+  return runStrandedGenerationRecovery(admin, { hostDeadlineMs }).catch(async () => {
     await recordBackgroundDetectorFailure({ detector: "stranded_generation_recovery", route: "/api/cron/roamly-itinerary-generation" });
     return {
       scanned: 0,
@@ -80,6 +89,12 @@ function authorized(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const executionDeadlineMs = Date.now() + ROUTE_EXECUTION_BUDGET_MS;
+  // Pack-wedge fix (2026-11-18): the hosting function's hard
+  // deadline (this cron's maxDuration = 300 s). The pack drive
+  // scheduled from the outline stage runs via after() inside this
+  // request's function, so it is capped at this deadline minus
+  // the host margin — NOT at the 270 s work budget above.
+  const hostDeadlineMs = Date.now() + maxDuration * 1000;
   if (!authorized(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
@@ -91,12 +106,13 @@ export async function POST(request: NextRequest) {
 
   // Untargeted POSTs are sweeper wakes too: run the KF-2 recovery
   // sweep first (a targeted POST already names its trip).
-  const strandedRecovery = tripId ? null : await runRecoverySweep(createSupabaseAdminClient());
+  const strandedRecovery = tripId ? null : await runRecoverySweep(createSupabaseAdminClient(), hostDeadlineMs);
   const summary = await processGenerationQueue({
     tripId: tripId || null,
     requestId,
     reason,
     executionDeadlineMs,
+    hostDeadlineMs,
     config: tripId
       ? {
           batchSize: 3,
@@ -105,7 +121,7 @@ export async function POST(request: NextRequest) {
         }
       : undefined
   });
-  rearmInProgressTrips(summary, request, requestId);
+  rearmInProgressTrips(summary, request, requestId, hostDeadlineMs);
   // OPTIONAL (incident 2026-10-25, stream 2 — Junel's call, severable):
   // sweep-side pack-wait terminal transition, BEFORE the detector, so a
   // cap-past job is failed loudly instead of being requeued for another
@@ -125,6 +141,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const executionDeadlineMs = Date.now() + ROUTE_EXECUTION_BUDGET_MS;
+  // Pack-wedge fix (2026-11-18): same host deadline as POST —
+  // this cron's maxDuration = 300 s.
+  const hostDeadlineMs = Date.now() + maxDuration * 1000;
   if (!authorized(request)) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 });
   }
@@ -167,13 +186,14 @@ export async function GET(request: NextRequest) {
   }
   // KF-2: after the gate passes, the stranded-generation recovery
   // sweep runs BEFORE the global queue wake (see runRecoverySweep).
-  const strandedRecovery = await runRecoverySweep(gateAdmin);
+  const strandedRecovery = await runRecoverySweep(gateAdmin, hostDeadlineMs);
   const summary = await processGenerationQueue({
     requestId,
     reason: "vercel_cron_wake",
-    executionDeadlineMs
+    executionDeadlineMs,
+    hostDeadlineMs
   });
-  rearmInProgressTrips(summary, request, requestId);
+  rearmInProgressTrips(summary, request, requestId, hostDeadlineMs);
   // OPTIONAL (incident 2026-10-25, stream 2 — Junel's call, severable):
   // see the POST handler note above; same placement, before the detector.
   const packWaitTerminal = await runPackWaitTerminalTransition().catch(async () => {
