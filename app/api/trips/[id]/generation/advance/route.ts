@@ -36,7 +36,8 @@ function rearmIfInProgress(
   request: NextRequest,
   tripId: string,
   requestId: string,
-  progress: { status?: string | null } | null | undefined
+  progress: { status?: string | null } | null | undefined,
+  hostDeadlineMs?: number
 ) {
   const status = progress?.status;
   if (!status || status === "complete" || status === "failed" || status === "partially_failed") return;
@@ -44,7 +45,11 @@ function rearmIfInProgress(
     tripId,
     origin: new URL(request.url).origin,
     reason: "client_advance_rearm",
-    requestId
+    requestId,
+    // Pack-wedge fix (2026-11-18): the re-armed chain runs inside
+    // after() under this route's 90 s cap; its drives are capped
+    // at that deadline minus the host margin.
+    hostDeadlineMs
   });
 }
 
@@ -59,6 +64,13 @@ async function queueSnapshot(supabase: SupabaseClient, tripId: string, userId: s
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const executionDeadlineMs = Date.now() + ROUTE_EXECUTION_BUDGET_MS;
+  // Pack-wedge fix (2026-11-18): the hosting function's hard
+  // deadline (this route's maxDuration = 90 s). The pack drive
+  // scheduled from the outline stage runs via after() inside this
+  // request's function, so it is capped at this deadline minus
+  // the host margin — NOT at the 80 s slice budget above, which
+  // would cap drives at ~50 s and break drive-to-completion.
+  const hostDeadlineMs = Date.now() + maxDuration * 1000;
   const { id } = await params;
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
@@ -83,13 +95,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         requestId,
         reason: "manual_retry_batch",
         executionDeadlineMs,
+        hostDeadlineMs,
         config: {
           batchSize: 1,
           concurrency: 1,
           maxLayersPerRun: 8
         }
       });
-      rearmIfInProgress(request, id, requestId, summary.results[0]?.progress || publicStagedGenerationProgress({ generation: state }, id));
+      rearmIfInProgress(request, id, requestId, summary.results[0]?.progress || publicStagedGenerationProgress({ generation: state }, id), hostDeadlineMs);
       if (!summary.ok && workerQueueUnavailable(summary)) {
         return NextResponse.json(
           {
@@ -120,13 +133,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       requestId,
       reason: "manual_generation_worker_wake",
       executionDeadlineMs,
+      hostDeadlineMs,
       config: {
         batchSize: 3,
         concurrency: 1,
         maxLayersPerRun: 8
       }
     });
-    rearmIfInProgress(request, id, requestId, summary.results[0]?.progress);
+    rearmIfInProgress(request, id, requestId, summary.results[0]?.progress, hostDeadlineMs);
     if (!summary.ok && workerQueueUnavailable(summary)) {
       return NextResponse.json(
         {

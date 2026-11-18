@@ -376,6 +376,12 @@ export async function runStrandedGenerationRecovery(
     now?: Date;
     limit?: number;
     drive?: (tripId: string, userId: string) => Promise<unknown>;
+    /** Absolute epoch ms at which the hosting function is killed
+     *  (the request's start + its maxDuration). Threaded to the
+     *  default drive so a pack drive it schedules is capped at
+     *  this deadline minus the host margin (pack-wedge fix,
+     *  2026-11-18). Absent = the pre-fix 270 s drive default. */
+    hostDeadlineMs?: number;
   } = {}
 ): Promise<StrandedGenerationRecoverySummary> {
   const summary: StrandedGenerationRecoverySummary = {
@@ -407,7 +413,11 @@ export async function runStrandedGenerationRecovery(
         tripId,
         userId,
         reason: "stranded_generation_recovery",
-        executionDeadlineMs: nowMs + RECOVERY_DRIVE_BUDGET_MS
+        executionDeadlineMs: nowMs + RECOVERY_DRIVE_BUDGET_MS,
+        // Pack-wedge fix (2026-11-18): the sweep drives stranded
+        // trips inside the cron request that hosts it; a pack drive
+        // it schedules must end before that request dies.
+        hostDeadlineMs: opts.hostDeadlineMs ?? null
       }));
 
   type Found = {

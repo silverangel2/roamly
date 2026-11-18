@@ -153,11 +153,33 @@ export interface RunPackKickOptions {
  *  class) with margin for the final release/publish writes; the
  *  live Overpass collection deadline (210 s) fits inside it, and
  *  an extract-lane build (seconds) barely touches it. Env
- *  override: ROAMLY_PACK_DRIVE_BUDGET_MS. */
+ *  override: ROAMLY_PACK_DRIVE_BUDGET_MS.
+ *
+ *  This is a CAP, not a guarantee: a drive that starts late in
+ *  its hosting function's life has less host left than this
+ *  budget, and the host kills it mid-collect before the budget
+ *  race can release (the Yichun wedge, 2026-11-18). When the
+ *  caller passes hostDeadlineMs, the drive budget is capped at
+ *  that deadline minus PACK_DRIVE_HOST_MARGIN_MS instead. */
 export const PACK_DRIVE_BUDGET_MS = Math.max(
   60_000,
   Number(process.env.ROAMLY_PACK_DRIVE_BUDGET_MS || 270_000) || 270_000
 );
+
+/** The margin a drive leaves between its own budget expiry and
+ *  the hosting function's hard deadline (pack-wedge fix,
+ *  2026-11-18): the budget race must fire — and the release write
+ *  land — while the function is still alive. A drive whose budget
+ *  expires at the same moment the function is killed (the Yichun
+ *  shape: the generate request hit Vercel's 300 s timeout at the
+ *  instant the 270 s drive budget expired) never releases, and
+ *  the job stays "building" under its 10-min lease with nothing
+ *  to reclaim it until the hourly pack-refresh cron. The release
+ *  path is a few Supabase round-trips plus one verify+retry, so
+ *  30 s is far more than enough; it also matches the 30 s
+ *  headroom the cron route keeps between its 270 s work budget
+ *  and the 300 s platform cap. */
+export const PACK_DRIVE_HOST_MARGIN_MS = 30_000;
 
 export type PackDriveOutcome =
   /** A version published during this drive. */
@@ -189,6 +211,12 @@ export interface PackDriveResult {
 export interface DrivePackBuildOptions extends RunPackKickOptions {
   /** Total drive budget (default PACK_DRIVE_BUDGET_MS). */
   driveBudgetMs?: number;
+  /** Absolute epoch ms at which the hosting function is killed
+   *  (the request's start + its maxDuration). When set, the drive
+   *  budget is capped at hostDeadlineMs − PACK_DRIVE_HOST_MARGIN_MS
+   *  so the release always lands with margin. Absent = the
+   *  pre-fix 270 s default. */
+  hostDeadlineMs?: number;
   /** Injectable clock (proofs drive the deadline without waiting). */
   now?: () => number;
 }
@@ -206,7 +234,25 @@ export async function drivePackBuild(
 ): Promise<PackDriveResult> {
   const now = options.now ?? (() => Date.now());
   const startedAt = now();
-  const deadline = startedAt + (options.driveBudgetMs ?? PACK_DRIVE_BUDGET_MS);
+  // Pack-wedge fix (2026-11-18): the drive never outlives its
+  // hosting function. When the caller knows the function's hard
+  // deadline, the drive budget is capped at that deadline minus
+  // the host margin, so the budget race fires and the release
+  // lands while the function is still alive — the Yichun drive
+  // started ~118 s into a 300 s generate request, so its 270 s
+  // budget expired ~88 s after the function died and the release
+  // never ran. The floor is 0 (a drive whose host is already
+  // spent still runs one attempt — the loop's kick floor is 1 s —
+  // re-decides and releases instead of wedging).
+  const hostCappedBudgetMs =
+    options.hostDeadlineMs !== undefined
+      ? options.hostDeadlineMs - startedAt - PACK_DRIVE_HOST_MARGIN_MS
+      : null;
+  const driveBudgetMs = Math.min(
+    options.driveBudgetMs ?? PACK_DRIVE_BUDGET_MS,
+    hostCappedBudgetMs === null ? Number.POSITIVE_INFINITY : Math.max(0, hostCappedBudgetMs)
+  );
+  const deadline = startedAt + driveBudgetMs;
   const publishedPackVersionIds: string[] = [];
   let attempts = 0;
   let lastDecision: PackKickDecision = {
