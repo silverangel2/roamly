@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchWithSupabaseAuth } from "@/lib/roamly/authenticatedFetch";
 import { useI18n } from "@/components/i18n/I18nProvider";
+import {
+  COLD_PACK_ETA_MINUTES,
+  coldPackEtaText,
+  formatEstimateRange,
+  fiveMinuteNoticeText,
+  generationEstimate,
+  isCompletionEmailSent,
+  isFiveMinuteNoticeEligible
+} from "@/lib/roamly/generationProgressUx";
 
 type DayProgress = {
   dayNumber: number;
@@ -35,6 +44,15 @@ type GenerationProgress = {
   aiInputTokens: number;
   aiOutputTokens: number;
   lastErrorCode: string | null;
+  // Generation UX delta (2026-11-19): the named pack-wait state, surfaced
+  // by publicStagedGenerationProgress so the ETA can branch cold/warm.
+  // Present only while the trip waits for its destination's pack build;
+  // null (or absent on older payloads) on every non-waiting state.
+  waitingOnPack?: {
+    destinationId: string;
+    since: string;
+    waits: number;
+  } | null;
   finalValidationErrors?: string[];
   finalValidationAttemptCount?: number;
   retryLimit: number;
@@ -98,22 +116,9 @@ const SAVED_QUEUE_MESSAGE =
 
 const STALE_PROGRESS_MS = 2 * 60 * 1000;
 
-// Estimated generation time, calibrated to production measurements
-// (2026-10-21): context prep runs before the first stage, the outline call
-// takes ~9s, each day batch ~9–14s of model time, and a healthy 5-day trip
-// completes end to end in ~95–115s. Shown to travelers as a friendly range —
-// a guide, never a promise.
-function estimateGenerationRangeSeconds(totalDayCount: number) {
-  const days = Math.max(1, Math.round(totalDayCount || 1));
-  return { low: 15 + 16 * days, high: 25 + 18 * days };
-}
-
-function formatEstimateRange(range: { low: number; high: number }) {
-  if (range.high <= 60) return "under a minute";
-  const lowMinutes = Math.max(1, Math.floor(range.low / 60));
-  const highMinutes = Math.max(lowMinutes + 1, Math.ceil(range.high / 60));
-  return `about ${lowMinutes}–${highMinutes} minutes`;
-}
+// The warm estimate formula + its formatter now live in
+// lib/roamly/generationProgressUx.ts (pure, unit-tested) alongside the
+// cold-pack branch; the component only renders what they return.
 
 function formatElapsedClock(totalSeconds: number) {
   const seconds = Math.max(0, Math.floor(totalSeconds));
@@ -453,6 +458,12 @@ export function StagedGenerationProgress({
   // Bumped when a poll throws, so the polling loop re-arms even when no
   // progress changed (a thrown fetch would otherwise freeze the timer).
   const [pollRetryNonce, setPollRetryNonce] = useState(0);
+  // Generation UX delta (2026-11-19): the 5-minute notice is shown once
+  // per page session — dismissing it never re-shows it for this
+  // generation. A reload remounts with it cleared, so the notice is
+  // present immediately on a 6:00 reload (server timestamp, not a fresh
+  // client timer).
+  const [fiveMinuteDismissed, setFiveMinuteDismissed] = useState(false);
   const stopped = isTerminalStatus(progress.status);
 
   useEffect(() => {
@@ -710,6 +721,7 @@ export function StagedGenerationProgress({
     setProgress(scoped);
     setQueued(null);
     setMessage("");
+    setFiveMinuteDismissed(false);
     refreshedDayCount.current = scoped.completedDayCount;
     unchangedPollCount.current = 0;
     lastProgressSignature.current = "";
@@ -762,9 +774,29 @@ export function StagedGenerationProgress({
   }, [stopped]);
   const startedAtMs = Date.parse(progress.startedAt || "");
   const elapsedSeconds = Number.isFinite(startedAtMs) ? Math.max(0, (nowMs - startedAtMs) / 1000) : 0;
-  const estimateRange = estimateGenerationRangeSeconds(progress.totalDayCount);
+  // Generation UX delta (2026-11-19): the estimate branches on pack
+  // state — warm keeps the calibrated formula, cold shows the range +
+  // reason. When the pack lands, waitingOnPack clears on the next poll
+  // and this re-derives warm: the estimate is a live value.
+  const estimate = generationEstimate({
+    totalDayCount: progress.totalDayCount,
+    waitingOnPack: progress.waitingOnPack ?? null,
+    nowMs
+  });
   // Stall honesty: well past the top of the estimate, say so plainly.
-  const pastEstimate = !stopped && elapsedSeconds > estimateRange.high + 60;
+  // Cold trips use the cold range top (60 min), not the warm formula —
+  // the warm formula is wrong for a pack-wait trip.
+  const estimateTopSeconds =
+    estimate.kind === "cold" ? COLD_PACK_ETA_MINUTES.high * 60 : estimate.high;
+  const pastEstimate = !stopped && elapsedSeconds > estimateTopSeconds + 60;
+  // 5-minute notice (generation UX delta §3.2a): derived from the
+  // server timestamp on the existing poll — never a setTimeout. The
+  // terminal check is live on every render, so it never fires after
+  // completion.
+  const completionEmailSent = isCompletionEmailSent(progress.emailNotification);
+  const showFiveMinuteNotice =
+    !fiveMinuteDismissed &&
+    isFiveMinuteNoticeEligible({ elapsedSeconds, isTerminal: stopped, completionEmailSent });
   const checklist = generationChecklist(progress, destinationLabel);
 
   return (
@@ -911,8 +943,24 @@ export function StagedGenerationProgress({
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-cblue">{translateText("What’s happening")}</p>
             <p className="text-xs font-black text-slate-500">
-              Elapsed {formatElapsedClock(elapsedSeconds)} · usually {translateText(formatEstimateRange(estimateRange))} for a{" "}
-              {progress.totalDayCount}-day trip
+              {estimate.kind === "cold" ? (
+                <>
+                  Elapsed {formatElapsedClock(elapsedSeconds)} ·{" "}
+                  {translateText(
+                    coldPackEtaText({
+                      destinationLabel,
+                      emailConfigured: canEmail,
+                      waitElapsedSeconds: estimate.waitElapsedSeconds
+                    })
+                  )}
+                </>
+              ) : (
+                <>
+                  Elapsed {formatElapsedClock(elapsedSeconds)} · usually{" "}
+                  {translateText(formatEstimateRange({ low: estimate.low, high: estimate.high }))} for a{" "}
+                  {progress.totalDayCount}-day trip
+                </>
+              )}
             </p>
           </div>
           <ol className="mt-4 grid gap-3">
@@ -962,6 +1010,25 @@ export function StagedGenerationProgress({
               {canEmail
                 ? `You can leave this page; we’ll email ${maskedEmail} when your itinerary is ready.`
                 : translateText("You can leave this page; your progress is saved as it goes.")}
+            </p>
+          ) : null}
+          {showFiveMinuteNotice ? (
+            <p role="status" className="mt-4 flex items-start justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+              <span>
+                {translateText(
+                  fiveMinuteNoticeText({
+                    maskedEmail: canEmail ? maskedEmail : null,
+                    backgroundWorkerConfigured
+                  })
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => setFiveMinuteDismissed(true)}
+                className="shrink-0 rounded-full px-2 py-1 text-xs font-black text-amber-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-amber-300"
+              >
+                {translateText("Dismiss")}
+              </button>
             </p>
           ) : null}
         </div>

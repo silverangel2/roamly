@@ -3122,6 +3122,12 @@ export function publicStagedGenerationProgress(metadata: unknown, expectedTripId
     })),
     retryLimit: BATCH_ATTEMPT_LIMIT,
     emailNotification: getGenerationEmailStatus(metadata, state.tripId),
+    // Generation UX delta (2026-11-19): the trip page's honest cold-city
+    // ETA branches on this. The internal state already carries it
+    // (normalized by getStagedGenerationState); the public payload
+    // dropped it, so a pack-wait trip showed the warm formula. Null on
+    // every non-waiting state.
+    waitingOnPack: state.waitingOnPack || null,
     startedAt: state.startedAt,
     updatedAt: state.updatedAt,
     completedAt: state.completedAt || null
