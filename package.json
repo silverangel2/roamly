@@ -16,6 +16,7 @@
     "test:october4-journey": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-october4-journey-checks.mjs",
     "test:guest-plan-preview": "node scripts/roamly-guest-plan-preview-checks.mjs",
     "test:guest-generation-status": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-guest-generation-status-checks.mjs",
+    "test:generation-ux-delta": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-generation-ux-delta-checks.mjs",
     "test:roamly-incident-wake-guarantee": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-incident-wake-guarantee-checks.mjs",
     "test:roamly-incident-pack-wait-terminal": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-incident-pack-wait-terminal-checks.mjs",
     "test:gate1-meal-repeat": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-gate1-meal-repeat-checks.mjs",
