@@ -1473,12 +1473,20 @@ async function reloadReferralCaptureAfterConflict(params: {
   return { booking: canonical.data as Record<string, unknown>, error: null, reusable: true };
 }
 
-function bookingRevisionPatch(booking: Record<string, unknown>) {
+function bookingRevisionPatch(booking: Record<string, unknown>, previousBooking: Record<string, unknown>) {
   return {
     booking_status: booking.booking_status,
     provider_name: booking.provider_name,
-    provider_booking_id: booking.provider_booking_id,
-    confirmation_number: booking.confirmation_number,
+    // Step 4 (§3.3.4): the revision patch is built from the normalized
+    // booking, so an omitted code arrives as null. The RPC itself is safe
+    // (coalesce keeps the stored value on null), but the patch is also the
+    // source of changed_fields — a null here would falsely record the code
+    // as changed. Preserve the stored code/id when the revision omits it,
+    // the same omitted-vs-explicit rule as the matched update above.
+    provider_booking_id:
+      (booking.provider_booking_id as string | null) ?? textValue(previousBooking.provider_booking_id),
+    confirmation_number:
+      (booking.confirmation_number as string | null) ?? textValue(previousBooking.confirmation_number),
     title: booking.title,
     start_at: booking.start_at,
     end_at: booking.end_at,
@@ -1503,9 +1511,14 @@ async function applyGmailBookingRevision(params: {
   booking: Record<string, unknown>;
   reconciliation: NonNullable<TripBookingInput["reconciliation"]>;
 }) {
-  const changedFields = Object.keys(bookingRevisionPatch(params.booking)).filter((key) => {
+  // Step 4: changed_fields is derived from the PATCH (the preserved
+  // values), not the raw normalized booking — otherwise an omitted code
+  // would be recorded as "changed" even though neither the patch nor the
+  // RPC changes it.
+  const patch = bookingRevisionPatch(params.booking, params.previousBooking);
+  const changedFields = Object.keys(patch).filter((key) => {
     const previous = params.previousBooking[key];
-    const next = params.booking[key];
+    const next = (patch as Record<string, unknown>)[key];
     return JSON.stringify(previous ?? null) !== JSON.stringify(next ?? null);
   });
   const result = await params.supabase.rpc("roamly_apply_gmail_booking_revision", {
@@ -1516,7 +1529,7 @@ async function applyGmailBookingRevision(params: {
     p_source_message_id: params.reconciliation.sourceMessageId,
     p_source_event_at: params.reconciliation.sourceEventAt,
     p_decision: params.reconciliation.decision || "applied",
-    p_booking_patch: bookingRevisionPatch(params.booking),
+    p_booking_patch: patch,
     p_changed_fields: changedFields
   });
   if (result.error) return { ok: false as const, error: result.error.message };
@@ -1542,6 +1555,17 @@ async function applyGmailBookingRevision(params: {
 // Explicit zero replaces with zero (B14 rule) — it is a real price, not a
 // wipe. total_price and amount_cents move together: they are one value in
 // two units (B02's one-unit rule), never updated independently.
+//
+// Step 4 (§3.3.4) extends the same rule to the identity fields
+// confirmation_number and provider_booking_id: a matched re-save that omits
+// the confirmation code used to blank the stored code (the normalizer turns
+// an omitted code into null and the matched update spread the whole payload).
+// On update, an omitted code/id preserves the stored value; only an
+// explicitly supplied value replaces it. There is no clear-code signal in
+// the API either, so explicit null preserves too. (The F4 guard still
+// refuses the match outright when BOTH rows carry differing codes; this
+// preserve covers the one-side-code-less match that F4 deliberately allows
+// through.)
 function preserveOmittedMoneyFieldsOnUpdate(
   booking: ReturnType<typeof normalizeTripBookingInput>,
   previous: Record<string, unknown>,
@@ -1564,6 +1588,13 @@ function preserveOmittedMoneyFieldsOnUpdate(
   } else {
     next.taxes_and_fees = typeof previous.taxes_and_fees === "number" ? previous.taxes_and_fees : null;
   }
+  // Step 4: omitted identity fields preserve the stored values, exactly
+  // like money above. booking.* is the normalized input (null when the
+  // caller omitted the field); previous.* is the stored row.
+  next.confirmation_number =
+    booking.confirmation_number ?? textValue(previous.confirmation_number);
+  next.provider_booking_id =
+    booking.provider_booking_id ?? textValue(previous.provider_booking_id);
   return next;
 }
 
@@ -1672,8 +1703,10 @@ export async function createTripBooking(params: {
     }
   }
 
-  // U2: on a matched re-save, omitted money fields keep the stored values
-  // (see preserveOmittedMoneyFieldsOnUpdate) instead of wiping them.
+  // U2 + Step 4: on a matched re-save, omitted money fields AND omitted
+  // identity fields (confirmation code, provider booking id) keep the
+  // stored values (see preserveOmittedMoneyFieldsOnUpdate) instead of
+  // wiping them.
   const updatePayload = previousBooking
     ? preserveOmittedMoneyFieldsOnUpdate(booking, previousBooking, params.input)
     : booking;
@@ -1690,8 +1723,9 @@ export async function createTripBooking(params: {
       : await params.supabase
         .from("roamly_bookings")
         .update({
-          // U2 (merged with B03): on a matched re-save this is the
-          // money-preserved payload, not the raw normalized booking.
+          // U2 + Step 4 (merged with B03): on a matched re-save this is
+          // the money- and identity-preserved payload, not the raw
+          // normalized booking.
           // writeBooking === booking on this path (a matched update is
           // never ambiguous), so this is exactly #93's spread swap.
           ...updatePayload,
