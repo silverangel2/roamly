@@ -13,6 +13,7 @@
     "test:plan-trip-ux": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-plan-trip-ux-checks.mjs",
     "test:phase3-traveler": "node scripts/roamly-phase3-traveler-checks.mjs",
     "test:traveler-package": "node scripts/roamly-traveler-package-checks.mjs",
+    "test:trip-destination-label": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-trip-destination-label-checks.mjs",
     "test:october4-journey": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-october4-journey-checks.mjs",
     "test:guest-plan-preview": "node scripts/roamly-guest-plan-preview-checks.mjs",
     "test:guest-generation-status": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-guest-generation-status-checks.mjs",

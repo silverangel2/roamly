@@ -7,7 +7,7 @@ import type {
   TripPlannerPayload
 } from "@/lib/trip-planner";
 import { calculateTripDateRange } from "@/lib/roamly/dateUtils";
-import { resolveCityPlace } from "@/lib/roamly/placeResolver";
+import { normalizeCountryCode, resolveCityPlace } from "@/lib/roamly/placeResolver";
 
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
@@ -179,11 +179,30 @@ export function buildTripPlanningMetadata(payload: TripPlannerPayload) {
 export function getTripDestinationLabel(trip: {
   destination?: unknown;
   destination_name?: unknown;
+  destination_country?: unknown;
   metadata?: unknown;
 }) {
   const planning = getTripPlanningMetadata(trip.metadata);
   const raw = getString(trip.destination) || getString(trip.destination_name) || getString(planning.destination);
-  return resolveCityPlace(raw)?.searchLabel || raw;
+  // Stored country is authoritative: a bare city name re-resolved on its own
+  // can pick the wrong same-named city (Vancouver WA over Vancouver BC —
+  // the resolver's admin-seat bonus outweighs population). When the trip
+  // stores its country, resolve with it as the hint and never return a
+  // label whose country contradicts the stored one.
+  const storedCountry =
+    getString(trip.destination_country) ||
+    getString(planning.destinationCountry) ||
+    getString(planning.destination_country);
+  if (!storedCountry) return resolveCityPlace(raw)?.searchLabel || raw;
+  if (!raw) return storedCountry;
+  const cityPart = raw.split(",")[0]?.trim() || raw;
+  const storedCode = normalizeCountryCode(storedCountry);
+  const resolved = resolveCityPlace(`${cityPart}, ${storedCountry}`);
+  if (resolved && (!storedCode || resolved.countryCode === storedCode)) return resolved.searchLabel;
+  // City not in the dataset for that country (or the stored country is not
+  // a known code): keep the stored country rather than a wrong-country
+  // resolution or a bare city name.
+  return `${cityPart}, ${storedCountry}`;
 }
 
 export function getTripOriginLabel(trip: { origin?: unknown; metadata?: unknown }) {
