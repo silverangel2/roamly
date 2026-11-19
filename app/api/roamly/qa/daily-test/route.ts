@@ -77,15 +77,26 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === "rewind") {
-    // Rewind ONLY the caller's own test trip's still-scheduled events to
-    // now, so the next dispatch run processes them immediately instead of
-    // waiting out the dispatcher's +10-minute reschedule.
+    // Rewind ONLY the caller's own test trip's still-scheduled events
+    // that are ALREADY DUE (scheduled_for <= now) to now, so the next
+    // dispatch run processes them immediately instead of waiting out
+    // the dispatcher's +10-minute reschedule. Future-dated events —
+    // above all the per-day travel_day_started rows at 09:00Z on each
+    // trip day — are left alone: rewinding them would fire the whole
+    // trip's travel-day alerts within minutes of unlock and burn their
+    // dedupe keys, so the reconcile could never recreate them and the
+    // trip would get no travel-day alert on its actual days
+    // (2026-11-19: Tbilisi/Lisbon). The email-consolidation burst the
+    // daily test proves comes from the already-due pre-trip reminders,
+    // which this scope still rewinds.
+    const nowIso = new Date().toISOString();
     const { count, error } = await admin
       .from("roamly_trip_companion_events")
-      .update({ scheduled_for: new Date().toISOString() }, { count: "exact" })
+      .update({ scheduled_for: nowIso }, { count: "exact" })
       .eq("trip_id", tripId)
       .eq("user_id", auth.user.id)
-      .eq("status", "scheduled");
+      .eq("status", "scheduled")
+      .lte("scheduled_for", nowIso);
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
