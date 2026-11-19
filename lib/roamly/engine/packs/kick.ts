@@ -337,3 +337,97 @@ export async function runPackKick(
     return { decision, publishedPackVersionIds: [], error: err instanceof Error ? err.message : String(err) };
   }
 }
+
+export interface SchedulePackDriveOptions {
+  tripId: string;
+  /** Absolute epoch ms at which the hosting function is killed
+   *  (the request's start + its maxDuration). Threaded to the
+   *  drive so it is capped at that deadline minus the host
+   *  margin (pack-wedge fix, 2026-11-18). Absent = the pre-fix
+   *  270 s drive default. */
+  hostDeadlineMs?: number;
+  /** Collector factory for the drive. Optional: production uses
+   *  drivePackBuild's default (the primary collector — prebuilt
+   *  Overture extract first, live Overpass fallback); checks
+   *  inject a fake. */
+  collectorFor?: (destinationId: string) => PackCollector;
+  /** Worker label the drive claims under (lease holder). Default
+   *  "pack-drive" — the outline kick's label. The worker-level
+   *  re-drive passes its own worker id so the claim row says
+   *  which driver drove the pack. */
+  workerId?: string;
+}
+
+/**
+ * Schedule one pack drive as post-response work — the SHARED seam
+ * behind the outline-stage kick (generate.ts schedulePackBuildKick)
+ * and the worker-level re-drive (generationWorker.ts, step 5
+ * trigger fix, 2026-11-19). Both callers hand the drive to the
+ * production after() scheduler so it never blocks the traveler's
+ * wake; the drive itself is drivePackBuild, so the outcome log
+ * line below is the same `roamly_pack_kick` event either way and
+ * log analysis never forks.
+ *
+ * Never throws: a missing scheduler schedules nothing (the
+ * pre-kick behavior — only the hourly cron drains the queue); a
+ * throwing scheduler is caught and logged; a drive that fails
+ * before it can even decide (a store read failure) is caught
+ * inside the task and logged as `roamly_pack_kick_error` instead
+ * of escaping into after() — the `roamly_pack_kick` outcome line
+ * is reserved for decided drives, exactly as the outline kick
+ * emitted it.
+ */
+export function schedulePackDrive(
+  store: PackStore,
+  destinationId: string,
+  schedule: ((task: () => Promise<void>) => void) | undefined,
+  options: SchedulePackDriveOptions
+): void {
+  if (!schedule) return;
+  try {
+    schedule(async () => {
+      let result: PackDriveResult;
+      try {
+        result = await drivePackBuild(store, destinationId, {
+          collectorFor: options.collectorFor,
+          hostDeadlineMs: options.hostDeadlineMs,
+          workerId: options.workerId ?? "pack-drive"
+        });
+      } catch (err) {
+        console.error(
+          JSON.stringify({
+            event: "roamly_pack_kick_error",
+            tripId: options.tripId,
+            destinationId,
+            error: err instanceof Error ? err.message : String(err)
+          })
+        );
+        return;
+      }
+      console.log(
+        JSON.stringify({
+          event: "roamly_pack_kick",
+          tripId: options.tripId,
+          destinationId,
+          kick: result.decision.kick,
+          reason: result.decision.reason,
+          jobId: result.decision.jobId,
+          published: result.publishedPackVersionIds,
+          error: result.error,
+          driveOutcome: result.outcome,
+          driveAttempts: result.attempts,
+          driveElapsedMs: result.elapsedMs
+        })
+      );
+    });
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "roamly_pack_kick_schedule_failed",
+        tripId: options.tripId,
+        destinationId,
+        error: err instanceof Error ? err.message : String(err)
+      })
+    );
+  }
+}
