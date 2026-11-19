@@ -28,8 +28,11 @@ import { recordGenerationCostEvent } from "@/lib/roamly/generationScalability";
 import {
   advanceEngineGeneration,
   buildEngineRuntimeDeps,
+  schedulePackKickAfterResponse,
   zeroEngineEnabledForJob
 } from "@/lib/roamly/engine/generate";
+import { schedulePackDrive } from "@/lib/roamly/engine/packs/kick";
+import { SupabasePackStore } from "@/lib/roamly/engine/packs/supabaseStore";
 import { getPublicSupabaseHost, logGenerationDiagnostic } from "@/lib/roamly/generationDiagnostics";
 import { isMissingTableError } from "@/lib/trips";
 import { generationTripIsTerminal } from "@/lib/roamly/generationLifecycle";
@@ -493,6 +496,41 @@ async function syncQueueFromState(params: {
   return publicStagedGenerationProgress({ generation: params.state }, params.job.trip_id);
 }
 
+// STEP 5 — TRIGGER FIX (2026-11-19): the worker-level pack
+// re-drive. A claimed job whose trip is ALREADY waiting on a pack
+// build gets that build driven from the worker itself — the
+// `roamly_pack_kick` drive is no longer only a side effect of the
+// outline stage reaching its cold branch. The outline kick
+// (generate.ts) still owns the FIRST wake: the state is not
+// pack-waiting yet when it runs, so this seam does not fire there.
+// This seam owns every LATER wake, including the ones that yield
+// before the outline stage (execution budget spent — the outline
+// needs 25 s + the cleanup buffer) or return busy on a trip lease
+// held by another wake (up to the 4-min stage lease) without ever
+// running the outline — both used to leave the queued build to
+// the hourly pack-refresh cron. The drive is the shared
+// schedulePackDrive seam, so a duplicate drive in the same wake
+// (outline kick + worker re-drive) is harmless: decidePackKick +
+// the store's claim fencing let exactly one claim win and the
+// loser drains nothing. Built over the admin client directly
+// (like the pack-refresh cron), so it also fires for a trip the
+// incumbent driver took over mid-flight with a pack wait already
+// stamped. The hourly cron stays the backstop, untouched.
+function scheduleWorkerPackDrive(params: {
+  admin: SupabaseClient;
+  tripId: string;
+  destinationId: string;
+  hostDeadlineMs?: number;
+  workerId: string;
+}): void {
+  const store = new SupabasePackStore(params.admin);
+  schedulePackDrive(store, params.destinationId, schedulePackKickAfterResponse, {
+    tripId: params.tripId,
+    hostDeadlineMs: params.hostDeadlineMs,
+    workerId: params.workerId
+  });
+}
+
 async function processClaimedJob(params: {
   admin: SupabaseClient;
   job: RoamlyGenerationJob;
@@ -503,6 +541,7 @@ async function processClaimedJob(params: {
   hostDeadlineMs?: number | null;
 }) {
   let advanced = false;
+  let packDriveScheduled = false;
   let currentWork: ReturnType<typeof nextStagedGenerationWork> = null;
 
   // EGRESS TRIM (2026-11-02): the stored-full-itinerary probe is
@@ -670,6 +709,23 @@ async function processClaimedJob(params: {
 
       if (!state) {
         throw new StagedGenerationError("No staged generation job exists for this trip.", "GENERATION_JOB_NOT_FOUND", 404, true);
+      }
+
+      // STEP 5 — TRIGGER FIX (2026-11-19): worker-level pack
+      // re-drive — see scheduleWorkerPackDrive. Fires once per
+      // claimed run, from the state as loaded: a trip ALREADY
+      // waiting on a pack gets its build driven now, whether or
+      // not this wake goes on to run the outline stage (yield,
+      // held lease, or busy all used to skip the kick).
+      if (!packDriveScheduled && state.waitingOnPack?.destinationId) {
+        packDriveScheduled = true;
+        scheduleWorkerPackDrive({
+          admin: params.admin,
+          tripId: params.job.trip_id,
+          destinationId: state.waitingOnPack.destinationId,
+          hostDeadlineMs: params.hostDeadlineMs ?? undefined,
+          workerId: params.workerId
+        });
       }
 
       await reconcileGenerationLayersFromStagedState({

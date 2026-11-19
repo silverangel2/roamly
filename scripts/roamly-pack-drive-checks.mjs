@@ -56,6 +56,15 @@
 //      claims it at once instead of being turned away as
 //      "build-in-flight" for the 10-min lease. A drive whose host
 //      outlives the default is not capped at all.
+//   §11 Shared schedulePackDrive seam (trigger fix, 2026-11-19):
+//      step 5 wires the pack drive into the generation worker
+//      (generationWorker.ts): a claimed job whose trip is ALREADY
+//      waiting on a pack gets its build driven from the worker
+//      itself, through this ONE seam — the same seam the
+//      outline-stage kick calls. Proven here, against the
+//      in-memory store, with a recorder scheduler standing in
+//      for Next's after().
+//
 //
 // Run: npm run test:pack-drive
 
@@ -66,7 +75,7 @@ const { advanceEngineGeneration, startEngineGeneration, ZERO_ENGINE_SOURCE } = a
 );
 const { InMemoryPackStore } = await import("@/lib/roamly/engine/packs/store.ts");
 const { liveCollector, readServingPack } = await import("@/lib/roamly/engine/packs/builder.ts");
-const { runPackKick, drivePackBuild } = await import("@/lib/roamly/engine/packs/kick.ts");
+const { runPackKick, drivePackBuild, schedulePackDrive } = await import("@/lib/roamly/engine/packs/kick.ts");
 
 let count = 0;
 function ok(value, label) {
@@ -640,6 +649,153 @@ const emptyContext = () => ({
   eq(drive.outcome, "published", "§10b a drive whose host outlives the default publishes in one attempt");
   eq(drive.attempts, 1, "§10b one attempt suffices when the host is not the binding constraint");
   eq((await store.getBuildJob(job.jobId)).status, "done", "§10b the job completes");
+}
+
+/* ---------------- §11 — the shared schedulePackDrive seam (trigger fix, 2026-11-19) ---------------- */
+// Step 5's wiring: the generation worker drives a pack-waiting
+// trip's build through schedulePackDrive — the same seam the
+// outline-stage kick calls (generate.ts schedulePackBuildKick
+// delegates to it). The worker call-site itself needs a live
+// queue + admin client, so it is NOT run here (same boundary as
+// the stranded checks' production drive, HARNESS-PLAN G3/G4);
+// what IS proven here, for real, is the seam the worker calls.
+//   §11a A scheduled drive publishes the queued build exactly
+//      once, and emits the same `roamly_pack_kick` outcome line
+//      (driveOutcome "published") the outline kick emits.
+//   §11b No scheduler ⇒ nothing scheduled, no throw, no
+//      collector run (the pre-kick behavior).
+//   §11c A throwing scheduler ⇒ `roamly_pack_kick_schedule_failed`
+//      on console.error, no throw.
+//   §11d No queued build ⇒ the drive runs, decides
+//      "no-queued-build", publishes nothing, never runs the
+//      collector.
+//   §11e A store that fails on read ⇒ the task logs
+//      `roamly_pack_kick_error` and never throws out of the task.
+function captureConsole(method) {
+  const lines = [];
+  const original = console[method];
+  console[method] = (...args) => lines.push(args.map(String).join(" "));
+  return {
+    lines,
+    restore() {
+      console[method] = original;
+    }
+  };
+}
+function kickLines(lines, event) {
+  return lines
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter((parsed) => parsed && parsed.event === event);
+}
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [0]);
+  const scheduled = [];
+  const capture = captureConsole("log");
+  schedulePackDrive(store, dest.destinationId, (task) => scheduled.push(task), {
+    tripId: "trip-11a",
+    hostDeadlineMs: Date.now() + 300_000,
+    collectorFor
+  });
+  eq(scheduled.length, 1, "§11a the seam schedules exactly one drive task");
+  eq(calls.count, 0, "§11a the build has NOT run at schedule time (post-response only)");
+  await Promise.all(scheduled.map((task) => task()));
+  capture.restore();
+  eq(calls.count, 1, "§11a the scheduled drive builds the pack exactly once");
+  ok(await store.getReadyVersion(dest.destinationId), "§11a the pack is ready after the scheduled drive — no cron tick anywhere");
+  const outcomes = kickLines(capture.lines, "roamly_pack_kick");
+  eq(outcomes.length, 1, "§11a exactly one roamly_pack_kick outcome line is emitted");
+  eq(outcomes[0].driveOutcome, "published", "§11a the outcome line says published, the same shape the outline kick emits");
+  eq(outcomes[0].tripId, "trip-11a", "§11a the outcome line carries the caller's trip id");
+}
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [0]);
+  schedulePackDrive(store, dest.destinationId, undefined, {
+    tripId: "trip-11b",
+    collectorFor
+  });
+  eq(calls.count, 0, "§11b no scheduler ⇒ no drive scheduled, no collector run (pre-kick behavior)");
+  ok(!(await store.getReadyVersion(dest.destinationId)), "§11b no pack publishes without a scheduler");
+}
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  await store.enqueueBuild(dest.destinationId, "cold-read");
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [0]);
+  const capture = captureConsole("error");
+  schedulePackDrive(store, dest.destinationId, () => {
+    throw new Error("scheduler down");
+  }, {
+    tripId: "trip-11c",
+    collectorFor
+  });
+  capture.restore();
+  eq(calls.count, 0, "§11c a throwing scheduler runs no collector");
+  const failures = kickLines(capture.lines, "roamly_pack_kick_schedule_failed");
+  eq(failures.length, 1, "§11c exactly one schedule-failed line is logged loudly");
+  eq(failures[0].tripId, "trip-11c", "§11c the schedule-failed line names the trip");
+}
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  const calls = { count: 0 };
+  const collectorFor = scriptedCollector(calls, [0]);
+  const scheduled = [];
+  const capture = captureConsole("log");
+  schedulePackDrive(store, dest.destinationId, (task) => scheduled.push(task), {
+    tripId: "trip-11d",
+    hostDeadlineMs: Date.now() + 300_000,
+    collectorFor
+  });
+  eq(scheduled.length, 1, "§11d the seam still schedules a task when no build is queued");
+  await Promise.all(scheduled.map((task) => task()));
+  capture.restore();
+  eq(calls.count, 0, "§11d no queued build ⇒ the collector never runs");
+  ok(!(await store.getReadyVersion(dest.destinationId)), "§11d nothing publishes with no queued build");
+  const outcomes = kickLines(capture.lines, "roamly_pack_kick");
+  eq(outcomes.length, 1, "§11d the outcome line is still emitted for a decided no-kick");
+  eq(outcomes[0].reason, "no-queued-build", "§11d the outcome line says no-queued-build");
+  eq(outcomes[0].published.length, 0, "§11d the outcome line publishes nothing");
+}
+{
+  const store = new InMemoryPackStore();
+  const dest = testDestination();
+  await store.registerDestination(dest);
+  await store.enqueueBuild(dest.destinationId, "cold-read");
+  store.getReadyVersion = async () => {
+    throw new Error("store down");
+  };
+  const scheduled = [];
+  const capture = captureConsole("error");
+  schedulePackDrive(store, dest.destinationId, (task) => scheduled.push(task), {
+    tripId: "trip-11e",
+    hostDeadlineMs: Date.now() + 300_000
+  });
+  eq(scheduled.length, 1, "§11e the seam schedules the task even when the store will fail");
+  await Promise.all(scheduled.map((task) => task()));
+  capture.restore();
+  const errors = kickLines(capture.lines, "roamly_pack_kick_error");
+  eq(errors.length, 1, "§11e a store read failure logs exactly one roamly_pack_kick_error");
+  eq(errors[0].tripId, "trip-11e", "§11e the error line names the trip");
+  ok(String(errors[0].error || "").includes("store down"), "§11e the error line carries the store failure");
 }
 
 console.log(`PACK-DRIVE CHECKS: ${count}/${count} PASS`);

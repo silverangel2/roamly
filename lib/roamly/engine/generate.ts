@@ -92,7 +92,7 @@ import {
   type AssembledPinnedPack,
   type PackCollector
 } from "@/lib/roamly/engine/packs/builder";
-import { drivePackBuild } from "@/lib/roamly/engine/packs/kick";
+import { schedulePackDrive } from "@/lib/roamly/engine/packs/kick";
 import { destinationRegistryId } from "@/lib/roamly/engine/packs/destinations";
 import { PackStoreError } from "@/lib/roamly/engine/packs/types";
 import {
@@ -531,8 +531,12 @@ export interface EngineRuntimeDeps {
  *  scope — never in production routing — the kick degrades to a
  *  detached task rather than being dropped: the drain is
  *  claim-guarded, so a duplicate attempt is harmless, and the
- *  hourly pack-refresh cron remains the backstop either way. */
-function schedulePackKickAfterResponse(task: () => Promise<void>): void {
+ *  hourly pack-refresh cron remains the backstop either way.
+ *
+ *  Exported (step 5 trigger fix, 2026-11-19) so the generation
+ *  worker's own re-drive schedules through the identical
+ *  scheduler instead of a second copy of this trick. */
+export function schedulePackKickAfterResponse(task: () => Promise<void>): void {
   void (async () => {
     try {
       const { after } = await import("next/server");
@@ -1704,43 +1708,18 @@ export async function autoRegisterDestination(deps: EngineAdvanceDeps, payload: 
  *  and the drive's own failures ride its result, never an
  *  exception. The outcome line is the runtime-log evidence. */
 function schedulePackBuildKick(deps: EngineAdvanceDeps, destinationId: string, tripId: string): void {
-  const schedule = deps.packKickScheduler;
-  if (!schedule) return;
-  try {
-    schedule(async () => {
-      const result = await drivePackBuild(deps.packStore, destinationId, {
-        collectorFor: deps.packCollectorFor,
-        // Pack-wedge fix (2026-11-18): the drive is capped at the
-        // hosting function's deadline minus the host margin, so its
-        // release lands while the function is still alive.
-        hostDeadlineMs: deps.hostDeadlineMs
-      });
-      console.log(
-        JSON.stringify({
-          event: "roamly_pack_kick",
-          tripId,
-          destinationId,
-          kick: result.decision.kick,
-          reason: result.decision.reason,
-          jobId: result.decision.jobId,
-          published: result.publishedPackVersionIds,
-          error: result.error,
-          driveOutcome: result.outcome,
-          driveAttempts: result.attempts,
-          driveElapsedMs: result.elapsedMs
-        })
-      );
-    });
-  } catch (err) {
-    console.error(
-      JSON.stringify({
-        event: "roamly_pack_kick_schedule_failed",
-        tripId,
-        destinationId,
-        error: err instanceof Error ? err.message : String(err)
-      })
-    );
-  }
+  // Shared seam (packs/kick.ts schedulePackDrive): the same drive
+  // + outcome log the worker-level re-drive schedules — one seam,
+  // two callers. Behavior is unchanged from the inline body this
+  // replaces: no scheduler ⇒ no drive; a throwing scheduler is
+  // caught and logged by the seam; a drive that fails before it
+  // can decide is logged as roamly_pack_kick_error instead of
+  // escaping into after().
+  schedulePackDrive(deps.packStore, destinationId, deps.packKickScheduler, {
+    tripId,
+    hostDeadlineMs: deps.hostDeadlineMs,
+    collectorFor: deps.packCollectorFor
+  });
 }
 
 async function runOutlineStage(params: {
