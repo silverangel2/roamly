@@ -216,6 +216,7 @@
     "test:ph02ph05-fixes": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-ph02ph05-fixes-checks.mjs",
     "test:setupgate": "node scripts/roamly-setupgate-checks.mjs",
     "test:u2-price-preservation": "node scripts/roamly-u2-price-preservation-checks.mjs",
+    "test:confirmation-code-preservation": "node scripts/roamly-confirmation-code-preservation-checks.mjs",
     "test:u1-segments": "node scripts/roamly-u1-segments-checks.mjs",
     "test:booking-cancel": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-booking-cancel-server-only-register.mjs scripts/roamly-booking-cancel-checks.mjs",
     "test:booking-truth": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-booking-cancel-server-only-register.mjs scripts/roamly-booking-truth-checks.mjs",
