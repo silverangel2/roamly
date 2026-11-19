@@ -149,6 +149,7 @@
     "test:gmail-bookings": "node scripts/roamly-gmail-booking-reminder-checks.mjs",
     "test:email-storage-privacy": "node scripts/roamly-email-storage-privacy-checks.mjs",
     "test:companion-email-burst": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-companion-email-burst-checks.mjs",
+    "test:qa-rewind-scope": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-qa-rewind-scope-checks.mjs",
     "test:companion-email-safeguards": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-companion-email-safeguards-checks.mjs",
     "test:companion-email-discipline": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-companion-email-discipline-checks.mjs",
     "test:analytics-privacy": "node scripts/roamly-analytics-privacy-checks.mjs",
