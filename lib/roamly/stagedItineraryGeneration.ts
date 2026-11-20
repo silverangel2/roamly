@@ -260,6 +260,9 @@ const VALIDATION_REPAIR_ATTEMPT_LIMIT = Math.max(
   BATCH_ATTEMPT_LIMIT,
   Number(process.env.ROAMLY_STAGED_VALIDATION_REPAIR_ATTEMPT_LIMIT || BATCH_ATTEMPT_LIMIT + 1)
 );
+// Repair-attempt sampling temperature: above the 0.35 day-batch default so
+// a retry is a genuinely different sample, not the same roll.
+export const DAY_BATCH_VALIDATION_REPAIR_TEMPERATURE = 0.7;
 const MAX_AI_COST_USD = Number(process.env.ROAMLY_STAGED_MAX_AI_COST_USD || 0.05);
 const DEFAULT_INPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_INPUT_PRICE_PER_1M || 0.4);
 const DEFAULT_OUTPUT_PRICE_PER_1M = Number(process.env.ROAMLY_OPENAI_OUTPUT_PRICE_PER_1M || 1.6);
@@ -683,13 +686,14 @@ async function sendGenerationEmailSafely(params: {
   return result;
 }
 
-async function callJsonStage(params: {
+export async function callJsonStage(params: {
   stage: "outline" | "day_batch";
   prompt: string;
   maxTokens: number;
   timeoutMs: number;
   attemptNumber: number;
   provider: AiProviderConfig;
+  temperature?: number;
   trace?: StageTrace;
 }): Promise<StageAiResult> {
   const client = openAiClient(params.provider);
@@ -711,7 +715,7 @@ async function callJsonStage(params: {
     const completion = await client.chat.completions.create(
       {
         model,
-        temperature: params.stage === "outline" ? 0.25 : 0.35,
+        temperature: params.temperature ?? (params.stage === "outline" ? 0.25 : 0.35),
         max_completion_tokens: params.maxTokens,
         response_format: { type: "json_object" },
         messages: [
@@ -1276,16 +1280,37 @@ Rules:
 - Keep every field concise.`;
 }
 
-function dayBatchPrompt(params: {
+// Validation-repair errors for a day-batch retry (Sokoto 2026-11-20): the
+// retry loop was named "validation repair" but never showed the model WHAT
+// failed — 9 attempts, zero new information. A repair attempt (attempt >= 2
+// after a DAY_BATCH_VALIDATION_FAILED) feeds the exact batch errors back
+// into the prompt. The throw site joins the batch errors with " | " (max
+// 4), so splitting on it recovers them verbatim. Anything else — a first
+// attempt, a non-validation failure, an empty message — returns [] and the
+// prompt stays exactly as it was.
+export function validationRepairErrorsForAttempt(state: StagedGenerationState, attemptCount: number): string[] {
+  if (attemptCount < 2) return [];
+  if (state.lastErrorCode !== "DAY_BATCH_VALIDATION_FAILED") return [];
+  const message = (state.lastError || "").trim();
+  if (!message) return [];
+  return message
+    .split(" | ")
+    .map((error) => error.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+export function dayBatchPrompt(params: {
   payload: TripPlannerPayload;
   outline: StagedTripOutline;
   days: StagedTripOutlineDay[];
   previousEndingLocation: string;
   nextStartRequirement: string;
   usedAttractions: string[];
+  priorErrors?: string[];
   state: StagedGenerationState;
 }) {
-  const { payload, outline, days, previousEndingLocation, nextStartRequirement, usedAttractions, state } = params;
+  const { payload, outline, days, previousEndingLocation, nextStartRequirement, usedAttractions, priorErrors, state } = params;
   const dayNumbers = days.map((day) => day.dayNumber);
   return `Return compact JSON for this Roamly day batch. No URLs, markdown, prices-as-text, or extra prose.
 
@@ -1353,7 +1378,9 @@ JSON shape:
   ]
 }
 
-Rules:
+${priorErrors && priorErrors.length
+    ? `Previous attempt failed validation with these exact errors:\n${priorErrors.map((error) => `- ${error}`).join("\n")}\nFix exactly these and nothing else — keep everything else the same.\n`
+    : ""}Rules:
 - Generate exactly these day numbers only: ${dayNumbers.join(", ")}.
 - Return exactly ${days.length} day objects.
 - Use 4 to 6 ordered items per day.
@@ -1608,7 +1635,7 @@ function parseTime(value?: string | null) {
   return hours * 60 + minutes;
 }
 
-function validateDay(
+export function validateDay(
   day: RoamlyDayPlan,
   expectedDayNumber: number,
   priorActivityMealTitles?: Map<string, number>
@@ -2686,6 +2713,11 @@ export async function advanceStagedItineraryGeneration(params: {
         }
       };
       await persistState({ supabase: params.supabase, trip: claimedTrip, state });
+      // Validation repair (Sokoto 2026-11-20): a retry after a
+      // DAY_BATCH_VALIDATION_FAILED carries the exact errors into the
+      // prompt and samples hotter — the pre-fix loop re-ran the same
+      // prompt at the same temperature and failed identically.
+      const priorErrors = validationRepairErrorsForAttempt(state, attemptCount);
       const prompt = dayBatchPrompt({
         payload: state.payload,
         outline,
@@ -2694,6 +2726,7 @@ export async function advanceStagedItineraryGeneration(params: {
         nextStartRequirement:
           outline.days.find((day) => day.dayNumber === nextBatch.dayNumbers[nextBatch.dayNumbers.length - 1] + 1)?.nextStartRequirement || "",
         usedAttractions: usedAttractions(state),
+        priorErrors: priorErrors.length ? priorErrors : undefined,
         state
       });
       const provider = providerForAttempt(attemptCount);
@@ -2705,6 +2738,7 @@ export async function advanceStagedItineraryGeneration(params: {
         timeoutMs: DAY_TIMEOUT_MS,
         attemptNumber: attemptCount,
         provider,
+        temperature: priorErrors.length ? DAY_BATCH_VALIDATION_REPAIR_TEMPERATURE : undefined,
         trace
       });
       state = addAiUsage(appendStageRun({ ...state, provider: ai.provider, model: ai.model }, {
