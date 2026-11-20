@@ -187,6 +187,11 @@ export const COMPANION_EMAIL_CLAIM_STALE_MS = 15 * 60_000;
 /** An in_flight record younger than this may still be a live provider
  * call in a concurrent run; older than this its outcome is ambiguous. */
 export const COMPANION_EMAIL_INFLIGHT_GRACE_MS = 2 * 60_000;
+/** A companion event stuck in "processing" whose scheduled_for is older
+ * than this is provably dead (a dispatcher run finishes an event in
+ * minutes; the table has no claim timestamp, so staleness is measured
+ * from scheduled_for). The sweep returns it to "scheduled". */
+export const COMPANION_PROCESSING_STALE_MS = 60 * 60_000;
 
 export type CompanionEmailDeliveryState =
   | "claimed"
@@ -871,6 +876,49 @@ export async function reconcileCompanionEmailDeliveries(supabase: SupabaseClient
   return summary;
 }
 
+export async function recoverStaleProcessingCompanionEvents(
+  supabase: SupabaseClient
+): Promise<{ recovered: number; failed: number }> {
+  let recovered = 0;
+  let failed = 0;
+
+  try {
+    const staleAt = new Date(Date.now() - COMPANION_PROCESSING_STALE_MS).toISOString();
+    const { data: events, error } = await supabase
+      .from("roamly_trip_companion_events")
+      .select("id,metadata")
+      .eq("status", "processing")
+      .lt("scheduled_for", staleAt)
+      .limit(50);
+
+    if (error) {
+      console.error("[roamly-notifications] Error querying stale processing events:", error);
+      return { recovered, failed };
+    }
+
+    if (events && events.length > 0) {
+      for (const row of events) {
+        const { error: updateError } = await supabase
+          .from("roamly_trip_companion_events")
+          .update({ status: "scheduled" })
+          .eq("id", row.id)
+          .eq("status", "processing");
+
+        if (updateError) {
+          console.error(`[roamly-notifications] Error recovering stale processing event id=${row.id}:`, updateError);
+          failed++;
+        } else {
+          recovered++;
+        }
+      }
+    }
+  } catch (err) {
+    console.error("[roamly-notifications] Unexpected exception in recoverStaleProcessingCompanionEvents:", err);
+  }
+
+  return { recovered, failed };
+}
+
 export type NotificationPayload = {
   title: string;
   body?: string | null;
@@ -1212,6 +1260,12 @@ export async function sendScheduledTripNotifications() {
   } catch {
     // Observability must never break dispatch.
   }
+
+  const processingRecovery = await recoverStaleProcessingCompanionEvents(supabase);
+  console.info(`[roamly-notifications] PROCESSING_RECOVERY recovered=${processingRecovery.recovered} failed=${processingRecovery.failed}`);
+  try {
+    await recordAppEvent(supabase, { eventType: "companion_processing_recovery", path: "/api/cron/roamly-notifications", metadata: { ...processingRecovery } });
+  } catch { /* Observability must never break dispatch. */ }
 
   const now = new Date().toISOString();
   const { data: events, error } = await supabase
