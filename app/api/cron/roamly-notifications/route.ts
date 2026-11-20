@@ -46,9 +46,12 @@ export async function GET(request: NextRequest) {
   //   - companion events holding an interrupted email claim
   //     (metadata emailDeliveryState claimed/in_flight/ambiguous —
   //     the reconciliation pass inside sendScheduledTripNotifications)
+  //   - companion events stuck in "processing" (scheduled_for older
+  //     than 60 min — the stale-processing sweep inside
+  //     sendScheduledTripNotifications)
   //   - notification deliveries due (queued/retrying and due) or
   //     holding a stale "sending" claim (>15 min, the recovery pass)
-  // Zero across all three → record the heartbeat (silence is the
+  // Zero across all four → record the heartbeat (silence is the
   // stale signal; a gated run is still a run) and exit. The daily
   // full mode is NOT gated: it also creates pre-trip reminders,
   // whose work is the calendar itself. Fail-open on any count error.
@@ -57,6 +60,7 @@ export async function GET(request: NextRequest) {
     if (gateAdmin) {
       const nowIso = new Date().toISOString();
       const staleSendingAt = new Date(Date.now() - 15 * 60_000).toISOString();
+      const staleProcessingAt = new Date(Date.now() - 60 * 60_000).toISOString();
       const counts = await Promise.all([
         countWorkRows(gateAdmin, "roamly_trip_companion_events", (query) =>
           query.eq("status", "scheduled").lte("scheduled_for", nowIso)
@@ -70,6 +74,9 @@ export async function GET(request: NextRequest) {
           query.or(
             `and(status.in.(queued,retrying),scheduled_for.lte.${nowIso},next_attempt_at.lte.${nowIso}),and(status.eq.sending,updated_at.lt.${staleSendingAt})`
           )
+        ),
+        countWorkRows(gateAdmin, "roamly_trip_companion_events", (query) =>
+          query.eq("status", "processing").lt("scheduled_for", staleProcessingAt)
         )
       ]);
       if (!anyWorkPresent(counts)) {

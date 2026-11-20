@@ -153,6 +153,7 @@
     "test:qa-rewind-scope": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-qa-rewind-scope-checks.mjs",
     "test:companion-email-safeguards": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-companion-email-safeguards-checks.mjs",
     "test:companion-email-discipline": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-companion-email-discipline-checks.mjs",
+    "test:stale-processing-sweep": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-stale-processing-sweep-checks.mjs",
     "test:analytics-privacy": "node scripts/roamly-analytics-privacy-checks.mjs",
     "test:contact-request-security": "node --experimental-strip-types scripts/roamly-contact-request-security-checks.mjs",
     "test:mobile-layout": "node scripts/roamly-mobile-layout-checks.mjs",
