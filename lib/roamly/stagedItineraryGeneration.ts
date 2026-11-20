@@ -260,6 +260,13 @@ const VALIDATION_REPAIR_ATTEMPT_LIMIT = Math.max(
   BATCH_ATTEMPT_LIMIT,
   Number(process.env.ROAMLY_STAGED_VALIDATION_REPAIR_ATTEMPT_LIMIT || BATCH_ATTEMPT_LIMIT + 1)
 );
+// Concurrent day-batch generation (Roamly speed, 2026-11-20): how many
+// day batches one advance may generate at once. The AI calls run
+// concurrently; validation + persistence stay sequential in day order,
+// so the stored state is identical to sequential generation. Same
+// calls, same cost — only their overlap changes. Env-overridable;
+// 1 restores the old strictly-sequential behaviour.
+const CONCURRENT_DAY_BATCHES = Math.max(1, Number(process.env.ROAMLY_STAGED_CONCURRENT_DAY_BATCHES || 3));
 // Repair-attempt sampling temperature: above the 0.35 day-batch default so
 // a retry is a genuinely different sample, not the same roll.
 export const DAY_BATCH_VALIDATION_REPAIR_TEMPERATURE = 0.7;
@@ -2014,6 +2021,22 @@ export async function startStagedItineraryGeneration(params: {
   return state;
 }
 
+// Concurrent day-batch generation (Roamly speed, 2026-11-20): the next
+// few incomplete day batches, in day order — the group one advance
+// generates concurrently. Eligibility mirrors nextBatchToGenerate
+// exactly (same attempt limits, same validation-repair rule); only the
+// count differs.
+function pendingDayBatches(state: StagedGenerationState, limit: number) {
+  return Object.values(state.batches)
+    .sort((a, b) => a.dayNumbers[0] - b.dayNumbers[0])
+    .filter((batch) => {
+      if (batch.status === "complete") return false;
+      if (batch.attemptCount < BATCH_ATTEMPT_LIMIT) return true;
+      return state.lastErrorCode === "DAY_BATCH_VALIDATION_FAILED" && batch.attemptCount < VALIDATION_REPAIR_ATTEMPT_LIMIT;
+    })
+    .slice(0, Math.max(1, limit));
+}
+
 function nextBatchToGenerate(state: StagedGenerationState) {
   return Object.values(state.batches)
     .sort((a, b) => a.dayNumbers[0] - b.dayNumbers[0])
@@ -2670,223 +2693,281 @@ export async function advanceStagedItineraryGeneration(params: {
 
     }
 
-    const nextBatch = nextBatchToGenerate(state);
-    if (nextBatch) {
-      const outlineDays = nextBatch.dayNumbers
-        .map((dayNumber) => state.outline?.days.find((day) => day.dayNumber === dayNumber))
-        .filter((day): day is StagedTripOutlineDay => Boolean(day));
+    // Concurrent day-batch generation (Roamly speed, 2026-11-20): take
+    // the next few incomplete day batches and generate them together.
+    // The AI calls run concurrently (Promise.allSettled, cap
+    // CONCURRENT_DAY_BATCHES); validation + persistence then run
+    // sequentially in day order, so the stored state is identical to
+    // sequential generation. A failure stops the group: the failed
+    // batch retries on the next invocation and the later batches'
+    // AI results are discarded (their validation needs the failed
+    // day's actual output), exactly as a sequential retry would.
+    const pendingBatches = pendingDayBatches(state, CONCURRENT_DAY_BATCHES);
+    if (pendingBatches.length) {
       const outline = state.outline;
       if (!outline) throw new StagedGenerationError("Outline is missing.", "OUTLINE_MISSING", 502);
-      if (outlineDays.length !== nextBatch.dayNumbers.length) {
-        throw new StagedGenerationError("Outline is missing one or more requested batch days.", "OUTLINE_DAY_NOT_FOUND", 502);
+      // Build one prompt per pending batch, from the outline + the
+      // completed days (never from a concurrent batch's output). The
+      // first batch in the group keeps the real previous-day ending;
+      // later batches use the outline's planned area for their day,
+      // since the previous day is still being generated. Each batch
+      // also avoids the other group batches' planned attractions, so
+      // concurrent days do not pick each other's stops (the
+      // sequential validator below remains the backstop).
+      const groupDayNumbers = pendingBatches.flatMap((batch) => batch.dayNumbers);
+      const prepared = pendingBatches.map((batch, index) => {
+        const outlineDays = batch.dayNumbers
+          .map((dayNumber) => outline.days.find((day) => day.dayNumber === dayNumber))
+          .filter((day): day is StagedTripOutlineDay => Boolean(day));
+        if (outlineDays.length !== batch.dayNumbers.length) {
+          throw new StagedGenerationError("Outline is missing one or more requested batch days.", "OUTLINE_DAY_NOT_FOUND", 502);
+        }
+        const attemptCount = batch.attemptCount + 1;
+        const priorErrors = validationRepairErrorsForAttempt(state, attemptCount);
+        const previousEndingLocation = index === 0
+          ? lastCompletedLocation(state, batch.dayNumbers[0])
+          : outlineDays[0]?.geographicArea || "";
+        const otherGroupAttractions = groupDayNumbers
+          .filter((dayNumber) => !batch.dayNumbers.includes(dayNumber))
+          .flatMap((dayNumber) => outline.days.find((day) => day.dayNumber === dayNumber)?.priorityActivities || []);
+        const prompt = dayBatchPrompt({
+          payload: state.payload,
+          outline,
+          days: outlineDays,
+          previousEndingLocation,
+          nextStartRequirement:
+            outline.days.find((day) => day.dayNumber === batch.dayNumbers[batch.dayNumbers.length - 1] + 1)?.nextStartRequirement || "",
+          usedAttractions: [...usedAttractions(state), ...otherGroupAttractions],
+          priorErrors: priorErrors.length ? priorErrors : undefined,
+          state
+        });
+        return { batch, outlineDays, attemptCount, priorErrors, prompt, provider: providerForAttempt(attemptCount) };
+      });
+      // Cost budget: check the whole group cumulatively before firing
+      // any call, so concurrent calls cannot collectively exceed the
+      // ceiling (each check alone would use the same starting cost).
+      let projectedCost = state.estimatedAiCostUsd || 0;
+      for (const entry of prepared) {
+        assertCostBudget({ ...state, estimatedAiCostUsd: projectedCost }, entry.prompt, DAY_MAX_TOKENS, entry.provider);
+        projectedCost += estimatedStageCost(entry.prompt, DAY_MAX_TOKENS, entry.provider).estimatedCostUsd;
       }
-      const attemptCount = nextBatch.attemptCount + 1;
-      state = {
-        ...state,
-        status: "generating_day",
-        currentStage: "generating_day",
-        batches: {
-          ...state.batches,
-          [nextBatch.id]: {
-            ...nextBatch,
-            status: "generating",
-            attemptCount,
-            startedAt: nextBatch.startedAt || nowIso(),
-            updatedAt: nowIso(),
-            lastError: null
-          }
-        },
-        days: {
-          ...state.days,
-          ...Object.fromEntries(nextBatch.dayNumbers.map((dayNumber) => [
-            String(dayNumber),
-            {
-              ...state.days[String(dayNumber)],
-              dayNumber,
-              status: "generating" as StagedDayStatus,
-              attemptCount,
-              startedAt: state.days[String(dayNumber)]?.startedAt || nowIso(),
+      // Fire all day-batch AI calls concurrently.
+      const settledResults = await Promise.allSettled(prepared.map((entry) =>
+        callJsonStage({
+          stage: "day_batch",
+          prompt: entry.prompt,
+          maxTokens: DAY_MAX_TOKENS,
+          timeoutMs: DAY_TIMEOUT_MS,
+          attemptNumber: entry.attemptCount,
+          provider: entry.provider,
+          temperature: entry.priorErrors.length ? DAY_BATCH_VALIDATION_REPAIR_TEMPERATURE : undefined,
+          trace
+        })
+      ));
+      // Validate + persist sequentially in day order, using the
+      // existing validation. completedDays(state) here includes the
+      // days persisted earlier in this same group, so a repeat across
+      // concurrent days is caught exactly as in sequential generation.
+      let lastCompletedBatch: { id: string; dayNumbers: number[] } | null = null;
+      for (let index = 0; index < prepared.length; index += 1) {
+        const entry = prepared[index];
+        const batch = entry.batch;
+        // Record this batch's attempt before touching its AI result,
+        // so the shared error path attributes any failure to it.
+        state = {
+          ...state,
+          status: "generating_day",
+          currentStage: "generating_day",
+          batches: {
+            ...state.batches,
+            [batch.id]: {
+              ...batch,
+              status: "generating",
+              attemptCount: entry.attemptCount,
+              startedAt: batch.startedAt || nowIso(),
               updatedAt: nowIso(),
               lastError: null
             }
-          ]))
+          },
+          days: {
+            ...state.days,
+            ...Object.fromEntries(batch.dayNumbers.map((dayNumber) => [
+              String(dayNumber),
+              {
+                ...state.days[String(dayNumber)],
+                dayNumber,
+                status: "generating" as StagedDayStatus,
+                attemptCount: entry.attemptCount,
+                startedAt: state.days[String(dayNumber)]?.startedAt || nowIso(),
+                updatedAt: nowIso(),
+                lastError: null
+              }
+            ]))
+          }
+        };
+        await persistState({ supabase: params.supabase, trip: claimedTrip, state });
+        const settled = settledResults[index];
+        if (settled.status === "rejected") {
+          // This batch's own AI call failed. Re-throw so the shared
+          // error path marks this batch (the one now "generating")
+          // queued/failed; later batches stay queued for the next
+          // invocation and their AI results are discarded.
+          throw settled.reason instanceof Error
+            ? settled.reason
+            : new StagedGenerationError("Day batch AI call failed.", "GENERATION_STAGE_FAILED", 502);
         }
-      };
-      await persistState({ supabase: params.supabase, trip: claimedTrip, state });
-      // Validation repair (Sokoto 2026-11-20): a retry after a
-      // DAY_BATCH_VALIDATION_FAILED carries the exact errors into the
-      // prompt and samples hotter — the pre-fix loop re-ran the same
-      // prompt at the same temperature and failed identically.
-      const priorErrors = validationRepairErrorsForAttempt(state, attemptCount);
-      const prompt = dayBatchPrompt({
-        payload: state.payload,
-        outline,
-        days: outlineDays,
-        previousEndingLocation: lastCompletedLocation(state, nextBatch.dayNumbers[0]),
-        nextStartRequirement:
-          outline.days.find((day) => day.dayNumber === nextBatch.dayNumbers[nextBatch.dayNumbers.length - 1] + 1)?.nextStartRequirement || "",
-        usedAttractions: usedAttractions(state),
-        priorErrors: priorErrors.length ? priorErrors : undefined,
-        state
-      });
-      const provider = providerForAttempt(attemptCount);
-      assertCostBudget(state, prompt, DAY_MAX_TOKENS, provider);
-      const ai = await callJsonStage({
-        stage: "day_batch",
-        prompt,
-        maxTokens: DAY_MAX_TOKENS,
-        timeoutMs: DAY_TIMEOUT_MS,
-        attemptNumber: attemptCount,
-        provider,
-        temperature: priorErrors.length ? DAY_BATCH_VALIDATION_REPAIR_TEMPERATURE : undefined,
-        trace
-      });
-      state = addAiUsage(appendStageRun({ ...state, provider: ai.provider, model: ai.model }, {
-        stage: "day_batch",
-        batchId: nextBatch.id,
-        dayNumbers: nextBatch.dayNumbers,
-        provider: ai.provider,
-        model: ai.model,
-        attemptNumber: attemptCount,
-        status: "success",
-        inputTokens: ai.inputTokens,
-        outputTokens: ai.outputTokens,
-        estimatedCostUsd: Number(ai.estimatedCostUsd.toFixed(8)),
-        durationMs: ai.durationMs,
-        failureCategory: null,
-        errorCode: null
-      }), ai);
-      const batchDays = cleanBatchDays(ai.parsed, outlineDays, payloadWithStateDiscovery(state.payload, state));
-      // KF-1: cross-day repeat context for the day gate — titles from
-      // already-completed days, extended batch-day by batch-day so a
-      // repeat inside this batch is caught as well.
-      const priorActivityMealTitles = new Map<string, number>();
-      for (const completedDay of completedDays(state)) {
-        for (const item of completedDay.live_timeline) {
-          const priorType = stagedItemType(item);
-          if (priorType !== "activity" && priorType !== "meal") continue;
-          const key = `${priorType}:${normalizedTextKey(item.title || "")}`;
-          if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, completedDay.day_number);
+        const ai = settled.value;
+        state = addAiUsage(appendStageRun({ ...state, provider: ai.provider, model: ai.model }, {
+          stage: "day_batch",
+          batchId: batch.id,
+          dayNumbers: batch.dayNumbers,
+          provider: ai.provider,
+          model: ai.model,
+          attemptNumber: entry.attemptCount,
+          status: "success",
+          inputTokens: ai.inputTokens,
+          outputTokens: ai.outputTokens,
+          estimatedCostUsd: Number(ai.estimatedCostUsd.toFixed(8)),
+          durationMs: ai.durationMs,
+          failureCategory: null,
+          errorCode: null
+        }), ai);
+        const batchDays = cleanBatchDays(ai.parsed, entry.outlineDays, payloadWithStateDiscovery(state.payload, state));
+        // KF-1: cross-day repeat context for the day gate — titles from
+        // already-completed days, extended batch-day by batch-day so a
+        // repeat inside this batch is caught as well.
+        const priorActivityMealTitles = new Map<string, number>();
+        for (const completedDay of completedDays(state)) {
+          for (const item of completedDay.live_timeline) {
+            const priorType = stagedItemType(item);
+            if (priorType !== "activity" && priorType !== "meal") continue;
+            const key = `${priorType}:${normalizedTextKey(item.title || "")}`;
+            if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, completedDay.day_number);
+          }
         }
-      }
-      const batchErrors: string[] = [];
-      for (const day of [...batchDays].sort((a, b) => a.day_number - b.day_number)) {
-        batchErrors.push(...validateDay(day, day.day_number, priorActivityMealTitles));
-        for (const item of day.live_timeline) {
-          const itemType = stagedItemType(item);
-          if (itemType !== "activity" && itemType !== "meal") continue;
-          const key = `${itemType}:${normalizedTextKey(item.title || "")}`;
-          if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, day.day_number);
+        const batchErrors: string[] = [];
+        for (const day of [...batchDays].sort((a, b) => a.day_number - b.day_number)) {
+          batchErrors.push(...validateDay(day, day.day_number, priorActivityMealTitles));
+          for (const item of day.live_timeline) {
+            const itemType = stagedItemType(item);
+            if (itemType !== "activity" && itemType !== "meal") continue;
+            const key = `${itemType}:${normalizedTextKey(item.title || "")}`;
+            if (!priorActivityMealTitles.has(key)) priorActivityMealTitles.set(key, day.day_number);
+          }
         }
-      }
-      // Stage 7 / KF-1 fail-early (2026-11-11): the day-local rules
-      // validateDay does not cover — transport-mode mismatch and the
-      // final validator's full placeholder net (validateDay's
-      // isPlaceholderTitle is narrower than the validator's
-      // isPlaceholderOrOperationalText) — run at this same boundary
-      // via the validator's own functions (stageBoundaryDayErrors),
-      // so nothing that would fail final validation can be marked
-      // complete here. Travel-structure checks stay OFF for the
-      // incumbent: its finalization repair pass
-      // (repairItineraryForTravelRequirements) legitimately
-      // synthesizes arrival/departure/transfer structures before
-      // validating, so those are repaired there, not defects here.
-      // Final validation in completeGeneration remains the unchanged
-      // backstop.
-      for (const error of stageBoundaryDayErrors({
-        priorDays: completedDays(state),
-        newDays: batchDays,
-        payload: state.payload,
-        totalDayCount: state.totalDayCount,
-        includeTravelStructureChecks: false
-      })) {
-        if (!batchErrors.includes(error)) batchErrors.push(error);
-      }
-      for (const dayNumber of nextBatch.dayNumbers) {
-        if (!batchDays.some((day) => day.day_number === dayNumber)) {
-          batchErrors.push(`Batch missing Day ${dayNumber}.`);
+        // Stage 7 / KF-1 fail-early (2026-11-11): the day-local rules
+        // validateDay does not cover — transport-mode mismatch and the
+        // final validator's full placeholder net (validateDay's
+        // isPlaceholderTitle is narrower than the validator's
+        // isPlaceholderOrOperationalText) — run at this same boundary
+        // via the validator's own functions (stageBoundaryDayErrors),
+        // so nothing that would fail final validation can be marked
+        // complete here. Travel-structure checks stay OFF for the
+        // incumbent: its finalization repair pass
+        // (repairItineraryForTravelRequirements) legitimately
+        // synthesizes arrival/departure/transfer structures before
+        // validating, so those are repaired there, not defects here.
+        // Final validation in completeGeneration remains the unchanged
+        // backstop.
+        for (const error of stageBoundaryDayErrors({
+          priorDays: completedDays(state),
+          newDays: batchDays,
+          payload: state.payload,
+          totalDayCount: state.totalDayCount,
+          includeTravelStructureChecks: false
+        })) {
+          if (!batchErrors.includes(error)) batchErrors.push(error);
         }
-      }
-      if (batchErrors.length) {
-        throw new StagedGenerationError(batchErrors.slice(0, 4).join(" | "), "DAY_BATCH_VALIDATION_FAILED", 502, false, {
-          failureCategory: "malformed_output",
+        for (const dayNumber of batch.dayNumbers) {
+          if (!batchDays.some((day) => day.day_number === dayNumber)) {
+            batchErrors.push(`Batch missing Day ${dayNumber}.`);
+          }
+        }
+        if (batchErrors.length) {
+          throw new StagedGenerationError(batchErrors.slice(0, 4).join(" | "), "DAY_BATCH_VALIDATION_FAILED", 502, false, {
+            failureCategory: "malformed_output",
+            provider: ai.provider,
+            model: ai.model
+          });
+        }
+        const completedAt = nowIso();
+        const completedDayStates = Object.fromEntries(batch.dayNumbers.map((dayNumber) => [
+          String(dayNumber),
+          {
+            ...state.days[String(dayNumber)],
+            dayNumber,
+            status: "complete" as StagedDayStatus,
+            attemptCount: entry.attemptCount,
+            updatedAt: completedAt,
+            completedAt,
+            lastError: null
+          }
+        ]));
+        state = releaseLease({
+          ...state,
+          status: "generating_day",
+          currentStage: "generating_day",
+          completedDayCount: Math.min(
+            state.totalDayCount,
+            Object.values(state.days).filter((item) => item.status === "complete").length + batchDays.length
+          ),
+          provider: ai.provider,
+          model: ai.model,
+          generatedDays: {
+            ...state.generatedDays,
+            ...Object.fromEntries(batchDays.map((day) => [String(day.day_number), day]))
+          },
+          batches: {
+            ...state.batches,
+            [batch.id]: {
+              ...state.batches[batch.id],
+              status: "complete",
+              attemptCount: entry.attemptCount,
+              provider: ai.provider,
+              model: ai.model,
+              inputTokens: ai.inputTokens,
+              outputTokens: ai.outputTokens,
+              estimatedCostUsd: Number(ai.estimatedCostUsd.toFixed(8)),
+              completedAt,
+              updatedAt: completedAt,
+              lastError: null
+            }
+          },
+          days: {
+            ...state.days,
+            ...completedDayStates
+          },
+          lastError: null,
+          lastErrorCode: null
+        });
+        await persistItinerary({ supabase: params.supabase, trip: claimedTrip, state, final: false, requestId: params.requestId });
+        await persistState({ supabase: params.supabase, trip: claimedTrip, state });
+        logGenerationDiagnostic("staged_day_batch_completed", {
+          requestId: params.requestId,
+          route: "stagedItineraryGeneration",
+          tripId: params.tripId,
+          supabaseHost: getPublicSupabaseHost(),
+          batchId: batch.id,
+          dayNumbers: batch.dayNumbers,
+          completedDayCount: state.completedDayCount,
+          totalDayCount: state.totalDayCount,
+          inputCharacters: ai.inputCharacters,
+          outputCharacters: ai.outputCharacters,
+          inputTokens: ai.inputTokens,
+          outputTokens: ai.outputTokens,
+          estimatedCostUsd: Number(ai.estimatedCostUsd.toFixed(8)),
+          cumulativeCostUsd: state.estimatedAiCostUsd,
+          aiCallCount: state.aiCallCount,
+          durationMs: ai.durationMs,
           provider: ai.provider,
           model: ai.model
         });
+        lastCompletedBatch = { id: batch.id, dayNumbers: batch.dayNumbers };
       }
-      const completedAt = nowIso();
-      const completedDayStates = Object.fromEntries(nextBatch.dayNumbers.map((dayNumber) => [
-        String(dayNumber),
-        {
-          ...state.days[String(dayNumber)],
-          dayNumber,
-          status: "complete" as StagedDayStatus,
-          attemptCount,
-          updatedAt: completedAt,
-          completedAt,
-          lastError: null
-        }
-      ]));
-      state = releaseLease({
-        ...state,
-        status: "generating_day",
-        currentStage: "generating_day",
-        completedDayCount: Math.min(
-          state.totalDayCount,
-          Object.values(state.days).filter((item) => item.status === "complete").length + batchDays.length
-        ),
-        provider: ai.provider,
-        model: ai.model,
-        generatedDays: {
-          ...state.generatedDays,
-          ...Object.fromEntries(batchDays.map((day) => [String(day.day_number), day]))
-        },
-        batches: {
-          ...state.batches,
-          [nextBatch.id]: {
-            ...state.batches[nextBatch.id],
-            status: "complete",
-            attemptCount,
-            provider: ai.provider,
-            model: ai.model,
-            inputTokens: ai.inputTokens,
-            outputTokens: ai.outputTokens,
-            estimatedCostUsd: Number(ai.estimatedCostUsd.toFixed(8)),
-            completedAt,
-            updatedAt: completedAt,
-            lastError: null
-          }
-        },
-        days: {
-          ...state.days,
-          ...completedDayStates
-        },
-        lastError: null,
-        lastErrorCode: null
-      });
-      await persistItinerary({ supabase: params.supabase, trip: claimedTrip, state, final: false, requestId: params.requestId });
-      await persistState({ supabase: params.supabase, trip: claimedTrip, state });
-      logGenerationDiagnostic("staged_day_batch_completed", {
-        requestId: params.requestId,
-        route: "stagedItineraryGeneration",
-        tripId: params.tripId,
-        supabaseHost: getPublicSupabaseHost(),
-        batchId: nextBatch.id,
-        dayNumbers: nextBatch.dayNumbers,
-        completedDayCount: state.completedDayCount,
-        totalDayCount: state.totalDayCount,
-        inputCharacters: ai.inputCharacters,
-        outputCharacters: ai.outputCharacters,
-        inputTokens: ai.inputTokens,
-        outputTokens: ai.outputTokens,
-        estimatedCostUsd: Number(ai.estimatedCostUsd.toFixed(8)),
-        cumulativeCostUsd: state.estimatedAiCostUsd,
-        aiCallCount: state.aiCallCount,
-        durationMs: ai.durationMs,
-        provider: ai.provider,
-        model: ai.model
-      });
-      return { ok: true, status: state.status, state, advanced: true, stage: "day_batch", batchId: nextBatch.id, dayNumbers: nextBatch.dayNumbers };
+      if (!lastCompletedBatch) {
+        throw new StagedGenerationError("No day batch completed.", "GENERATION_STAGE_FAILED", 502);
+      }
+      return { ok: true, status: state.status, state, advanced: true, stage: "day_batch", batchId: lastCompletedBatch.id, dayNumbers: lastCompletedBatch.dayNumbers };
     }
 
     if (allResolved(state) && Object.values(state.batches).some((batch) => batch.status === "failed")) {
