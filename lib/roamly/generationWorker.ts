@@ -34,6 +34,7 @@ import {
 import { schedulePackDrive } from "@/lib/roamly/engine/packs/kick";
 import { SupabasePackStore } from "@/lib/roamly/engine/packs/supabaseStore";
 import { getPublicSupabaseHost, logGenerationDiagnostic } from "@/lib/roamly/generationDiagnostics";
+import { recordTripEvent } from "@/lib/roamly/events";
 import { isMissingTableError } from "@/lib/trips";
 import { generationTripIsTerminal } from "@/lib/roamly/generationLifecycle";
 
@@ -1177,6 +1178,35 @@ function summarize(params: {
   };
 }
 
+/**
+ * Best-effort DB record of a claim failure. The claim error used to reach
+ * only console.info (generation_worker_claim_error), so a poisoned claim
+ * silenced the whole queue for 2 days (KF-2 #2, 2026-11-22). The row lands
+ * in roamly_trip_events, where the keeper watch already looks for
+ * companion_scheduling_failed. Never throws: the claim already failed, and
+ * a logging failure must not mask it or break the worker's return path.
+ */
+async function recordClaimErrorEvent(
+  admin: SupabaseClient,
+  params: { tripId?: string | null; userId?: string | null },
+  workerId: string,
+  requestId: string,
+  error: string
+) {
+  try {
+    await recordTripEvent(admin, {
+      userId: params.userId ?? null,
+      tripId: params.tripId ?? null,
+      eventType: "generation_worker_claim_error",
+      eventTitle: "Generation claim failed",
+      eventBody: error.length > 500 ? `${error.slice(0, 497)}...` : error,
+      metadata: { workerId, requestId, route: "generationWorker" }
+    });
+  } catch {
+    // Best effort only — see above.
+  }
+}
+
 export async function processGenerationQueue(params: {
   tripId?: string | null;
   userId?: string | null;
@@ -1241,6 +1271,7 @@ export async function processGenerationQueue(params: {
       logGenerationDiagnostic("generation_worker_claim_error", {
         error: claimed.error
       });
+      await recordClaimErrorEvent(admin, params, workerId, requestId, claimed.error);
       return summarize({ workerId, requestId, config, claimed: 0, results: [], error: claimed.error });
     }
     jobs = claimed.job ? [claimed.job] : [];
@@ -1254,6 +1285,7 @@ export async function processGenerationQueue(params: {
       logGenerationDiagnostic("generation_worker_claim_error", {
         error: claimed.error
       });
+      await recordClaimErrorEvent(admin, params, workerId, requestId, claimed.error);
       return summarize({ workerId, requestId, config, claimed: 0, results: [], error: claimed.error });
     }
     jobs = claimed.jobs;
