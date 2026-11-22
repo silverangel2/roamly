@@ -920,11 +920,18 @@ export async function releaseGenerationJob(params: {
   jobId: string;
   workerId: string;
   nextStatus?: "queued" | "waiting" | "failed";
+  /** ISO timestamp the job becomes claim-eligible again. When omitted the
+   *  row keeps its existing next_attempt_at (the pre-fix behavior) and the
+   *  RPC call is identical to before, so a not-yet-migrated database
+   *  still accepts it. Only the pack-wait release passes one (Koeln
+   *  2026-11-22 — see PACK_WAIT_RELEASE_BACKOFF_MS). */
+  nextAttemptAt?: string;
 }) {
   const { data, error } = await params.supabase.rpc("roamly_release_generation_job", {
     p_job_id: params.jobId,
     p_worker_id: params.workerId,
-    p_next_status: params.nextStatus || "waiting"
+    p_next_status: params.nextStatus || "waiting",
+    ...(params.nextAttemptAt ? { p_next_attempt_at: params.nextAttemptAt } : {})
   });
   if (error) return { ok: false as const, error: rpcError(error), released: false };
   return { ok: true as const, released: data === true };

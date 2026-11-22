@@ -94,6 +94,17 @@ const DEFAULT_CONFIG: RoamlyGenerationWorkerConfig = {
   stageCleanupBufferMs: 8_000
 };
 
+/** Release backoff for a pack-waiting job (Koeln 2026-11-22). When the
+ *  outline stage finds a cold destination pack still building, the worker
+ *  releases the job with next_attempt_at this far out instead of
+ *  immediately-due: a re-claim every ~4 s re-kicks a short drive that
+ *  discards its partial live collection, while a five-minute cron wake
+ *  that could host the full 300 s drive never gets an uncontested claim.
+ *  90 s is longer than an advance-hosted drive (~50 s) and far shorter
+ *  than the 2 h pack-wait bound — the job stays claimable, just not
+ *  instantly. */
+export const PACK_WAIT_RELEASE_BACKOFF_MS = 90_000;
+
 function envInt(key: string, fallback: number, min: number, max: number) {
   const parsed = Number(process.env[key]);
   if (!Number.isFinite(parsed)) return fallback;
@@ -886,11 +897,20 @@ async function processClaimedJob(params: {
       });
 
       if ("busy" in result && result.busy) {
+        // Pack-wait backoff (Koeln 2026-11-22): only the outline stage's
+        // waitingForPack busy release gets the delay. Every other busy
+        // release (staged-path claim contention, etc.) stays
+        // immediately-due, exactly as before.
+        const packWaitBackoff =
+          "waitingForPack" in result && result.waitingForPack === true
+            ? new Date(Date.now() + PACK_WAIT_RELEASE_BACKOFF_MS).toISOString()
+            : undefined;
         await releaseGenerationJob({
           supabase: params.admin,
           jobId: params.job.id,
           workerId: params.workerId,
-          nextStatus: "waiting"
+          nextStatus: "waiting",
+          ...(packWaitBackoff ? { nextAttemptAt: packWaitBackoff } : {})
         });
         return {
           tripId: params.job.trip_id,
