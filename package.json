@@ -93,6 +93,7 @@
     "test:map-honesty": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-map-honesty-checks.mjs",
     "test:map-segment-links": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs scripts/roamly-map-segment-link-checks.mjs",
     "test:pack-rescue": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-pack-rescue-checks.mjs",
+    "test:pack-wait-release-backoff": "node scripts/roamly-pack-wait-release-backoff-checks.mjs",
     "test:extract-pack": "node --experimental-strip-types --import ./scripts/roamly-test-register.mjs --import ./scripts/roamly-test-server-only-register.mjs scripts/roamly-extract-pack-checks.mjs",
     "test:pack-drive": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-pack-drive-checks.mjs",
     "test:speed-f8": "node --experimental-strip-types --import ./scripts/roamly-phase5-test-register.mjs scripts/roamly-speed-f8-checks.mjs",
