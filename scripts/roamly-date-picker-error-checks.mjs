@@ -3,35 +3,40 @@
 // (2026-11-25 QA, bug 7).
 //
 // The mechanism (components/plan/TripPlanForm.tsx, step === 1 — the
-// user-facing Step 2 "When"): the step-level error renders BELOW the
-// date card ({dateErrorActive ? null : <StepError .../>} after the
-// <BuiCard>), and the footer Continue button sits below all step
-// content. The native <input type="date"> calendar is a browser
-// popup: it opens downward from the End date field and overlays
-// everything below it in the viewport — the step error and the
-// Continue button. The page cannot move the popup; it is positioned
-// by the browser.
+// user-facing Step 2 "When"): the date error the user actually sees
+// ("Add a start and end date." / "Add both dates.", strings in
+// lib/roamly/planTripUx.ts) renders INSIDE the date card — under the
+// Start date field (PlanField's BuiFieldError) and under the length
+// hint (the days BuiFieldError). The native <input type="date">
+// calendar is a browser popup: it opens downward from the End date
+// field and overlays everything below it in the viewport, so it
+// covers those in-card errors (live: truncated to "Add a start an…").
+// The page cannot move the popup; it is positioned by the browser.
 //
-// The fix: render the When-step's step error ABOVE the date card, so
-// it sits between the step heading and the fields — the popup opens
-// downward from the fields, so content above them can never be
-// covered by it. The dateErrorActive suppression is kept (when a
-// field-level date error is active the step error stays hidden to
-// avoid duplication); the per-field errors in their reserved slots
-// are untouched. The Continue button needs no layout change: it is
-// covered only while the picker is open, which is inherent to a
-// native popup — the user dismisses or picks in the picker before
+// The FIRST fix moved the wrong element: it moved the step-level
+// StepError above the card, but TripPlanForm suppresses the StepError
+// exactly when a date error is active ({dateErrorActive ? null :
+// <StepError .../>}), so in the failing case nothing showed above
+// the card at all. Live FAIL 2026-11-25 21:02-21:07 AST (PR #141):
+// with dates empty the error still sat inside the card, covered by
+// the picker.
+//
+// The CORRECTED fix: when dateErrorActive, render ONE consolidated
+// date error — the first active field error (start, then end, then
+// days) — as the StepError ABOVE the date card, where the
+// downward-opening picker can never reach it. Otherwise the step
+// error renders as before. The in-card field errors are left in
+// place (they keep the field association and the red styling); the
+// above-card error is the one the user reads while the picker is
+// open. The Continue button needs no layout change: it is covered
+// only while the picker is open, which is inherent to a native
+// popup — the user dismisses or picks in the picker before
 // continuing, and no page layout can keep content visible under a
 // native overlay. The information loss (the error text) is the
 // defect; the button occlusion is normal popup behaviour.
 //
-// Residual, stated honestly: an End-date-only field error still sits
-// under the End date input and is covered while the picker is open.
-// The step error (when present) is now always visible, and the Start
-// date field error was never covered (it sits above the End date
-// input).
-//
-// Run BEFORE the fix this script FAILS (the step error is below the
+// Run BEFORE the corrected fix this script FAILS (the StepError is
+// suppressed when dateErrorActive, so no date error sits above the
 // card). AFTER the fix it PASSES.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -48,20 +53,40 @@ const whoStart = form.indexOf("{step === 2 ? (", whenStart);
 assert.ok(whoStart > whenStart, "the Who step block follows the When step");
 const when = form.slice(whenStart, whoStart);
 
-const stepErrorAt = when.indexOf("{dateErrorActive ? null : <StepError error={translateText(error)} />}");
-assert.ok(stepErrorAt > -1, "the When step still renders its step error with the dateErrorActive suppression");
+// 1. The consolidated date error is defined as the first active
+// field error (start, then end, then days).
+assert.ok(
+  /const dateErrorMessage = startDateField\.error \|\| endDateField\.error \|\| daysField\.error \|\| ""/.test(form),
+  "dateErrorMessage is the first active date field error"
+);
+
+// 2. When a date error is active, the StepError above the card shows
+// THAT message — it is not suppressed.
+assert.ok(
+  when.includes("<StepError error={translateText(dateErrorMessage)} />"),
+  "the date error renders as the StepError above the card when active"
+);
+assert.ok(
+  !when.includes("{dateErrorActive ? null : <StepError"),
+  "the old suppression (StepError hidden exactly when a date error is active) is gone"
+);
+
+// 3. The above-card error sits before the date card in source order.
+const dateErrorAt = when.indexOf("<StepError error={translateText(dateErrorMessage)} />");
 const cardAt = when.indexOf('<BuiCard className="p-4">');
 assert.ok(cardAt > -1, "the When step date card exists");
 assert.ok(
-  stepErrorAt < cardAt,
-  "the When-step error renders ABOVE the date card, where the downward-opening picker cannot cover it"
-);
-assert.ok(
-  when.indexOf("{dateErrorActive ? null : <StepError error={translateText(error)} />}", stepErrorAt + 1) === -1,
-  "no second copy of the step error remains below the card"
+  dateErrorAt > -1 && dateErrorAt < cardAt,
+  "the date error renders ABOVE the date card, where the downward-opening picker cannot cover it"
 );
 
-// The footer Continue button is untouched (it is covered only while
+// 4. The step error still renders as before when no date error is active.
+assert.ok(
+  when.includes("<StepError error={translateText(error)} />"),
+  "the step error still renders when no date error is active"
+);
+
+// 5. The footer Continue button is untouched (it is covered only while
 // the picker is open, which no layout can prevent).
 assert.ok(form.includes('onClick={goNext}'), "the footer Continue button still drives goNext");
 

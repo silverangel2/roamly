@@ -628,6 +628,16 @@ function TextInput({
     if (!el) return;
     const onNativeChange = () => {
       const next = el.value;
+      // Bug 2 follow-up (2026-11-25 live, PR #141): Chrome fires the
+      // native `change` event per segment edit while the year is typed,
+      // so this listener still committed the intermediate year 0002 —
+      // validation ran and the End year segment froze at 0002 (the End
+      // input is the one whose min moves when the Start commits).
+      // Commit only a complete year: return early while the year is
+      // below 1000 (0002/0020/0202 are intermediates, never a real
+      // trip year). Empty (clearing) and years >= 1000 commit — picker
+      // selections and blur-committed finals are complete years.
+      if (next && Number(next.slice(0, 4)) < 1000) return;
       commitRef.current.onChange(next);
       commitRef.current.field?.onChange(next);
     };
@@ -2463,6 +2473,13 @@ function TripPlanFormSession({
      notice stays quiet so the sentence never renders twice. */
   const budgetFieldError = budgetField.error;
   const dateErrorActive = Boolean(startDateField.error || endDateField.error || daysField.error);
+  // Bug 7 corrected (2026-11-25 live, PR #141): the first fix moved the
+  // step-level StepError above the card, but the StepError was suppressed
+  // exactly when a date error was active — and the error the user sees
+  // ("Add a start and end date." / "Add both dates.") renders INSIDE the
+  // card, where the picker covers it. So the consolidated date error
+  // (first active field error) renders above the card instead.
+  const dateErrorMessage = startDateField.error || endDateField.error || daysField.error || "";
   const lengthHint =
     tripDateRange.ok && tripDateRange.days
       ? tripLengthCopyLocalized(tripDateRange.days, locale)
@@ -2715,14 +2732,13 @@ function TripPlanFormSession({
                 day-count input is gone — daysCount stays in state and
                 is synced from the range by updateStartDate /
                 updateEndDate, exactly as the range edits did before. */}
-            {/* Bug 7: the step error used to render BELOW the date card.
-                The native date-picker calendar opens downward from the
-                End date field and overlays everything below it — the
-                error and the footer Continue button. The popup is
-                positioned by the browser and cannot be moved, so the
-                error lives ABOVE the fields, where the popup can never
-                reach it. */}
-            {dateErrorActive ? null : <StepError error={translateText(error)} />}
+            {/* Bug 7 corrected: when a date error is active, the
+                consolidated date error renders ABOVE the date card as
+                the StepError — the downward-opening picker can never
+                cover content above the fields. The old code suppressed
+                the StepError exactly in this case, so nothing showed
+                above the card and the in-card error was covered. */}
+            {dateErrorActive ? <StepError error={translateText(dateErrorMessage)} /> : <StepError error={translateText(error)} />}
             <BuiCard className="p-4">
               <FieldLabel>{translateText("Trip dates")}</FieldLabel>
               <div className="mt-1 grid gap-3 sm:grid-cols-2">
