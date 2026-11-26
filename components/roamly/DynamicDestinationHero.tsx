@@ -55,6 +55,11 @@ const destinations: Destination[] = [
 
 const ROTATION_MS = 8500;
 const FADE_MS = 700;
+// Bug 5: the caption commit must wait for the incoming photo to decode.
+// The 700 ms fade is the minimum; the commit waits for the load beyond
+// that. The cap commits regardless so a slow or failed load can never
+// freeze the hero.
+const COMMIT_CAP_MS = 2500;
 
 export function DynamicDestinationHero() {
   const { t, translateText } = useI18n();
@@ -72,6 +77,10 @@ export function DynamicDestinationHero() {
   const [heroEndDate, setHeroEndDate] = useState("");
   const [heroTravelers, setHeroTravelers] = useState(1);
   const transitionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingIndexRef = useRef<number | null>(null);
+  const incomingLoadedRef = useRef(false);
+  const fadeDoneRef = useRef(false);
   const active = destinations[activeIndex];
   const incoming = destinations[incomingIndex];
   const searchHref = useMemo(() => {
@@ -102,11 +111,43 @@ export function DynamicDestinationHero() {
 
   useEffect(() => () => {
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
   }, []);
+
+  // Commits the pending destination (caption + base photo together).
+  // Only runs while a transition is pending; nulls the pending index
+  // so a late load event from the next preloaded image cannot commit.
+  const commitTransition = useCallback(() => {
+    const targetIndex = pendingIndexRef.current;
+    if (targetIndex === null) return;
+    pendingIndexRef.current = null;
+    if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    setActiveIndex(targetIndex);
+    setIncomingIndex((targetIndex + 1) % destinations.length);
+    setTransitioning(false);
+  }, []);
+
+  // Commits once both the fade minimum has elapsed AND the incoming
+  // photo has decoded. The cap timer calls commitTransition directly,
+  // so this is never the only path.
+  const maybeCommit = useCallback(() => {
+    if (pendingIndexRef.current === null) return;
+    if (fadeDoneRef.current && incomingLoadedRef.current) commitTransition();
+  }, [commitTransition]);
+
+  // Marks the incoming photo as settled (loaded or failed) and tries
+  // the commit. A failed load counts as settled: the photo shows
+  // whatever decoded, and the cap timer commits regardless.
+  const markIncomingSettled = useCallback(() => {
+    incomingLoadedRef.current = true;
+    maybeCommit();
+  }, [maybeCommit]);
 
   const beginTransition = useCallback((targetIndex: number, isManual: boolean) => {
     if (transitioning || targetIndex === activeIndex) return;
     if (transitionTimer.current) clearTimeout(transitionTimer.current);
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
 
     if (reducedMotion) {
       setActiveIndex(targetIndex);
@@ -115,15 +156,19 @@ export function DynamicDestinationHero() {
       return;
     }
 
+    // Bug 5: the caption must not commit before the photo decodes.
+    pendingIndexRef.current = targetIndex;
+    incomingLoadedRef.current = false;
+    fadeDoneRef.current = false;
     setIncomingIndex(targetIndex);
     setTransitioning(true);
     if (isManual) setPausedUntil(Date.now() + 20000);
-    transitionTimer.current = setTimeout(() => {
-      setActiveIndex(targetIndex);
-      setIncomingIndex((targetIndex + 1) % destinations.length);
-      setTransitioning(false);
+    fadeTimer.current = setTimeout(() => {
+      fadeDoneRef.current = true;
+      maybeCommit();
     }, FADE_MS);
-  }, [activeIndex, reducedMotion, transitioning]);
+    transitionTimer.current = setTimeout(commitTransition, COMMIT_CAP_MS);
+  }, [activeIndex, commitTransition, maybeCommit, reducedMotion, transitioning]);
 
   useEffect(() => {
     if (reducedMotion || rotationPaused || transitioning) return;
@@ -215,7 +260,7 @@ export function DynamicDestinationHero() {
         <div className="roamly-enter order-1 min-w-0 lg:order-2" style={{ animationDelay: "100ms" }}>
           <div className="relative mx-auto aspect-[1.25/1] w-full max-w-[42rem] overflow-hidden rounded-[2rem] border-[6px] border-white bg-csoft shadow-[0_28px_80px_rgba(7, 30, 85,0.17)] sm:aspect-[1.16/1] sm:rounded-[2.5rem] sm:border-[8px]">
             <Image src={active.image} alt={`${active.name}, ${active.country}`} fill priority sizes="(min-width: 1024px) 54vw, 100vw" className="absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700" style={{ objectPosition: active.desktopPosition }} />
-            <Image src={incoming.image} alt="" fill sizes="(min-width: 1024px) 54vw, 100vw" aria-hidden="true" className={`absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
+            <Image src={incoming.image} key={incoming.image.src} onLoadingComplete={markIncomingSettled} onError={markIncomingSettled} alt="" fill sizes="(min-width: 1024px) 54vw, 100vw" aria-hidden="true" className={`absolute inset-0 object-cover brightness-105 saturate-110 transition-opacity duration-700 ${transitioning ? "opacity-100" : "opacity-0"}`} style={{ objectPosition: incoming.desktopPosition }} />
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-cnavy/60 via-cnavy/15 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-5">
               <div key={active.name} aria-live="polite">
                 <p className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{active.name}</p>

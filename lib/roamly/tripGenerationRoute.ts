@@ -55,6 +55,10 @@ import {
   ROAMLY_BRAIN_VERSION
 } from "@/lib/roamly/generationQueue";
 import {
+  GENERATION_START_FAILED_MESSAGE,
+  GENERATION_TRIP_SAVE_FAILED_MESSAGE
+} from "@/lib/roamly/generationErrorMessages";
+import {
   duplicateGenerationRequestKey,
   generationPriorityForEntitlement
 } from "@/lib/roamly/generationScalability";
@@ -1153,7 +1157,7 @@ export async function generateTripForActor(
       const payload = payloadFromTrip(trip as Record<string, unknown>, requestLocale);
       const validation = validatePayload(payload);
       if (typeof validation === "object") return invalidTripDatesResponse(validation);
-      if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
+      if (validation) return NextResponse.json({ ok: false, error: validation, message: validation }, { status: 400 });
 
       return finalizeItinerary({
         supabase,
@@ -1170,7 +1174,7 @@ export async function generateTripForActor(
     const payload = cleanPayload(body, requestLocale);
     const validation = validatePayload(payload);
     if (typeof validation === "object") return invalidTripDatesResponse(validation);
-    if (validation) return NextResponse.json({ ok: false, error: validation }, { status: 400 });
+    if (validation) return NextResponse.json({ ok: false, error: validation, message: validation }, { status: 400 });
 
     const title = `${payload.destination} ${payload.daysCount}-day itinerary`;
     const planningMetadata = buildTripPlanningMetadata(payload);
@@ -1214,6 +1218,8 @@ export async function generateTripForActor(
           details: insertError.details,
           hint: insertError.hint,
           code: insertError.code,
+          // The guest sees `message`, never the raw DB text above.
+          message: GENERATION_TRIP_SAVE_FAILED_MESSAGE,
           setupHint: "Run the Roamly Supabase migrations before saving itinerary drafts."
         },
         { status: 500 }
@@ -1253,6 +1259,8 @@ export async function generateTripForActor(
       {
         ok: false,
         error: message,
+        // The guest sees `message`, never the raw error above.
+        message: GENERATION_START_FAILED_MESSAGE,
         setupHint: isMissingTableError(message) ? "Run supabase/migrations/20260705_roamly_itinerary_locking.sql." : undefined
       },
       { status: 500 }

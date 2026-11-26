@@ -12,6 +12,7 @@ import { BuiButtonLink } from "@/components/boardui/Button";
 import { PLAN_START_NOTE } from "@/lib/roamly/planTripUx";
 import { DynamicDestinationHero } from "@/components/roamly/DynamicDestinationHero";
 import { CityPuzzle } from "@/components/roamly/CityPuzzle";
+import { HomeHashScroll } from "@/components/roamly/HomeHashScroll";
 import { BookYourTrip } from "@/components/roamly/BookYourTrip";
 import { HouseAdSlot } from "@/components/roamly/HouseAdCard";
 import { translateExactText } from "@/lib/i18n";
@@ -27,6 +28,7 @@ export default async function Home() {
   const tx = (text: string) => translateExactText(locale, text);
   return (
     <div className="safe-bottom overflow-hidden bg-cbg text-cink">
+      <HomeHashScroll />
       <DynamicDestinationHero />
       <CityPuzzle />
 

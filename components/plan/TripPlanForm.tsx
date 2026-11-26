@@ -603,15 +603,61 @@ function TextInput({
   onBlurExtra?: () => void;
 }) {
 
-return (
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const isDate = type === "date";
+  // Latest commit handlers for the native change listener below.
+  const commitRef = useRef({ onChange, field });
+  commitRef.current = { onChange, field };
+
+  /* Bug 2 (2026-11-25 QA): typed dates corrupted the year — typing
+     12/13/2026 produced 12/13/0002, saved as 0202 in the draft.
+     Chrome's native date input fires onChange per keystroke with
+     INTERMEDIATE values (a half-typed year reads as year 0002/0262),
+     and committing each one to state re-rendered the input and reset
+     the browser's segment position, so the next digit landed in the
+     wrong segment. Deals never had this: its date inputs are
+     uncontrolled (defaultValue). So for date inputs the browser owns
+     the in-progress edit: the input is uncontrolled, the commit happens
+     on the native `change` event (blur / Enter / picker selection),
+     never per keystroke, and external state changes (draft restore,
+     sibling auto-shift) sync into the DOM only while the field is not
+     focused. Text/number inputs are untouched. */
+  useEffect(() => {
+    if (!isDate) return;
+    const el = inputRef.current;
+    if (!el) return;
+    const onNativeChange = () => {
+      const next = el.value;
+      commitRef.current.onChange(next);
+      commitRef.current.field?.onChange(next);
+    };
+    el.addEventListener("change", onNativeChange);
+    return () => el.removeEventListener("change", onNativeChange);
+  }, [isDate]);
+
+  useEffect(() => {
+    if (!isDate) return;
+    const el = inputRef.current;
+    if (!el) return;
+    if (document.activeElement !== el && el.value !== value) el.value = value;
+  }, [isDate, value]);
+
+  return (
     <input
       id={id}
-      value={value}
+      ref={inputRef}
+      {...(isDate ? { defaultValue: value } : { value })}
       onChange={(event) => {
+        if (isDate) return;
         onChange(event.target.value);
         field?.onChange(event.target.value);
       }}
       onBlur={() => {
+        if (isDate) {
+          field?.onBlur(inputRef.current?.value ?? value);
+          onBlurExtra?.();
+          return;
+        }
         field?.onBlur(value);
         onBlurExtra?.();
       }}
@@ -919,9 +965,21 @@ function StepperField({
   );
 }
 
-function StepError({ error }: { error: string }) {
+function StepError({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  const { translateText } = useI18n();
   if (!error) return null;
-  return <BuiNotice tone="error" title={error} />;
+  return (
+    <div>
+      <BuiNotice tone="error" title={error} />
+      {onRetry ? (
+        <div className="mt-3">
+          <BuiButton type="button" variant="secondary" onClick={onRetry}>
+            {translateText("Try again")}
+          </BuiButton>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -1104,6 +1162,12 @@ function TripPlanFormSession({
   const [specialNotes, setSpecialNotes] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Bug 1 (2026-11-25 QA): a generation failure left the guest at a
+  // dead end — an error notice and no way forward. When the last
+  // failure came from generation itself (not validation), the Review
+  // step offers an explicit Try again. Cleared on every new submit
+  // attempt so a later validation error never inherits the retry.
+  const [generationFailed, setGenerationFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [priceChecking, setPriceChecking] = useState(false);
   const [priceDiscovery, setPriceDiscovery] = useState<PriceDiscoveryResult | null>(null);
@@ -2029,6 +2093,7 @@ function TripPlanFormSession({
 
   async function openFinalConfirmation() {
     if (loading || priceChecking || (isCheckingSession && !sessionUser)) return;
+    setGenerationFailed(false);
     const validation = validateBeforeGenerate();
     setError(validation);
     setNotice("");
@@ -2064,6 +2129,7 @@ function TripPlanFormSession({
         await requestGuestFreeItinerary(generationPayload);
       } catch (err) {
         setNotice("");
+        setGenerationFailed(true);
         setError(err instanceof Error ? err.message : GENERATION_ERROR_MESSAGE);
       } finally {
         generationInFlight.current = false;
@@ -2649,6 +2715,14 @@ function TripPlanFormSession({
                 day-count input is gone — daysCount stays in state and
                 is synced from the range by updateStartDate /
                 updateEndDate, exactly as the range edits did before. */}
+            {/* Bug 7: the step error used to render BELOW the date card.
+                The native date-picker calendar opens downward from the
+                End date field and overlays everything below it — the
+                error and the footer Continue button. The popup is
+                positioned by the browser and cannot be moved, so the
+                error lives ABOVE the fields, where the popup can never
+                reach it. */}
+            {dateErrorActive ? null : <StepError error={translateText(error)} />}
             <BuiCard className="p-4">
               <FieldLabel>{translateText("Trip dates")}</FieldLabel>
               <div className="mt-1 grid gap-3 sm:grid-cols-2">
@@ -2683,7 +2757,6 @@ function TripPlanFormSession({
               </p>
               <BuiFieldError id="plan-days-error" message={daysField.error ? translateText(daysField.error) : ""} reserveLines={2} />
             </BuiCard>
-            {dateErrorActive ? null : <StepError error={translateText(error)} />}
           </div>
         ) : null}
 
@@ -2889,7 +2962,7 @@ function TripPlanFormSession({
                 {translateText("Review your trip details carefully. After generation, your saved itinerary will not be regenerated in place. Use your trip page to request supported changes.")}
               </p>
             </div>
-            <StepError error={translateText(error)} />
+            <StepError error={translateText(error)} onRetry={generationFailed ? openFinalConfirmation : undefined} />
           </div>
         ) : null}
       </div>
@@ -3051,18 +3124,21 @@ function TripPlanFormSession({
           <BuiMorphButton
             type="button"
             phase={loading || priceChecking ? "busy" : "idle"}
+            busyLabel={
+              loading && requiresPaidUnlock
+                ? translateText("Opening checkout...")
+                : loading
+                ? translateText("Starting generation...")
+                : priceChecking
+                ? translateText("Checking costs...")
+                : undefined
+            }
             className={`min-w-0 !whitespace-normal bg-cblue px-5 py-3 text-center text-sm font-black leading-snug text-white shadow-[0_8px_20px_rgba(8,123,255,0.25)] hover:bg-[#0A6FE0] ${loading || priceChecking ? "flex-none" : "flex-1"}`}
             onClick={openFinalConfirmation}
             disabled={isCheckingSession && !sessionUser}
             aria-live="polite"
           >
-            {loading && requiresPaidUnlock
-              ? translateText("Opening checkout...")
-              : loading
-              ? translateText("Starting generation...")
-              : priceChecking
-              ? translateText("Checking costs...")
-              : translateText(buildButtonLabel)}
+            {translateText(buildButtonLabel)}
           </BuiMorphButton>
         )}
       </div>
