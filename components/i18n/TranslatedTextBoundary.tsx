@@ -36,6 +36,15 @@ export function TranslatedTextBoundary({ children }: { children: React.ReactNode
       const core = base.trim();
       if (!core) return;
       const translated = translateText(core);
+      // Bug 6: the stored base is the FIRST-SEEN value. A node first
+      // seen in a non-English locale stores that locale's text, which
+      // has no translation back (in English, translateExactText returns
+      // its input unchanged, and a French string is not an English
+      // dictionary key). Writing it back would put stale French over
+      // React's correct English render. When there is no translation,
+      // leave the node alone: React re-renders locale-driven text on
+      // every locale change, so its render is the truth.
+      if (translated === core) return;
       const nextValue = preserveWhitespace(base, translated);
       if (node.nodeValue !== nextValue) node.nodeValue = nextValue;
     }
@@ -57,6 +66,10 @@ export function TranslatedTextBoundary({ children }: { children: React.ReactNode
           if (!originalsForElement.has(attribute)) originalsForElement.set(attribute, value);
           attributeOriginals.current.set(element, originalsForElement);
           const base = originalsForElement.get(attribute) || value;
+          // Bug 6, same staleness as text nodes: an attribute first seen
+          // in a non-English locale stores that locale's text. When it
+          // has no translation, leave React's current value alone.
+          if (translateText(base.trim()) === base.trim()) continue;
           element.setAttribute(attribute, translateText(base.trim()));
         }
       }

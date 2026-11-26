@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import { BuiButton } from "@/components/boardui/Button";
 import { BuiCard } from "@/components/boardui/Card";
-import { bookingFindCard, flightFindCard, flightFindHandoff, klookFindCard, klookTransportFindCard, publicEventFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
+import { bookingFindCard, flightFindCard, flightFindHandoff, klookFindCard, klookTransportFindCard, publicEventFindCard, stay22SearchFindCard, type FindsCard } from "@/lib/roamly/findsMarketCore";
 import { FindsEditorialMagazine } from "@/components/roamly/FindsEditorialMagazine";
 import type { FindsPromoConfig } from "@/lib/roamly/findsCommercialConfig";
 import { normalizeCountryCode } from "@/lib/roamly/placeResolver";
@@ -183,10 +183,16 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       }
       const body = await response.json().catch(() => ({})) as { results?: unknown; warning?: string };
       const results = Array.isArray(body.results) ? body.results : [];
-      const stays = results.map(bookingFindCard).filter((card): card is FindsCard => Boolean(card));
+      // Bug 3: a verified stay maps through bookingFindCard; the only live
+      // result today is a Stay22 search link, which maps through the
+      // handoff card instead of being dropped silently.
+      const stays = results.map((item) => bookingFindCard(item) ?? stay22SearchFindCard(item)).filter((card): card is FindsCard => Boolean(card));
       setMarketCards((current) => dedupeCards([...current.filter((card) => card.category !== "hotel"), ...stays]));
-      setHotelSearchMessage(stays.length
-        ? `${stays.length} verified provider stays matched these dates and are ranked by your stated preferences, then nightly price. ${maximumNightlyPrice > 0 ? `All shown are within your CAD ${maximumNightlyPrice}/night limit. ` : ""}Check the final offer before booking.`
+      const pricedStays = stays.filter((card) => card.price);
+      setHotelSearchMessage(pricedStays.length
+        ? `${pricedStays.length} verified provider stays matched these dates and are ranked by your stated preferences, then nightly price. ${maximumNightlyPrice > 0 ? `All shown are within your CAD ${maximumNightlyPrice}/night limit. ` : ""}Check the final offer before booking.`
+        : stays.length
+        ? "No priced stays came back for these dates. Open the partner search below to check live availability and prices — nothing has been substituted or guessed."
         : body.warning || (maximumNightlyPrice > 0
           ? `No verified live stays fit your CAD ${maximumNightlyPrice}/night limit for these dates. Try raising the limit or changing your dates.`
           : "No live hotel offers with a verified property photo and booking link came back for these dates. Nothing has been substituted or guessed."));
@@ -307,6 +313,14 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
     }
   }
 
+  // Bug 3 second half: a place picked via the "Use custom place" row (the
+  // only row while suggestions load) carries no verified country and can
+  // never search — say so before submit and keep the button off, instead
+  // of silently refusing on click. The guard inside searchHotels stays
+  // as the backstop.
+  const hotelPlaceUnverified = hotelDestination?.source === "custom";
+  const hotelSearchHint = "Choose a destination from the place suggestions so we can verify its country before searching stays.";
+
   const liveTools = <div className="pt-5">
     <div role="tablist" aria-label="Live travel options" className="flex gap-2 overflow-x-auto pb-3">
       {tabs.map((item, index) => <button key={item.id} id={`finds-tab-${item.id}`} type="button" role="tab" tabIndex={active === item.id ? 0 : -1} aria-selected={active === item.id} aria-controls="finds-live-panel" onKeyDown={(event) => handleTabKeyDown(event, index)} onClick={() => setActive(item.id)} className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-extrabold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cblue/20 ${active === item.id ? "bg-cblue text-white" : "border border-chair bg-white text-cgray hover:border-cblue/50"}`}>{item.label}</button>)}
@@ -315,10 +329,10 @@ export function FindsTabs({ cards, destination, origin, startDate, endDate, disc
       <div className="lg:col-span-2"><PlaceSelector label="Where are you staying?" value={hotelDestination} onChange={setHotelDestination} placeholder="Search a city or destination" helper="Choose a suggested place with its country. We use that match to search the right area." /></div>
       <label className="text-xs font-bold text-cgray">Check in<input name="stayCheckIn" type="date" defaultValue={startDate} required className="mt-1 min-h-11 w-full rounded-xl border border-chair bg-white px-3 text-base outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10" /></label>
       <label className="text-xs font-bold text-cgray">Check out<input name="stayCheckOut" type="date" defaultValue={endDate} required className="mt-1 min-h-11 w-full rounded-xl border border-chair bg-white px-3 text-base outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10" /></label>
-      <div className="flex items-end"><BuiButton type="submit" busy={searchingHotels} className="w-full">{searchingHotels ? "Opening…" : "Search stays"}</BuiButton></div>
+      <div className="flex items-end"><BuiButton type="submit" busy={searchingHotels} disabled={hotelPlaceUnverified} className="w-full">{searchingHotels ? "Opening…" : "Search stays"}</BuiButton></div>
       <label className="text-xs font-bold text-cgray">Travelers<input name="stayTravelers" type="number" min="1" max="20" defaultValue="2" required className="mt-1 min-h-11 w-full rounded-xl border border-chair bg-white px-3 text-base outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10" /></label>
       <label className="text-xs font-bold text-cgray">Rooms<input name="stayRooms" type="number" min="1" max="10" defaultValue="1" required className="mt-1 min-h-11 w-full rounded-xl border border-chair bg-white px-3 text-base outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10" /></label>
-      <p aria-live="polite" data-find-state={searchingHotels ? "loading" : hotelSearchMessage === "Add your destination and dates to search stay options with the booking partner." ? "idle" : "terminal"} className="text-xs leading-5 text-cgray sm:col-span-2 lg:col-span-4">{hotelSearchMessage}</p>
+      <p aria-live="polite" data-find-state={searchingHotels ? "loading" : hotelSearchMessage === "Add your destination and dates to search stay options with the booking partner." ? "idle" : "terminal"} className="text-xs leading-5 text-cgray sm:col-span-2 lg:col-span-4">{hotelPlaceUnverified && !searchingHotels ? hotelSearchHint : hotelSearchMessage}</p>
     </form> : null}
     {active === "flights" ? <form id="finds-live-panel" noValidate onSubmit={(event) => { event.preventDefault(); void searchPartner(event.currentTarget, "flight", "flight"); }} className="grid gap-3 pt-3 sm:grid-cols-2 lg:grid-cols-5">
       <label className="text-xs font-bold text-cgray">From<input name="flightOrigin" defaultValue={origin} placeholder="Halifax" aria-required="true" maxLength={80} className="mt-1 min-h-11 w-full rounded-xl border border-chair bg-white px-3 text-base outline-none focus:border-cblue focus:ring-4 focus:ring-cblue/10" /></label>

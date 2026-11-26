@@ -1390,11 +1390,17 @@ export async function searchTravelMarket(
     }
   }
 
+  // Bug 9: guests used to see internal config text here (how the
+  // provider credentials are set up). The warning is rendered verbatim
+  // to guests whenever a search comes back with no cards, so it must
+  // say only that live prices are unavailable — never how the provider
+  // is configured.
+  const NO_LIVE_PRICE_WARNING = "Live prices are not available for this search. Verify price and availability before booking.";
   const warning = configured
     ? liveConfigured
       ? "Provider did not return a numeric live price. Verify the search result before booking."
-      : "Partner link is configured; live price API credentials are optional and not configured. Verify price and availability before booking."
-    : "Provider credentials are not configured. Verify price and availability before booking.";
+      : NO_LIVE_PRICE_WARNING
+    : NO_LIVE_PRICE_WARNING;
   const discoveryResults =
     ((!nativeResults.length && !providerResults.length && options.allowFirecrawlFallback) || publicEventRequest(normalized))
       ? await searchScraperDiscovery(normalized)

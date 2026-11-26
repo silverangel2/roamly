@@ -146,6 +146,47 @@ export function bookingFindCard(value: unknown): FindsCard | null {
   };
 }
 
+/**
+ * Stay22 search handoff (bug 3, 2026-11-25 QA): the only result the live
+ * guest stays search returns today is a Stay22 search link — source
+ * "stay22", price_type "search_ready", verification_status
+ * "search_link_only", no property, no photo, no price. `bookingFindCard`
+ * correctly refuses it (it is not a verified stay), so the guest got
+ * zero cards and an internal-config warning — a button that looked dead.
+ * This mapper shows the link as what it honestly is: a partner search
+ * for the destination and dates. No property is named, no photo or price
+ * is claimed, and the word "verified" never appears. Same handoff family
+ * as the Aviasales flight link. When Booking Demand credentials land and
+ * real priced stays flow, `bookingFindCard` takes over and this card
+ * stops appearing.
+ */
+export function stay22SearchFindCard(value: unknown): FindsCard | null {
+  const result = record(value);
+  if (!result || result.source !== "stay22" || result.category !== "hotel") return null;
+  if (string(result.price_type) !== "search_ready") return null;
+  const href = providerUrl(result.affiliate_url, "stay22.com") || providerUrl(result.booking_url, "stay22.com");
+  if (!href) return null;
+  const city = string(result.city) || string(result.destination) || "your destination";
+  return {
+    id: string(result.id) || href,
+    title: `Search ${city} stays on Booking.com`,
+    eyebrow: "Where to stay",
+    description: "No priced stays came back for these dates — open the partner search to check live availability and prices.",
+    href,
+    provider: "Booking.com via Stay22",
+    affiliate: true,
+    category: "hotel",
+    icon: "⌂",
+    action: "Search stays on Booking.com",
+    image: null,
+    imageAlt: "",
+    price: null,
+    priceNote: null,
+    recommendationLabel: null,
+    checkedAt: string(result.searched_at) || null
+  };
+}
+
 export function klookFindCard(value: unknown): FindsCard | null {
   const base = listingBase(value, "klook", "activity", "klook.com", "klook.com");
   if (!base) return null;

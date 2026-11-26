@@ -36,14 +36,21 @@ export interface BuiMorphButtonProps extends Omit<ButtonHTMLAttributes<HTMLButto
   /** Optional leading icon for the idle face (e.g. the send plane);
    *  it flies/fades with the morph — never a separate control. */
   icon?: ReactNode;
+  /** Bug 10 (opt-in): a status label for the busy phase. When
+   *  provided, the busy phase keeps the button at home width and
+   *  shows a spinner plus this text instead of fading the label out
+   *  and shrinking to the compact spinner-only shape. Callers without
+   *  it keep the designed morph exactly as before. */
+  busyLabel?: ReactNode;
   children: ReactNode;
 }
 
-export function BuiMorphButton({ phase, icon, children, className, disabled, ...rest }: BuiMorphButtonProps) {
+export function BuiMorphButton({ phase, icon, busyLabel, children, className, disabled, ...rest }: BuiMorphButtonProps) {
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const compactRef = useRef(48);
   const [homeWidth, setHomeWidth] = useState<number | null>(null);
   const [armed, setArmed] = useState(false);
+  const showBusyLabel = phase === "busy" && busyLabel != null;
 
   /* The home width is the button's NATURAL laid-out width, read
    * once from its own box before the shape first travels (in a
@@ -65,7 +72,7 @@ export function BuiMorphButton({ phase, icon, children, className, disabled, ...
     }
   }, [phase, children, icon, homeWidth]);
 
-  const target = phase === "idle" || homeWidth === null ? (homeWidth ?? 0) : compactRef.current;
+  const target = phase === "idle" || homeWidth === null ? (homeWidth ?? 0) : showBusyLabel ? homeWidth : compactRef.current;
   const { value: width } = useSpringNumber(target, {
     stiffness: 320,
     dampingRatio: 0.8,
@@ -91,13 +98,25 @@ export function BuiMorphButton({ phase, icon, children, className, disabled, ...
     >
       <span
         className="inline-flex items-center gap-2 transition-opacity duration-150"
-        style={{ opacity: phase === "idle" ? 1 : 0 }}
+        style={{ opacity: phase === "idle" || showBusyLabel ? 1 : 0 }}
       >
-        {icon}
-        {children}
+        {showBusyLabel ? (
+          <>
+            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 shrink-0 animate-spin" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+              <path d="M22 12a10 10 0 0 0-10-10v4a6 6 0 0 1 6 6h4z" fill="currentColor" className="opacity-90" />
+            </svg>
+            {busyLabel}
+          </>
+        ) : (
+          <>
+            {icon}
+            {children}
+          </>
+        )}
       </span>
       <span className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden="true">
-        {phase === "busy" ? (
+        {phase === "busy" && !showBusyLabel ? (
           <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 animate-spin">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
             <path d="M22 12a10 10 0 0 0-10-10v4a6 6 0 0 1 6 6h4z" fill="currentColor" className="opacity-90" />

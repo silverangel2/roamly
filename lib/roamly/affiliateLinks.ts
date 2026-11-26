@@ -354,6 +354,27 @@ function bookingHost(value: unknown) {
   }
 }
 
+// Provider label derived from the affiliate URL actually served, so the
+// label can never contradict the link. Category-aware, matching the
+// final-validation rules (flight -> travelpayouts, hotel -> stay22,
+// tour/attraction -> klook): a label can only move toward the partner
+// the validator expects for that category, never away from it.
+// Returns null when the host does not identify a known partner for this
+// category — the caller then keeps the resolver's label.
+// (KF-1 #3, Bangkok 2026-11-23: a genuine Travelpayouts deep link
+// arrived labeled "roamly_internal" because the label comes from the
+// link builder's disclosure gate while the URL comes from the market's
+// verified-partner result; validation checks the label alone.)
+export function affiliateProviderForUrl(url: string, category: unknown): string | null {
+  const host = bookingHost(url);
+  if (!host) return null;
+  const kind = cleanStringValue(category).toLowerCase();
+  if (kind === "flight" && isTrustedTravelpayoutsDeepLink(url)) return "travelpayouts";
+  if (kind === "hotel" && isTravelerSafeStay22Url(url)) return "stay22";
+  if ((kind === "tour" || kind === "attraction") && host.endsWith("klook.com")) return "klook";
+  return null;
+}
+
 function isActivityBookingCategory(category: unknown) {
   const value = cleanStringValue(category).toLowerCase();
   return value === "activity" || value === "attraction" || value === "ticket" || value === "tour";
@@ -1544,8 +1565,18 @@ export function enrichItineraryBookingSuggestions(
         : staleExactKlookActivity
           ? safeBookingHref(normalSearchUrlForSuggestion(suggestion, payload)) || ""
           : originalNormalSearchUrl || link.href || "";
+      // KF-1 #3 (Bangkok, 2026-11-23): the label must describe the URL the
+      // customer actually gets. The URL and the label come from two
+      // different branches — the market's verified-partner affiliate URL
+      // vs the link builder's disclosure gate (ROAMLY_TRAVELPAYOUTS_MARKER)
+      // — so a genuine Travelpayouts deep link can arrive labeled
+      // "roamly_internal", which final validation rejects on the label
+      // alone. Derive the provider from the final URL's host when it
+      // identifies a known partner for this category; otherwise keep the
+      // resolver's label. This labels truthfully; it does not touch,
+      // weaken, or bypass validation.
       const affiliateProvider = hasAffiliateUrl
-        ? link.affiliate_provider
+        ? affiliateProviderForUrl(affiliateUrl, linkCategory) ?? link.affiliate_provider
         : "roamly_internal";
       const reconciliation = reconcileAffiliateAction({
         category: linkCategory,

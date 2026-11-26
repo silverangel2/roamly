@@ -91,6 +91,25 @@ function sessionSet(key: string, value: string) {
   }
 }
 
+// Bug 8: the hide flag used to live in sessionStorage (one tab only),
+// so the card reappeared in every new tab. It lives in localStorage
+// now, like the language preference. The impression dedupe above
+// deliberately stays on sessionStorage (once per session, by design).
+function localGet(key: string) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function localSet(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* private mode — dismissal just becomes per-render */
+  }
+}
+
 function sendHouseAdImpression(creativeId: string) {
   const payload = JSON.stringify({
     creativeId,
@@ -233,7 +252,7 @@ export function HouseAdSlot({
   /* Session dismissal state, reduced-motion preference, and test-only
    * timing overrides — all read once after mount. */
   useEffect(() => {
-    if (sessionGet(HIDE_KEY + place)) setDismissed(true);
+    if (localGet(HIDE_KEY + place)) setDismissed(true);
     setFx({ ...DEFAULT_FX, ...fxTimingOverride() });
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     setReducedMotion(media.matches);
@@ -331,7 +350,7 @@ export function HouseAdSlot({
   if (dismissed || !candidates.length) return null;
 
   const dismiss = () => {
-    sessionSet(HIDE_KEY + place, "1");
+    localSet(HIDE_KEY + place, "1");
     setDismissed(true);
   };
 
